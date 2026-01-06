@@ -110,13 +110,10 @@ export default function NoteEditor({ note }) {
 
   if (!note) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50">
+      <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
         <div className="text-center">
-          <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Clock className="w-8 h-8 text-slate-400" />
-          </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-1">No note selected</h3>
-          <p className="text-slate-500">Select a note from the sidebar to start editing</p>
+          <p className="text-sm text-neutral-400">No note selected</p>
+          <p className="text-xs text-neutral-300 mt-1">Select a note from the sidebar to start editing</p>
         </div>
       </div>
     );
@@ -124,47 +121,33 @@ export default function NoteEditor({ note }) {
 
   return (
     <div className="flex-1 flex flex-col bg-white">
-      {/* Status Bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 text-sm text-slate-500">
-        <div className="flex items-center gap-2">
-          <span>{note.name}</span>
-        </div>
+      {/* Minimal status bar */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100">
+        <span className="text-sm text-neutral-400">{note.name}</span>
         <div className="flex items-center gap-4">
           <button
             onClick={handleExportDocx}
             disabled={isExportingDocx || isExportingPdf}
-            className="flex items-center gap-1.5 px-3 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors disabled:opacity-50"
+            className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
           >
-            <Download className="w-4 h-4" />
-            <span>{isExportingDocx ? 'Exporting...' : 'DOCX'}</span>
+            {isExportingDocx ? 'Exporting...' : 'DOCX'}
           </button>
           <button
             onClick={handleExportPdf}
             disabled={isExportingDocx || isExportingPdf}
-            className="flex items-center gap-1.5 px-3 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors disabled:opacity-50"
+            className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
           >
-            <FileText className="w-4 h-4" />
-            <span>{isExportingPdf ? 'Exporting...' : 'PDF'}</span>
+            {isExportingPdf ? 'Exporting...' : 'PDF'}
           </button>
-          <div className="flex items-center gap-2">
-            {isSaving ? (
-              <>
-                <CloudOff className="w-4 h-4 animate-pulse" />
-                <span>Saving...</span>
-              </>
-            ) : lastSaved ? (
-              <>
-                <Cloud className="w-4 h-4 text-green-500" />
-                <span>Saved {formatLastSaved()}</span>
-              </>
-            ) : null}
-          </div>
+          <span className="text-xs text-neutral-300">
+            {isSaving ? 'Saving...' : lastSaved ? `Saved ${formatLastSaved()}` : ''}
+          </span>
         </div>
       </div>
 
       {/* Editor */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto p-8">
+        <div className="max-w-3xl mx-auto px-10 py-10">
           <BlockNoteEditor ref={editorRef} content={content} onChange={handleChange} />
         </div>
       </div>

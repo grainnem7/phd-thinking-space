@@ -5,7 +5,9 @@ import Layout from '../components/layout/Layout';
 import Header from '../components/layout/Header';
 import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
-import { Menu, Search, BookOpen } from 'lucide-react';
+import WidgetDashboard from '../components/dashboard/Dashboard';
+import ReadingList from '../components/reading/ReadingList';
+import { Menu, Search } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
@@ -43,6 +45,15 @@ export default function Dashboard() {
   const handleSelect = useCallback((item) => {
     if (!item) {
       setSelectedItem(null);
+      return;
+    }
+
+    // Handle special navigation items (reading-list, etc.)
+    if (item.type === 'reading-list') {
+      setSelectedItem(item);
+      if (isMobile) {
+        toggle();
+      }
       return;
     }
 
@@ -107,32 +118,21 @@ export default function Dashboard() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex-1 flex items-center justify-center bg-slate-50">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
+        <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
+          <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
         </div>
       );
     }
 
     if (!selectedItem) {
-      return (
-        <div className="flex-1 flex items-center justify-center bg-slate-50">
-          <div className="text-center max-w-md">
-            <div className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <BookOpen className="w-10 h-10 text-blue-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              Welcome to PhD Thinking Space
-            </h2>
-            <p className="text-slate-600 mb-6">
-              Your personal knowledge management tool for organizing research, notes, and tasks.
-            </p>
-            <div className="text-sm text-slate-500 space-y-1">
-              <p><kbd className="px-2 py-1 bg-slate-200 rounded text-xs">Ctrl+K</kbd> to search</p>
-              <p><kbd className="px-2 py-1 bg-slate-200 rounded text-xs">Ctrl+B</kbd> to toggle sidebar</p>
-            </div>
-          </div>
-        </div>
-      );
+      // Get all notes for the recent notes widget
+      const allNotes = sections.filter(s => s.type === 'note' || (!s.type && !sections.some(child => child.parentId === s.id)));
+      return <WidgetDashboard notes={allNotes} sections={sections} />;
+    }
+
+    // Reading List special view
+    if (selectedItem.type === 'reading-list') {
+      return <ReadingList />;
     }
 
     if (selectedItem.type === 'board') {
@@ -149,20 +149,20 @@ export default function Dashboard() {
 
     // Folder - show children
     return (
-      <div className="flex-1 p-6 bg-slate-50">
-        <h2 className="text-xl font-semibold text-slate-900 mb-4">{selectedItem.name}</h2>
+      <div className="flex-1 p-10 bg-[#fafafa]">
+        <h2 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight mb-6">{selectedItem.name}</h2>
         {children.length === 0 ? (
-          <p className="text-slate-500">This folder is empty. Add notes or boards from the sidebar.</p>
+          <p className="text-sm text-neutral-400">This folder is empty. Add notes or boards from the sidebar.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {children.map((child) => (
               <button
                 key={child.id}
                 onClick={() => handleSelect(child)}
-                className="p-4 bg-white rounded-xl border border-slate-200 text-left hover:border-blue-500 hover:shadow-md transition-all"
+                className="p-4 bg-white border border-neutral-200 rounded-xl text-left hover:border-neutral-300 transition-colors"
               >
-                <h3 className="font-medium text-slate-900">{child.name}</h3>
-                <p className="text-sm text-slate-500 mt-1 capitalize">{child.type}</p>
+                <p className="text-base text-neutral-900">{child.name}</p>
+                <p className="text-xs text-neutral-400 mt-1 capitalize">{child.type}</p>
               </button>
             ))}
           </div>

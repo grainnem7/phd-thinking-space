@@ -36,9 +36,9 @@ export default function Column({
     .sort((a, b) => a.order - b.order);
 
   return (
-    <div className="flex-shrink-0 w-72 flex flex-col bg-slate-100 rounded-xl">
+    <div className="flex-shrink-0 w-72 flex flex-col bg-white border border-neutral-200 rounded-xl">
       {/* Column Header */}
-      <div className="flex items-center justify-between p-3">
+      <div className="flex items-center justify-between p-4 border-b border-neutral-100">
         {isRenaming ? (
           <input
             type="text"
@@ -53,12 +53,12 @@ export default function Column({
               }
             }}
             autoFocus
-            className="flex-1 px-2 py-1 text-sm font-semibold bg-white border border-blue-500 rounded outline-none"
+            className="flex-1 px-2 py-1 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
           />
         ) : (
-          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+          <h3 className="text-xs text-neutral-400 uppercase tracking-widest font-medium flex items-center gap-2">
             {column.name}
-            <span className="text-xs font-normal text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded-full">
+            <span className="text-xs text-neutral-300">
               {columnTasks.length}
             </span>
           </h3>
@@ -67,18 +67,18 @@ export default function Column({
         <Dropdown
           align="right"
           trigger={
-            <button className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition-colors">
-              <MoreHorizontal className="w-4 h-4" />
+            <button className="text-neutral-300 hover:text-neutral-500 transition-colors">
+              <MoreHorizontal size={15} />
             </button>
           }
         >
           {({ close }) => (
             <>
               <DropdownItem onClick={() => { setIsRenaming(true); close(); }}>
-                <Pencil className="w-4 h-4" /> Rename
+                <Pencil size={14} /> Rename
               </DropdownItem>
               <DropdownItem danger onClick={() => { onDeleteColumn(column.id); close(); }}>
-                <Trash2 className="w-4 h-4" /> Delete
+                <Trash2 size={14} /> Delete
               </DropdownItem>
             </>
           )}
@@ -88,8 +88,8 @@ export default function Column({
       {/* Tasks */}
       <div
         ref={setNodeRef}
-        className={`flex-1 p-2 space-y-2 overflow-y-auto min-h-[200px] transition-colors ${
-          isOver ? 'bg-blue-50' : ''
+        className={`flex-1 p-3 space-y-2 overflow-y-auto min-h-[200px] transition-colors ${
+          isOver ? 'bg-neutral-50' : ''
         }`}
       >
         <SortableContext
@@ -110,9 +110,9 @@ export default function Column({
       {/* Add Task Button */}
       <button
         onClick={() => onAddTask(column.id)}
-        className="flex items-center gap-2 m-2 p-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+        className="flex items-center gap-2 m-3 mt-0 p-2 text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
       >
-        <Plus className="w-4 h-4" />
+        <Plus size={15} />
         Add task
       </button>
     </div>

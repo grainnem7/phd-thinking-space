@@ -69,13 +69,10 @@ export default function KanbanBoard({ board }) {
 
   if (!board) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-50">
+      <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
         <div className="text-center">
-          <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Layout className="w-8 h-8 text-slate-400" />
-          </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-1">No board selected</h3>
-          <p className="text-slate-500">Select a board from the sidebar to view tasks</p>
+          <p className="text-sm text-neutral-400">No board selected</p>
+          <p className="text-xs text-neutral-300 mt-1">Select a board from the sidebar to view tasks</p>
         </div>
       </div>
     );
@@ -189,10 +186,10 @@ export default function KanbanBoard({ board }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50">
+    <div className="flex-1 flex flex-col bg-[#fafafa]">
       {/* Board Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-        <h2 className="text-lg font-semibold text-slate-900">{board.name}</h2>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-white">
+        <h2 className="font-serif text-xl font-medium text-neutral-900 tracking-tight">{board.name}</h2>
       </div>
 
       {/* Columns */}
@@ -222,39 +219,35 @@ export default function KanbanBoard({ board }) {
 
             {/* Add Column */}
             {showAddColumn ? (
-              <div className="flex-shrink-0 w-72 bg-slate-100 rounded-xl p-3">
+              <div className="flex-shrink-0 w-72 bg-white border border-neutral-200 rounded-xl p-3">
                 <input
                   type="text"
                   value={newColumnName}
                   onChange={(e) => setNewColumnName(e.target.value)}
                   placeholder="Column name..."
                   autoFocus
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddColumn();
                     if (e.key === 'Escape') setShowAddColumn(false);
                   }}
                 />
                 <div className="flex gap-2 mt-2">
-                  <Button size="sm" onClick={handleAddColumn}>
-                    Add Column
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowAddColumn(false)}
-                  >
+                  <button onClick={handleAddColumn} className="flex-1 py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors">
+                    Add
+                  </button>
+                  <button onClick={() => setShowAddColumn(false)} className="flex-1 py-2 text-sm text-neutral-400 hover:text-neutral-600 transition-colors">
                     Cancel
-                  </Button>
+                  </button>
                 </div>
               </div>
             ) : (
               <button
                 onClick={() => setShowAddColumn(true)}
-                className="flex-shrink-0 w-72 h-12 flex items-center justify-center gap-2 text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                className="flex-shrink-0 w-72 h-12 flex items-center justify-center gap-2 text-neutral-400 hover:text-neutral-600 border border-dashed border-neutral-200 hover:border-neutral-300 rounded-xl transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                Add Column
+                <Plus size={15} />
+                Add column
               </button>
             )}
           </div>

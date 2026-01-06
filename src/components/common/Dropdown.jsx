@@ -45,7 +45,7 @@ export default function Dropdown({
       {triggerWithHandler}
       {isOpen && (
         <div
-          className={`absolute z-50 mt-1 min-w-[180px] bg-white rounded-lg shadow-lg border border-slate-200 py-1 ${alignClasses[align]}`}
+          className={`absolute z-50 mt-1 min-w-[160px] bg-white border border-neutral-200 rounded-xl py-2 ${alignClasses[align]}`}
         >
           {typeof children === 'function'
             ? children({ close: () => setIsOpen(false) })
@@ -61,10 +61,10 @@ export function DropdownItem({ onClick, children, danger = false }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
+      className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${
         danger
-          ? 'text-red-600 hover:bg-red-50'
-          : 'text-slate-700 hover:bg-slate-100'
+          ? 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'
+          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
       }`}
     >
       {children}

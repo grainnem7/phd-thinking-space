@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { BookOpen, Mail, Lock, User, Chrome } from 'lucide-react';
+import { Mail, Lock, User, Chrome } from 'lucide-react';
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -48,21 +48,18 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-lg p-8">
+    <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="bg-white border border-neutral-200 rounded-xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-xl mb-4">
-              <BookOpen className="w-8 h-8 text-blue-600" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">PhD Thinking Space</h1>
-            <p className="text-slate-600 mt-2">
+            <h1 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight">PhD Space</h1>
+            <p className="text-sm text-neutral-400 mt-1">
               {isSignUp ? 'Create your account' : 'Welcome back'}
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="mb-4 p-3 border border-neutral-200 rounded-lg text-sm text-neutral-600">
               {error}
             </div>
           )}
@@ -70,64 +67,58 @@ export default function Login() {
           <button
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-neutral-200 rounded-lg text-sm text-neutral-600 hover:text-neutral-900 hover:border-neutral-300 transition-colors disabled:opacity-50"
           >
-            <Chrome className="w-5 h-5" />
+            <Chrome size={16} />
             Continue with Google
           </button>
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
+              <div className="w-full border-t border-neutral-100" />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-slate-500">or</span>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2 bg-white text-neutral-300">or</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Display Name
-                </label>
+                <label className="block text-xs text-neutral-400 mb-1.5">Display Name</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Your name"
                     required={isSignUp}
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Email
-              </label>
+              <label className="block text-xs text-neutral-400 mb-1.5">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Password
-              </label>
+              <label className="block text-xs text-neutral-400 mb-1.5">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
                 <input
                   type="password"
                   value={password}
@@ -135,7 +126,7 @@ export default function Login() {
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
                 />
               </div>
             </div>
@@ -143,20 +134,20 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 px-4 bg-neutral-900 text-white text-sm rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
             >
               {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-600">
+          <p className="mt-6 text-center text-xs text-neutral-400">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError('');
               }}
-              className="text-blue-600 font-medium hover:underline"
+              className="text-neutral-600 hover:text-neutral-900 transition-colors"
             >
               {isSignUp ? 'Sign in' : 'Sign up'}
             </button>

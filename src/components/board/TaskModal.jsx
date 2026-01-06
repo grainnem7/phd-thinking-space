@@ -72,9 +72,7 @@ export default function TaskModal({ isOpen, onClose, task, onSave, columnId }) {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Title *
-          </label>
+          <label className="block text-xs text-neutral-400 mb-1.5">Title *</label>
           <input
             type="text"
             value={formData.title}
@@ -82,32 +80,28 @@ export default function TaskModal({ isOpen, onClose, task, onSave, columnId }) {
             placeholder="Task title"
             required
             autoFocus
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Description
-          </label>
+          <label className="block text-xs text-neutral-400 mb-1.5">Description</label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             placeholder="Add a description..."
             rows={3}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+            className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300 resize-none"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Priority
-            </label>
+            <label className="block text-xs text-neutral-400 mb-1.5">Priority</label>
             <select
               value={formData.priority}
               onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -116,35 +110,31 @@ export default function TaskModal({ isOpen, onClose, task, onSave, columnId }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Due Date
-            </label>
+            <label className="block text-xs text-neutral-400 mb-1.5">Due Date</label>
             <input
               type="date"
               value={formData.dueDate}
               onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Tags
-          </label>
+          <label className="block text-xs text-neutral-400 mb-1.5">Tags</label>
           <div className="flex gap-2 mb-2 flex-wrap">
             {formData.tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded-full"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 text-neutral-600 text-xs rounded"
               >
                 {tag}
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="p-0.5 hover:bg-blue-200 rounded-full"
+                  className="text-neutral-400 hover:text-neutral-600 transition-colors"
                 >
-                  <X className="w-3 h-3" />
+                  <X size={12} />
                 </button>
               </span>
             ))}
@@ -155,7 +145,7 @@ export default function TaskModal({ isOpen, onClose, task, onSave, columnId }) {
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="Add a tag..."
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="flex-1 px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -163,19 +153,19 @@ export default function TaskModal({ isOpen, onClose, task, onSave, columnId }) {
                 }
               }}
             />
-            <Button type="button" variant="secondary" onClick={addTag}>
+            <button type="button" onClick={addTag} className="px-3 py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors">
               Add
-            </Button>
+            </button>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
-          <Button type="button" variant="secondary" onClick={onClose}>
+        <div className="flex justify-end gap-4 pt-4 border-t border-neutral-100">
+          <button type="button" onClick={onClose} className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors">
             Cancel
-          </Button>
-          <Button type="submit">
-            {task ? 'Save Changes' : 'Create Task'}
-          </Button>
+          </button>
+          <button type="submit" className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors">
+            {task ? 'Save' : 'Create'}
+          </button>
         </div>
       </form>
     </Modal>

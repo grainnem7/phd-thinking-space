@@ -1,34 +1,33 @@
 import { Menu, ChevronRight } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
-import Button from '../common/Button';
 
 export default function Header({ breadcrumbs = [], actions }) {
   const { toggle, isMobile } = useSidebar();
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 border-b border-slate-200 bg-white">
+    <header className="h-12 flex items-center justify-between px-6 border-b border-neutral-100 bg-white">
       <div className="flex items-center gap-3">
         {isMobile && (
-          <Button variant="ghost" size="icon" onClick={toggle}>
-            <Menu className="w-5 h-5" />
-          </Button>
+          <button onClick={toggle} className="text-neutral-400 hover:text-neutral-600 transition-colors">
+            <Menu size={18} />
+          </button>
         )}
 
         <nav className="flex items-center text-sm">
           {breadcrumbs.map((crumb, index) => (
             <span key={index} className="flex items-center">
               {index > 0 && (
-                <ChevronRight className="w-4 h-4 mx-1 text-slate-400" />
+                <ChevronRight size={14} className="mx-1.5 text-neutral-300" />
               )}
               {crumb.onClick ? (
                 <button
                   onClick={crumb.onClick}
-                  className="text-slate-600 hover:text-slate-900 transition-colors"
+                  className="text-neutral-400 hover:text-neutral-600 transition-colors"
                 >
                   {crumb.label}
                 </button>
               ) : (
-                <span className="text-slate-900 font-medium">{crumb.label}</span>
+                <span className="text-neutral-900">{crumb.label}</span>
               )}
             </span>
           ))}

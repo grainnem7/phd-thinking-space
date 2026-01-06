@@ -37,6 +37,9 @@ import {
   Compass,
   Kanban,
   X,
+  Search,
+  BookMarked,
+  Home,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -114,39 +117,40 @@ function TreeItem({
     <SortableItem item={item}>
       <div>
         <div
-          className={`group flex items-center gap-1 px-2 py-1.5 mx-2 rounded-lg cursor-pointer transition-colors ${
+          className={`group flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
             isSelected
-              ? 'bg-blue-100 text-blue-700'
-              : 'text-slate-700 hover:bg-slate-100'
+              ? 'bg-neutral-100 text-neutral-900 font-medium'
+              : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
           }`}
-          style={{ paddingLeft: `${level * 12 + 8}px` }}
+          style={{ paddingLeft: `${level * 16 + 16}px` }}
           onClick={() => onSelect(item)}
         >
-          {hasChildren || item.type === 'folder' ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleExpanded(item.id);
-              }}
-              className="p-0.5 hover:bg-slate-200 rounded transition-colors"
-            >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-slate-500" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-slate-500" />
-              )}
-            </button>
-          ) : (
-            <span className="w-5" />
-          )}
-          <Icon className="w-4 h-4 flex-shrink-0" />
-          <span className="flex-1 text-sm truncate">{item.name}</span>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {hasChildren || item.type === 'folder' ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpanded(item.id);
+                }}
+                className="p-0.5 hover:bg-neutral-200 rounded transition-colors"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                )}
+              </button>
+            ) : (
+              <span className="w-4" />
+            )}
+            <span className="text-sm truncate">{item.name}</span>
+          </div>
           <Dropdown
             align="right"
             trigger={
               <button
                 onClick={(e) => e.stopPropagation()}
-                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-slate-200 rounded transition-all text-slate-500 hover:text-slate-700"
+                className="p-1 opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 transition-opacity"
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
@@ -162,7 +166,7 @@ function TreeItem({
                     <DropdownItem onClick={() => { onContextMenu('add-folder', item); close(); }}>
                       <FolderPlus className="w-4 h-4" /> Add Subfolder
                     </DropdownItem>
-                    <div className="border-t border-slate-200 my-1" />
+                    <div className="border-t border-neutral-100 my-1" />
                   </>
                 )}
                 <DropdownItem onClick={() => { onContextMenu('rename', item); close(); }}>
@@ -338,48 +342,79 @@ export default function Sidebar({ selectedId, onSelect }) {
   };
 
   const sidebarClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ${
+    ? `fixed inset-y-0 left-0 z-50 w-60 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`
-    : `w-72 bg-white border-r border-slate-200 flex-shrink-0 ${isOpen ? '' : 'hidden'}`;
+    : `w-60 bg-white border-r border-neutral-200 flex-shrink-0 ${isOpen ? '' : 'hidden'}`;
 
   return (
     <>
       {isMobile && isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-black/20 z-40"
           onClick={close}
         />
       )}
 
       <aside className={sidebarClasses}>
         <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-blue-600" />
+          {/* Logo - serif typography, no icon badge */}
+          <div className="p-6 border-b border-neutral-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="font-serif text-xl font-medium text-neutral-900 tracking-tight">PhD Space</h1>
+                <p className="text-sm text-neutral-400 mt-0.5">Research Workspace</p>
               </div>
-              <span className="font-semibold text-slate-900">PhD Space</span>
+              {isMobile && (
+                <button onClick={close} className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
-            {isMobile && (
-              <button onClick={close} className="p-1 hover:bg-slate-100 rounded-lg">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            )}
           </div>
 
-          {/* Search */}
-          <div className="p-3">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search..."
-            />
+          {/* Search - minimal styling */}
+          <div className="p-4">
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 transition-colors placeholder:text-neutral-300"
+              />
+            </div>
+          </div>
+
+          {/* Quick Navigation */}
+          <div className="px-3 pb-3 border-b border-neutral-100 mb-3">
+            <button
+              onClick={() => onSelect(null)}
+              className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                selectedId === null && selectedId !== 'reading-list'
+                  ? 'bg-neutral-100 text-neutral-900 font-medium'
+                  : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+              }`}
+            >
+              <Home className="w-4 h-4" />
+              <span className="text-sm">Dashboard</span>
+            </button>
+            <button
+              onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
+              className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                selectedId === 'reading-list'
+                  ? 'bg-neutral-100 text-neutral-900 font-medium'
+                  : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+              }`}
+            >
+              <BookMarked className="w-4 h-4" />
+              <span className="text-sm">Reading List</span>
+            </button>
           </div>
 
           {/* Navigation Tree */}
-          <div className="flex-1 overflow-y-auto py-2">
+          <nav className="flex-1 overflow-y-auto px-3">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -404,63 +439,17 @@ export default function Sidebar({ selectedId, onSelect }) {
                 ))}
               </SortableContext>
             </DndContext>
-          </div>
+          </nav>
 
-          {/* Add Buttons */}
-          <div className="p-3 border-t border-slate-200 space-y-1">
+          {/* Add section - simple text button */}
+          <div className="p-4 border-t border-neutral-100">
             <button
               onClick={() => handleAddSection('folder')}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="w-full text-left text-sm text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
             >
-              <FolderPlus className="w-4 h-4" />
-              Add Section
+              <Plus size={15} />
+              Add section
             </button>
-            <button
-              onClick={() => handleAddSection('note')}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              Add Note
-            </button>
-            <button
-              onClick={() => handleAddSection('board')}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <Layout className="w-4 h-4" />
-              Add Board
-            </button>
-          </div>
-
-          {/* User Profile */}
-          <div className="p-3 border-t border-slate-200">
-            <div className="flex items-center gap-3">
-              {user?.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt={user.displayName}
-                  className="w-8 h-8 rounded-full"
-                />
-              ) : (
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-blue-600">
-                    {user?.displayName?.[0] || 'U'}
-                  </span>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">
-                  {user?.displayName || 'User'}
-                </p>
-                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         </div>
       </aside>

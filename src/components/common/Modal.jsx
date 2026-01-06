@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export default function Modal({
   isOpen,
@@ -40,7 +40,7 @@ export default function Modal({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/20"
       onClick={(e) => {
         if (e.target === overlayRef.current) {
           onClose();
@@ -48,16 +48,16 @@ export default function Modal({
       }}
     >
       <div
-        className={`w-full ${sizes[size]} bg-white rounded-xl shadow-xl`}
+        className={`w-full ${sizes[size]} bg-white border border-neutral-200 rounded-xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+          <h2 className="text-xs text-neutral-400 uppercase tracking-widest font-medium">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            className="text-neutral-300 hover:text-neutral-500 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <Plus size={15} className="rotate-45" />
           </button>
         </div>
         <div className="p-6">
