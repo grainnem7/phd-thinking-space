@@ -6,7 +6,7 @@ import Header from '../components/layout/Header';
 import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
-import ReadingList from '../components/reading/ReadingList';
+import ReadingList from '../components/reading-list/ReadingList';
 import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';

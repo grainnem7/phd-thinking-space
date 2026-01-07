@@ -41,10 +41,12 @@ import {
   BookMarked,
   Home,
   RotateCcw,
+  Monitor,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFirestore } from '../../hooks/useFirestore';
+import { useEink } from '../../contexts/EinkContext';
 import SearchInput from '../common/SearchInput';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
@@ -212,6 +214,7 @@ export default function Sidebar({ selectedId, onSelect }) {
   const { isOpen, isCollapsed, close, isMobile, isTablet, effectiveWidth, isResizing, startResizing, toggleCollapsed, expand } = useSidebar();
   const { user, logout } = useAuth();
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
+  const { einkMode, toggleEinkMode } = useEink();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -450,7 +453,7 @@ export default function Sidebar({ selectedId, onSelect }) {
           </div>
 
           {/* Navigation Tree - collapsed shows icons only */}
-          <nav className={`flex-1 overflow-y-auto ${isCollapsed && !isMobile ? 'px-2' : 'px-3'}`}>
+          <nav className={`flex-1 min-h-0 overflow-y-auto ${isCollapsed && !isMobile ? 'px-2' : 'px-3'}`}>
             {isCollapsed && !isMobile ? (
               // Collapsed view - show icons only
               <div className="space-y-1">
@@ -503,7 +506,7 @@ export default function Sidebar({ selectedId, onSelect }) {
           </nav>
 
           {/* Add section - simple text button */}
-          <div className={`border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+          <div className={`flex-shrink-0 border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
             <button
               onClick={() => handleAddSection('folder')}
               className={`w-full text-neutral-400 hover:text-neutral-600 transition-colors flex items-center ${
@@ -517,7 +520,25 @@ export default function Sidebar({ selectedId, onSelect }) {
           </div>
 
           {/* User & Logout */}
-          <div className={`border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-2'}`}>
+          <div className={`flex-shrink-0 border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-2'}`}>
+            {/* E-ink mode toggle */}
+            <button
+              onClick={toggleEinkMode}
+              className={`w-full text-neutral-400 hover:text-neutral-600 transition-colors flex items-center ${
+                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'justify-between text-left text-sm'
+              }`}
+              title={isCollapsed && !isMobile ? (einkMode ? 'E-reader mode: On' : 'E-reader mode: Off') : undefined}
+            >
+              <div className="flex items-center gap-2">
+                <Monitor size={16} className={einkMode ? 'text-neutral-900' : ''} />
+                {(!isCollapsed || isMobile) && <span>E-reader mode</span>}
+              </div>
+              {(!isCollapsed || isMobile) && (
+                <span className={`text-xs ${einkMode ? 'text-neutral-900 font-medium' : 'text-neutral-400'}`}>
+                  {einkMode ? 'On' : 'Off'}
+                </span>
+              )}
+            </button>
             {(!isCollapsed || isMobile) && (
               <button
                 onClick={() => setModalState({ type: 'reset' })}

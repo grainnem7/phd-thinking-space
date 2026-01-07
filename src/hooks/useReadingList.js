@@ -15,10 +15,17 @@ import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { useAuth } from './useAuth';
 
+// Default tabs for new papers
+const defaultTabs = [
+  { id: 'notes', name: 'Notes' },
+  { id: 'quotes', name: 'Quotes' },
+  { id: 'questions', name: 'Questions' },
+];
+
 export function useReadingList() {
   const { user } = useAuth();
   const [papers, setPapers] = useState([]);
-  const [tags, setTags] = useState([]);
+  const [collections, setCollections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Subscribe to papers
@@ -46,38 +53,52 @@ export function useReadingList() {
     return () => unsubscribe();
   }, [user]);
 
-  // Subscribe to tags
+  // Subscribe to collections
   useEffect(() => {
     if (!user) return;
 
-    const tagsRef = collection(db, 'users', user.uid, 'paperTags');
-    const q = query(tagsRef, orderBy('name', 'asc'));
+    const collectionsRef = collection(db, 'users', user.uid, 'paperCollections');
+    const q = query(collectionsRef, orderBy('name', 'asc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const tagsList = snapshot.docs.map((doc) => ({
+      const collectionsList = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      setTags(tagsList);
+      setCollections(collectionsList);
     }, (error) => {
-      console.error('Error subscribing to tags:', error);
+      console.error('Error subscribing to collections:', error);
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  // Add paper
+  // Add paper with new data model
   const addPaper = useCallback(async (paperData) => {
     if (!user) return null;
 
     try {
       const papersRef = collection(db, 'users', user.uid, 'papers');
       const docRef = await addDoc(papersRef, {
-        ...paperData,
+        title: paperData.title || 'Untitled',
+        authors: paperData.authors || '',
+        year: paperData.year || null,
+        url: paperData.url || '',
+        doi: paperData.doi || '',
+        // Citation metadata fields
+        journal: paperData.journal || '',
+        publisher: paperData.publisher || '',
+        volume: paperData.volume || '',
+        issue: paperData.issue || '',
+        pages: paperData.pages || '',
+        // Status and organization
         status: paperData.status || 'to-read',
         priority: paperData.priority || null,
-        tags: paperData.tags || [],
-        notes: paperData.notes || '',
+        starred: paperData.starred || false,
+        collections: paperData.collections || [],
+        summary: paperData.summary || '',
+        tabs: defaultTabs,
+        tabContent: { notes: '', quotes: '', questions: '' },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -135,38 +156,121 @@ export function useReadingList() {
     }
   }, [user]);
 
-  // Add tag
-  const addTag = useCallback(async (tagName) => {
+  // Add collection
+  const addCollection = useCallback(async (name) => {
     if (!user) return null;
 
-    // Check if tag already exists
-    const existingTag = tags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
-    if (existingTag) return existingTag.id;
+    // Check if collection already exists
+    const existingCollection = collections.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (existingCollection) return existingCollection.id;
 
     try {
-      const tagsRef = collection(db, 'users', user.uid, 'paperTags');
-      const docRef = await addDoc(tagsRef, {
-        name: tagName,
+      const collectionsRef = collection(db, 'users', user.uid, 'paperCollections');
+      const docRef = await addDoc(collectionsRef, {
+        name,
         createdAt: serverTimestamp(),
       });
       return docRef.id;
     } catch (error) {
-      console.error('Error adding tag:', error);
+      console.error('Error adding collection:', error);
       return null;
     }
-  }, [user, tags]);
+  }, [user, collections]);
 
-  // Delete tag
-  const deleteTag = useCallback(async (tagId) => {
+  // Update collection
+  const updateCollection = useCallback(async (collectionId, updates) => {
     if (!user) return;
 
     try {
-      const tagRef = doc(db, 'users', user.uid, 'paperTags', tagId);
-      await deleteDoc(tagRef);
+      const collectionRef = doc(db, 'users', user.uid, 'paperCollections', collectionId);
+      await updateDoc(collectionRef, updates);
     } catch (error) {
-      console.error('Error deleting tag:', error);
+      console.error('Error updating collection:', error);
     }
   }, [user]);
+
+  // Delete collection
+  const deleteCollection = useCallback(async (collectionId) => {
+    if (!user) return;
+
+    try {
+      const collectionRef = doc(db, 'users', user.uid, 'paperCollections', collectionId);
+      await deleteDoc(collectionRef);
+
+      // Remove collection from all papers that have it
+      for (const paper of papers) {
+        if (paper.collections?.includes(collectionId)) {
+          await updatePaper(paper.id, {
+            collections: paper.collections.filter(c => c !== collectionId)
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+    }
+  }, [user, papers, updatePaper]);
+
+  // Tab management
+  const addTab = useCallback(async (paperId, tabName = 'New Tab') => {
+    if (!user) return null;
+
+    const paper = papers.find(p => p.id === paperId);
+    if (!paper) return null;
+
+    const newTabId = `tab-${Date.now()}`;
+    const newTab = { id: newTabId, name: tabName };
+
+    try {
+      await updatePaper(paperId, {
+        tabs: [...(paper.tabs || []), newTab],
+        tabContent: { ...(paper.tabContent || {}), [newTabId]: '' }
+      });
+      return newTabId;
+    } catch (error) {
+      console.error('Error adding tab:', error);
+      return null;
+    }
+  }, [user, papers, updatePaper]);
+
+  const renameTab = useCallback(async (paperId, tabId, newName) => {
+    if (!user) return;
+
+    const paper = papers.find(p => p.id === paperId);
+    if (!paper) return;
+
+    const updatedTabs = (paper.tabs || []).map(tab =>
+      tab.id === tabId ? { ...tab, name: newName } : tab
+    );
+
+    await updatePaper(paperId, { tabs: updatedTabs });
+  }, [user, papers, updatePaper]);
+
+  const deleteTab = useCallback(async (paperId, tabId) => {
+    if (!user) return;
+
+    const paper = papers.find(p => p.id === paperId);
+    if (!paper || (paper.tabs || []).length <= 1) return;
+
+    const updatedTabs = (paper.tabs || []).filter(tab => tab.id !== tabId);
+    const updatedContent = { ...(paper.tabContent || {}) };
+    delete updatedContent[tabId];
+
+    await updatePaper(paperId, {
+      tabs: updatedTabs,
+      tabContent: updatedContent
+    });
+  }, [user, papers, updatePaper]);
+
+  const updateTabContent = useCallback(async (paperId, tabId, content) => {
+    if (!user) return;
+
+    const paper = papers.find(p => p.id === paperId);
+    if (!paper) return;
+
+    await updatePaper(paperId, {
+      tabContent: { ...(paper.tabContent || {}), [tabId]: content }
+    });
+  }, [user, papers, updatePaper]);
 
   // Get papers by status
   const getPapersByStatus = useCallback((status) => {
@@ -174,9 +278,10 @@ export function useReadingList() {
     return papers.filter(p => p.status === status);
   }, [papers]);
 
-  // Get papers by tag
-  const getPapersByTag = useCallback((tagName) => {
-    return papers.filter(p => p.tags?.includes(tagName));
+  // Get papers by collection
+  const getPapersByCollection = useCallback((collectionId) => {
+    if (!collectionId || collectionId === 'all') return papers;
+    return papers.filter(p => p.collections?.includes(collectionId));
   }, [papers]);
 
   // Get counts by status
@@ -185,22 +290,32 @@ export function useReadingList() {
       'to-read': papers.filter(p => p.status === 'to-read').length,
       'reading': papers.filter(p => p.status === 'reading').length,
       'read': papers.filter(p => p.status === 'read').length,
-      'archived': papers.filter(p => p.status === 'archived').length,
       'all': papers.length,
     };
   }, [papers]);
 
+  // Get starred papers
+  const getStarredPapers = useCallback(() => {
+    return papers.filter(p => p.starred);
+  }, [papers]);
+
   return {
     papers,
-    tags,
+    collections,
     isLoading,
     addPaper,
     updatePaper,
     deletePaper,
-    addTag,
-    deleteTag,
+    addCollection,
+    updateCollection,
+    deleteCollection,
+    addTab,
+    renameTab,
+    deleteTab,
+    updateTabContent,
     getPapersByStatus,
-    getPapersByTag,
+    getPapersByCollection,
     getCounts,
+    getStarredPapers,
   };
 }

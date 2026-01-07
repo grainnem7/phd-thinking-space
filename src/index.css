@@ -165,3 +165,351 @@ button, a, input {
     @apply border-border;
   }
 }
+
+/* ========================================
+   E-INK MODE OPTIMIZATIONS
+   ======================================== */
+
+/* Disable all transitions and animations */
+html.eink *,
+html.eink *::before,
+html.eink *::after {
+  transition: none !important;
+  animation: none !important;
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+/* Force high contrast colors */
+html.eink {
+  --eink-black: #000000;
+  --eink-dark: #1a1a1a;
+  --eink-gray: #404040;
+  --eink-light: #e0e0e0;
+  --eink-white: #ffffff;
+}
+
+html.eink body {
+  background-color: var(--eink-white) !important;
+  color: var(--eink-black) !important;
+}
+
+/* Remove all shadows */
+html.eink * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* Remove background gradients and images */
+html.eink *:not(img):not(svg) {
+  background-image: none !important;
+}
+
+/* Increase text contrast - no subtle grays */
+html.eink .text-black\/10,
+html.eink .text-black\/20,
+html.eink .text-black\/30,
+html.eink .text-black\/40,
+html.eink .text-neutral-300,
+html.eink .text-neutral-400 {
+  color: var(--eink-gray) !important;
+}
+
+html.eink .text-black\/50,
+html.eink .text-black\/60,
+html.eink .text-neutral-500,
+html.eink .text-neutral-600 {
+  color: var(--eink-dark) !important;
+}
+
+/* Solid borders instead of faint ones */
+html.eink .border-black\/5,
+html.eink .border-black\/10,
+html.eink .border-neutral-100,
+html.eink .border-neutral-200 {
+  border-color: var(--eink-light) !important;
+}
+
+/* Remove opacity effects */
+html.eink .opacity-40,
+html.eink .opacity-50,
+html.eink .opacity-60 {
+  opacity: 1 !important;
+}
+
+/* Larger touch targets for e-ink (often used with fingers) */
+html.eink button,
+html.eink a,
+html.eink [role="button"],
+html.eink input[type="checkbox"],
+html.eink input[type="radio"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Make clickable areas more obvious */
+html.eink button:not(:disabled),
+html.eink a,
+html.eink [role="button"] {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html.eink button:not(:disabled):hover,
+html.eink a:hover {
+  text-decoration: underline;
+}
+
+/* Remove hover backgrounds (e-ink doesn't show these well) */
+html.eink .hover\:bg-neutral-50:hover,
+html.eink .hover\:bg-neutral-100:hover,
+html.eink .hover\:bg-black\/5:hover,
+html.eink .hover\:opacity-60:hover {
+  background-color: transparent !important;
+  opacity: 1 !important;
+}
+
+/* Visible focus states (important for accessibility) */
+html.eink *:focus {
+  outline: 2px solid var(--eink-black) !important;
+  outline-offset: 2px !important;
+}
+
+/* Ensure focus outlines aren't clipped by overflow containers */
+html.eink .overflow-x-auto,
+html.eink .overflow-auto,
+html.eink .overflow-y-auto {
+  padding-top: 4px !important;
+  margin-top: -4px !important;
+}
+
+/* Increase font weight slightly for better readability */
+html.eink body {
+  font-weight: 450;
+}
+
+html.eink .font-medium {
+  font-weight: 600 !important;
+}
+
+/* Increase line height for readability */
+html.eink p,
+html.eink li,
+html.eink span {
+  line-height: 1.7 !important;
+}
+
+/* Make form inputs more visible */
+html.eink input,
+html.eink textarea,
+html.eink select {
+  border: 2px solid var(--eink-gray) !important;
+  background: var(--eink-white) !important;
+}
+
+html.eink input:focus,
+html.eink textarea:focus,
+html.eink select:focus {
+  border-color: var(--eink-black) !important;
+}
+
+/* Simplify cards */
+html.eink .bg-white,
+html.eink .bg-neutral-50 {
+  background-color: var(--eink-white) !important;
+  border: 1px solid var(--eink-light) !important;
+}
+
+/* Hide decorative elements */
+html.eink .decorative,
+html.eink [aria-hidden="true"]:not(svg) {
+  display: none !important;
+}
+
+/* Ensure icons are visible */
+html.eink svg {
+  stroke-width: 2px !important;
+}
+
+html.eink .text-neutral-300 svg,
+html.eink .text-neutral-400 svg,
+html.eink .text-black\/30 svg,
+html.eink .text-black\/40 svg {
+  color: var(--eink-gray) !important;
+}
+
+/* Progress indicators - use patterns instead of colors */
+html.eink [role="progressbar"] {
+  border: 1px solid var(--eink-black);
+}
+
+/* Simplify the star indicator */
+html.eink .fill-current {
+  fill: var(--eink-black) !important;
+}
+
+/* BlockNote editor adjustments */
+html.eink .bn-container {
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+}
+
+html.eink .bn-editor {
+  background: var(--eink-white) !important;
+}
+
+/* Print-like styling for reading content */
+html.eink article,
+html.eink .prose,
+html.eink .reading-content {
+  max-width: 65ch;
+  font-size: 18px;
+  line-height: 1.8;
+}
+
+/* Page background */
+html.eink .bg-slate-50,
+html.eink .bg-\[\#fafafa\] {
+  background-color: var(--eink-white) !important;
+}
+
+/* Sidebar adjustments */
+html.eink aside {
+  border-right: 2px solid var(--eink-light) !important;
+}
+
+/* Modal backdrop */
+html.eink .bg-black\/20 {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Kanban board columns */
+html.eink .bg-neutral-100 {
+  background-color: var(--eink-white) !important;
+  border: 1px solid var(--eink-light) !important;
+}
+
+/* ========================================
+   READING LIST E-INK OPTIMIZATIONS
+   ======================================== */
+
+/* Reading list container - pure white background */
+html.eink .reading-list-editor {
+  background: var(--eink-white) !important;
+  border: 1px solid var(--eink-light) !important;
+}
+
+/* Paper title serif font - ensure readability */
+html.eink .font-serif {
+  font-weight: 500 !important;
+}
+
+/* Paper list items - visible borders */
+html.eink .reading-list-paper-row {
+  border-bottom: 1px solid var(--eink-light) !important;
+}
+
+/* Section headers uppercase text */
+html.eink .uppercase.tracking-widest {
+  font-weight: 600 !important;
+  letter-spacing: 0.15em !important;
+}
+
+/* Muted sections (completed) should still be readable */
+html.eink .opacity-40 {
+  opacity: 0.7 !important;
+}
+
+/* Tab buttons in paper detail */
+html.eink .reading-list-tabs button {
+  border: 1px solid var(--eink-light) !important;
+  padding: 8px 16px !important;
+}
+
+html.eink .reading-list-tabs button[data-active="true"] {
+  border: 2px solid var(--eink-black) !important;
+  font-weight: 600 !important;
+}
+
+/* Two-column layout on paper detail - add visual separation */
+html.eink .lg\:col-span-4 {
+  border-left: 2px solid var(--eink-light) !important;
+  padding-left: 24px !important;
+}
+
+/* Status/Priority/Collection selectors */
+html.eink .reading-list-sidebar select,
+html.eink .reading-list-sidebar button {
+  border: 2px solid var(--eink-gray) !important;
+  font-weight: 500 !important;
+}
+
+/* Star icon - make it solid and visible */
+html.eink .text-black\/40 svg[fill="currentColor"] {
+  color: var(--eink-black) !important;
+}
+
+/* Search input in reading list */
+html.eink .border-b.border-black\/10 {
+  border-bottom: 2px solid var(--eink-gray) !important;
+}
+
+/* Collection tags/chips */
+html.eink .rounded-full.bg-black\/5 {
+  background: transparent !important;
+  border: 1px solid var(--eink-gray) !important;
+}
+
+/* Remove hover background effects on paper rows */
+html.eink .hover\:bg-black\/\[0\.02\]:hover {
+  background: transparent !important;
+}
+
+/* Priority indicators - use text instead of color */
+html.eink [data-priority="high"]::before {
+  content: "[HIGH] " !important;
+  font-weight: 700 !important;
+}
+
+html.eink [data-priority="medium"]::before {
+  content: "[MED] " !important;
+  font-weight: 600 !important;
+}
+
+/* Modal styling for add paper */
+html.eink .reading-list-modal {
+  border: 2px solid var(--eink-black) !important;
+}
+
+/* Input fields with underline style */
+html.eink input.border-b {
+  border-bottom: 2px solid var(--eink-gray) !important;
+}
+
+html.eink input.border-b:focus {
+  border-bottom: 2px solid var(--eink-black) !important;
+}
+
+/* Summary textarea */
+html.eink textarea.resize-none {
+  border: 2px solid var(--eink-gray) !important;
+}
+
+/* Delete button - make it clearly different */
+html.eink button.text-red-500,
+html.eink button.text-red-600 {
+  color: var(--eink-black) !important;
+  text-decoration: underline !important;
+  text-decoration-style: double !important;
+}
+
+/* External link icon visibility */
+html.eink a[target="_blank"] svg {
+  stroke-width: 2.5px !important;
+}
+
+/* Chevron icons for collapsible sections */
+html.eink .text-black\/30 svg {
+  color: var(--eink-gray) !important;
+  stroke-width: 2.5px !important;
+}
