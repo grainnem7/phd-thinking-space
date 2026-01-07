@@ -11,6 +11,7 @@ export function useDashboard() {
   const [scheduleBlocks, setScheduleBlocks] = useState([]);
   const [scheduleSettings, setScheduleSettings] = useState({ startTime: '07:00', endTime: '22:00' });
   const [quickCaptures, setQuickCaptures] = useState([]);
+  const [todos, setTodos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load dashboard layout
@@ -91,6 +92,26 @@ export function useDashboard() {
     }, (error) => {
       console.error('Error subscribing to quick captures:', error);
       setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Subscribe to dashboard todos
+  useEffect(() => {
+    if (!user) return;
+
+    const todosRef = collection(db, 'users', user.uid, 'dashboardTodos');
+    const q = query(todosRef, orderBy('order', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const todosList = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setTodos(todosList);
+    }, (error) => {
+      console.error('Error subscribing to dashboard todos:', error);
     });
 
     return () => unsubscribe();
@@ -221,6 +242,52 @@ export function useDashboard() {
     }
   }, [user]);
 
+  // Dashboard todo operations
+  const addTodo = useCallback(async (todo) => {
+    if (!user) return;
+
+    try {
+      const todosRef = collection(db, 'users', user.uid, 'dashboardTodos');
+      await addDoc(todosRef, {
+        ...todo,
+        completed: false,
+        order: todos.length,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error adding todo:', error);
+    }
+  }, [user, todos.length]);
+
+  const updateTodo = useCallback(async (id, updates) => {
+    if (!user) return;
+
+    try {
+      const todoRef = doc(db, 'users', user.uid, 'dashboardTodos', id);
+      await updateDoc(todoRef, updates);
+    } catch (error) {
+      console.error('Error updating todo:', error);
+    }
+  }, [user]);
+
+  const deleteTodo = useCallback(async (id) => {
+    if (!user) return;
+
+    try {
+      const todoRef = doc(db, 'users', user.uid, 'dashboardTodos', id);
+      await deleteDoc(todoRef);
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
+  }, [user]);
+
+  const toggleTodo = useCallback(async (id) => {
+    const todo = todos.find(t => t.id === id);
+    if (todo) {
+      await updateTodo(id, { completed: !todo.completed });
+    }
+  }, [todos, updateTodo]);
+
   return {
     // State
     layout,
@@ -229,6 +296,7 @@ export function useDashboard() {
     scheduleBlocks,
     scheduleSettings,
     quickCaptures,
+    todos,
     isLoading,
 
     // Actions
@@ -240,5 +308,9 @@ export function useDashboard() {
     updateScheduleBlock,
     deleteScheduleBlock,
     addQuickCapture,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    toggleTodo,
   };
 }

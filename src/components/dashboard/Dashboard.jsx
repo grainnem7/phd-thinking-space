@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useFirestore } from '../../hooks/useFirestore';
 import { format, formatDistanceToNow, differenceInDays, parseISO } from 'date-fns';
@@ -12,20 +11,23 @@ function getGreeting() {
   return 'Good evening';
 }
 
-export default function Dashboard({ notes = [], sections = [] }) {
-  const navigate = useNavigate();
+export default function Dashboard({ notes = [], sections = [], onSelect }) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const {
     deadlines,
     scheduleBlocks,
     quickCaptures,
+    todos,
     isLoading,
     addDeadline,
     deleteDeadline,
     addScheduleBlock,
     deleteScheduleBlock,
     addQuickCapture,
+    addTodo,
+    toggleTodo,
+    deleteTodo,
   } = useDashboard();
 
   const { sections: allSections } = useFirestore();
@@ -40,11 +42,11 @@ export default function Dashboard({ notes = [], sections = [] }) {
   }, []);
 
   const handleNoteNavigate = (note) => {
-    navigate(`/notes/${note.parentId}?note=${note.id}`);
+    onSelect?.(note);
   };
 
   const handleBoardNavigate = (board) => {
-    navigate(`/board/${board.id}`);
+    onSelect?.(board);
   };
 
   if (isLoading) {
@@ -92,9 +94,15 @@ export default function Dashboard({ notes = [], sections = [] }) {
             />
           </div>
 
-          {/* Tasks */}
+          {/* Todo List */}
           <div className="md:col-span-2 lg:col-span-3 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[280px]">
-            <TasksWidget boards={boards} onNavigate={handleBoardNavigate} />
+            <TodoWidget
+              todos={todos}
+              boards={boards}
+              onAddTodo={addTodo}
+              onToggleTodo={toggleTodo}
+              onDeleteTodo={deleteTodo}
+            />
           </div>
 
           {/* Quick Capture */}
@@ -289,58 +297,163 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onDeleteBlock })
   );
 }
 
-function TasksWidget({ boards = [], onNavigate }) {
-  const counts = boards.reduce((acc, board) => {
-    (board.columns || []).forEach((col) => {
-      const n = col.cards?.length || 0;
-      const name = col.name?.toLowerCase() || '';
-      if (name.includes('done') || name.includes('complete')) acc.done += n;
-      else if (name.includes('progress') || name.includes('doing')) acc.inProgress += n;
-      else acc.todo += n;
-      acc.total += n;
-    });
-    return acc;
-  }, { todo: 0, inProgress: 0, done: 0, total: 0 });
+function TodoWidget({ todos = [], boards = [], onAddTodo, onToggleTodo, onDeleteTodo }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTodo, setNewTodo] = useState('');
+  const [showBoardPicker, setShowBoardPicker] = useState(false);
 
-  const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
+  const handleAdd = () => {
+    if (newTodo.trim()) {
+      onAddTodo?.({ title: newTodo.trim() });
+      setNewTodo('');
+      setIsAdding(false);
+    }
+  };
+
+  const handleImportFromBoard = (task, boardName) => {
+    onAddTodo?.({
+      title: task.title,
+      sourceBoard: boardName,
+      sourceBoardTaskId: task.id,
+    });
+    setShowBoardPicker(false);
+  };
+
+  // Get all incomplete tasks from boards
+  const boardTasks = boards.flatMap(board => {
+    const columns = board.columns || [];
+    const tasks = board.tasks || [];
+    return tasks
+      .filter(task => {
+        const col = columns.find(c => c.id === task.columnId);
+        const colName = col?.name?.toLowerCase() || '';
+        return !colName.includes('done') && !colName.includes('complete');
+      })
+      .map(task => ({ ...task, boardName: board.name, boardId: board.id }));
+  });
+
+  const completedCount = todos.filter(t => t.completed).length;
+  const totalCount = todos.length;
 
   return (
     <>
-      <WidgetHeader title="Tasks" />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {/* Percentage */}
-        <div className="text-center mb-4 sm:mb-6">
-          <span className="font-serif text-5xl sm:text-6xl font-medium text-neutral-900 tabular-nums">{pct}</span>
-          <span className="text-xl sm:text-2xl text-neutral-300">%</span>
-          <p className="text-sm sm:text-base text-neutral-400 mt-2 uppercase tracking-wider">Complete</p>
-        </div>
+      <WidgetHeader title="Todo" onAdd={() => setIsAdding(true)} />
+      <div className="flex-1 overflow-y-auto">
+        {/* Progress bar */}
+        {totalCount > 0 && (
+          <div className="px-4 sm:px-6 py-3 border-b border-neutral-100">
+            <div className="flex items-center justify-between text-sm text-neutral-500 mb-2">
+              <span>{completedCount} of {totalCount} done</span>
+              <span>{totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%</span>
+            </div>
+            <div className="w-full bg-neutral-100 rounded-full h-1.5">
+              <div
+                className="bg-neutral-700 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
 
-        {/* Stats */}
-        <div className="space-y-2 sm:space-y-3">
-          <div className="flex items-center justify-between text-base sm:text-lg">
-            <span className="text-neutral-500">To do</span>
-            <span className="text-neutral-900 font-medium tabular-nums">{counts.todo}</span>
+        {/* Add new todo */}
+        {isAdding && (
+          <div className="p-4 sm:p-6 border-b border-neutral-100 space-y-3">
+            <input
+              type="text"
+              placeholder="What needs to be done?"
+              value={newTodo}
+              onChange={(e) => setNewTodo(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              className="w-full px-3 py-2.5 text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-400"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button onClick={handleAdd} disabled={!newTodo.trim()}
+                className="flex-1 py-2 text-base text-neutral-600 hover:text-neutral-900 transition-colors disabled:text-neutral-300">Add</button>
+              <button onClick={() => { setIsAdding(false); setNewTodo(''); }}
+                className="flex-1 py-2 text-base text-neutral-400 hover:text-neutral-600 transition-colors">Cancel</button>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-base sm:text-lg">
-            <span className="text-neutral-500">In progress</span>
-            <span className="text-neutral-900 font-medium tabular-nums">{counts.inProgress}</span>
-          </div>
-          <div className="flex items-center justify-between text-base sm:text-lg">
-            <span className="text-neutral-500">Done</span>
-            <span className="text-neutral-900 font-medium tabular-nums">{counts.done}</span>
-          </div>
-        </div>
+        )}
 
-        {/* Boards list */}
-        {boards.length > 0 && (
-          <div className="mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-neutral-100 space-y-2">
-            {boards.slice(0, 3).map((board) => (
-              <button key={board.id} onClick={() => onNavigate?.(board)}
-                className="w-full flex items-center justify-between text-base text-neutral-500 hover:text-neutral-900 transition-colors group py-1">
-                <span className="truncate">{board.name}</span>
-                <ChevronRight size={16} className="text-neutral-300 group-hover:text-neutral-500 flex-shrink-0" />
+        {/* Board picker */}
+        {showBoardPicker && (
+          <div className="p-4 sm:p-6 border-b border-neutral-100">
+            <p className="text-sm text-neutral-500 mb-3">Import from boards:</p>
+            {boardTasks.length === 0 ? (
+              <p className="text-sm text-neutral-400">No tasks in your boards</p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {boardTasks.slice(0, 10).map((task) => (
+                  <button
+                    key={`${task.boardId}-${task.id}`}
+                    onClick={() => handleImportFromBoard(task, task.boardName)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 rounded-lg transition-colors"
+                  >
+                    <p className="text-neutral-700 truncate">{task.title}</p>
+                    <p className="text-xs text-neutral-400">{task.boardName}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowBoardPicker(false)}
+              className="mt-3 text-sm text-neutral-400 hover:text-neutral-600 transition-colors">Cancel</button>
+          </div>
+        )}
+
+        {/* Todo list */}
+        {todos.length === 0 && !isAdding && !showBoardPicker ? (
+          <div className="p-4 sm:p-6 space-y-2">
+            <button onClick={() => setIsAdding(true)} className="text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2">
+              <Plus size={16} /> Add a task
+            </button>
+            {boardTasks.length > 0 && (
+              <button onClick={() => setShowBoardPicker(true)} className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors">
+                or import from boards
               </button>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-neutral-100">
+            {todos.map((todo) => (
+              <div key={todo.id} className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 group">
+                <button
+                  onClick={() => onToggleTodo?.(todo.id)}
+                  className={`w-5 h-5 rounded-full border-2 flex-shrink-0 transition-colors ${
+                    todo.completed
+                      ? 'bg-neutral-700 border-neutral-700'
+                      : 'border-neutral-300 hover:border-neutral-400'
+                  }`}
+                >
+                  {todo.completed && (
+                    <svg className="w-full h-full text-white p-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+                <span className={`flex-1 text-base sm:text-lg ${todo.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
+                  {todo.title}
+                </span>
+                <button
+                  onClick={() => onDeleteTodo?.(todo.id)}
+                  className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-red-500 transition-all p-1"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
             ))}
+          </div>
+        )}
+
+        {/* Import from boards button */}
+        {todos.length > 0 && !isAdding && !showBoardPicker && boardTasks.length > 0 && (
+          <div className="px-4 sm:px-6 py-3 border-t border-neutral-100">
+            <button onClick={() => setShowBoardPicker(true)} className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors">
+              + Import from boards
+            </button>
           </div>
         )}
       </div>

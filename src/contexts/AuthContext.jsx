@@ -62,76 +62,38 @@ export function AuthProvider({ children }) {
   const createDefaultSections = async (userId) => {
     const { collection, addDoc } = await import('firebase/firestore');
     const sectionsRef = collection(db, 'users', userId, 'sections');
-    
+
+    // Create minimal, useful defaults
     const defaultSections = [
-      { name: 'App Design & Development', icon: 'code', order: 0, parentId: null, type: 'folder' },
-      { name: 'Writing', icon: 'pen-tool', order: 1, parentId: null, type: 'folder' },
-      { name: 'Task Boards', icon: 'layout', order: 2, parentId: null, type: 'folder' },
-      { name: 'Quick Ideas', icon: 'lightbulb', order: 3, parentId: null, type: 'note', content: '# Quick Ideas\n\nCapture your fleeting thoughts here...' },
-      { name: 'Research Journal', icon: 'book-open', order: 4, parentId: null, type: 'note', content: '# Research Journal\n\n## Weekly Reflections\n\nUse this space for your weekly research reflections...' },
+      {
+        name: 'Notes',
+        icon: 'folder',
+        order: 0,
+        parentId: null,
+        type: 'folder'
+      },
+      {
+        name: 'Tasks',
+        icon: 'kanban',
+        order: 1,
+        parentId: null,
+        type: 'board',
+        columns: [
+          { id: 'todo', name: 'To Do', order: 0 },
+          { id: 'in-progress', name: 'In Progress', order: 1 },
+          { id: 'done', name: 'Done', order: 2 },
+        ],
+        tasks: [],
+      },
     ];
 
-    const createdSections = {};
-    
     for (const section of defaultSections) {
-      const docRef = await addDoc(sectionsRef, {
+      await addDoc(sectionsRef, {
         ...section,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      createdSections[section.name] = docRef.id;
     }
-
-    // Create Writing subsections
-    const writingSubsections = [
-      { name: 'Research Questions', icon: 'help-circle', order: 0, type: 'note', content: '# Research Questions\n\nDocument your research questions here...' },
-      { name: 'Literature Review', icon: 'book', order: 1, type: 'note', content: '# Literature Review\n\nOrganize your literature review notes...' },
-      { name: 'Methodology', icon: 'compass', order: 2, type: 'note', content: '# Methodology\n\nOutline your research methodology...' },
-      { name: 'Draft Chapters', icon: 'file-text', order: 3, type: 'folder' },
-    ];
-
-    for (const subsection of writingSubsections) {
-      await addDoc(sectionsRef, {
-        ...subsection,
-        parentId: createdSections['Writing'],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    // Create a sample Kanban board
-    await addDoc(sectionsRef, {
-      name: 'PhD Tasks',
-      icon: 'kanban',
-      order: 0,
-      parentId: createdSections['Task Boards'],
-      type: 'board',
-      columns: [
-        { id: 'backlog', name: 'Backlog', order: 0 },
-        { id: 'in-progress', name: 'In Progress', order: 1 },
-        { id: 'review', name: 'Review', order: 2 },
-        { id: 'done', name: 'Done', order: 3 },
-      ],
-      tasks: [
-        { id: '1', title: 'Review literature on topic A', columnId: 'backlog', priority: 'medium', tags: ['research'], order: 0 },
-        { id: '2', title: 'Write introduction draft', columnId: 'in-progress', priority: 'high', tags: ['writing'], order: 0 },
-        { id: '3', title: 'Submit ethics application', columnId: 'done', priority: 'high', tags: ['admin'], order: 0 },
-      ],
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    // Create a sample note in App Design folder
-    await addDoc(sectionsRef, {
-      name: 'Project Ideas',
-      icon: 'file-text',
-      order: 0,
-      parentId: createdSections['App Design & Development'],
-      type: 'note',
-      content: '# Project Ideas\n\nDocument your app design and development ideas here...',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
   };
 
   const signInWithGoogle = async () => {

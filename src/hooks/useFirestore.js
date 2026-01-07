@@ -107,6 +107,49 @@ export function useFirestore() {
     }
   }, [user]);
 
+  const resetToDefaults = useCallback(async () => {
+    if (!user) return;
+
+    // Delete all existing sections
+    const sectionsRef = collection(db, 'users', user.uid, 'sections');
+    for (const section of sections) {
+      const sectionRef = doc(db, 'users', user.uid, 'sections', section.id);
+      await deleteDoc(sectionRef);
+    }
+
+    // Create default sections
+    const defaultSections = [
+      {
+        name: 'Notes',
+        icon: 'folder',
+        order: 0,
+        parentId: null,
+        type: 'folder'
+      },
+      {
+        name: 'Tasks',
+        icon: 'kanban',
+        order: 1,
+        parentId: null,
+        type: 'board',
+        columns: [
+          { id: 'todo', name: 'To Do', order: 0 },
+          { id: 'in-progress', name: 'In Progress', order: 1 },
+          { id: 'done', name: 'Done', order: 2 },
+        ],
+        tasks: [],
+      },
+    ];
+
+    for (const section of defaultSections) {
+      await addDoc(sectionsRef, {
+        ...section,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }, [user, sections]);
+
   return {
     sections,
     loading,
@@ -115,5 +158,6 @@ export function useFirestore() {
     deleteSection,
     duplicateSection,
     reorderSections,
+    resetToDefaults,
   };
 }

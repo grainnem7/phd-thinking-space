@@ -127,7 +127,7 @@ export default function Dashboard() {
     if (!selectedItem) {
       // Get all notes for the recent notes widget
       const allNotes = sections.filter(s => s.type === 'note' || (!s.type && !sections.some(child => child.parentId === s.id)));
-      return <WidgetDashboard notes={allNotes} sections={sections} />;
+      return <WidgetDashboard notes={allNotes} sections={sections} onSelect={handleSelect} />;
     }
 
     // Reading List special view

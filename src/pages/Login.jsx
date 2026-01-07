@@ -52,7 +52,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="bg-white border border-neutral-200 rounded-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight">PhD Space</h1>
+            <h1 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight">Thinking Space</h1>
             <p className="text-sm text-neutral-400 mt-1">
               {isSignUp ? 'Create your account' : 'Welcome back'}
             </p>

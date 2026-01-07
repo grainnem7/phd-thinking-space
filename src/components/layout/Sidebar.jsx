@@ -40,6 +40,7 @@ import {
   Search,
   BookMarked,
   Home,
+  RotateCcw,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -208,9 +209,9 @@ function TreeItem({
 }
 
 export default function Sidebar({ selectedId, onSelect }) {
-  const { isOpen, close, isMobile } = useSidebar();
+  const { isOpen, close, isMobile, width, isResizing, startResizing } = useSidebar();
   const { user, logout } = useAuth();
-  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections } = useFirestore();
+  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -345,7 +346,9 @@ export default function Sidebar({ selectedId, onSelect }) {
     ? `fixed inset-y-0 left-0 z-50 w-72 sm:w-60 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`
-    : `w-60 bg-white border-r border-neutral-200 flex-shrink-0 ${isOpen ? '' : 'hidden'}`;
+    : `bg-white border-r border-neutral-200 flex-shrink-0 relative ${isOpen ? '' : 'hidden'}`;
+
+  const sidebarStyle = isMobile ? {} : { width: `${width}px` };
 
   return (
     <>
@@ -356,14 +359,23 @@ export default function Sidebar({ selectedId, onSelect }) {
         />
       )}
 
-      <aside className={sidebarClasses}>
+      <aside className={sidebarClasses} style={sidebarStyle}>
+        {/* Resize handle - only on desktop */}
+        {!isMobile && isOpen && (
+          <div
+            onMouseDown={startResizing}
+            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-neutral-300 transition-colors ${
+              isResizing ? 'bg-neutral-400' : 'bg-transparent'
+            }`}
+          />
+        )}
         <div className="flex flex-col h-full">
           {/* Logo - serif typography, no icon badge */}
           <div className="p-4 sm:p-6 border-b border-neutral-100">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 tracking-tight">PhD Space</h1>
-                <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Research Workspace</p>
+                <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 tracking-tight">Thinking Space</h1>
+                <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Your Workspace</p>
               </div>
               {isMobile && (
                 <button onClick={close} className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors">
@@ -451,6 +463,24 @@ export default function Sidebar({ selectedId, onSelect }) {
               Add section
             </button>
           </div>
+
+          {/* User & Logout */}
+          <div className="p-3 sm:p-4 border-t border-neutral-100 space-y-2">
+            <button
+              onClick={() => setModalState({ type: 'reset' })}
+              className="w-full text-left text-sm sm:text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
+            >
+              <RotateCcw size={16} />
+              Reset to defaults
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left text-sm sm:text-base text-neutral-400 hover:text-red-500 transition-colors flex items-center gap-2"
+            >
+              <LogOut size={16} />
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -506,6 +536,30 @@ export default function Sidebar({ selectedId, onSelect }) {
           </Button>
           <Button variant="danger" onClick={handleModalSubmit}>
             Delete
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Reset to Defaults Confirmation Modal */}
+      <Modal
+        isOpen={modalState.type === 'reset'}
+        onClose={() => setModalState({ type: null, item: null })}
+        title="Reset to Defaults"
+        size="sm"
+      >
+        <p className="text-slate-600">
+          This will delete all your current sections and create the default "Notes" folder and "Tasks" board. This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="secondary" onClick={() => setModalState({ type: null, item: null })}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={async () => {
+            await resetToDefaults();
+            onSelect(null);
+            setModalState({ type: null, item: null });
+          }}>
+            Reset
           </Button>
         </div>
       </Modal>

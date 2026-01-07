@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "thinking-space-5bf28"
+  },
+  "targets": {
+    "thinking-space-5bf28": {
+      "hosting": {
+        "main": [
+          "thinking-space"
+        ]
+      }
+    }
+  }
+}
