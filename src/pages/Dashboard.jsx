@@ -7,18 +7,22 @@ import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
 import ReadingList from '../components/reading/ReadingList';
-import { Menu, Search, Plus, FileText, Kanban, Folder } from 'lucide-react';
+import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
 
 export default function Dashboard() {
-  const { sections, loading, addSection } = useFirestore();
+  const { sections, loading, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
   const { toggle, isOpen, isMobile } = useSidebar();
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [itemMenuOpen, setItemMenuOpen] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [newName, setNewName] = useState('');
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -37,6 +41,7 @@ export default function Dashboard() {
       if (e.key === 'Escape') {
         setSearchOpen(false);
         setIsCreating(false);
+        setItemMenuOpen(false);
       }
     };
 
@@ -44,14 +49,17 @@ export default function Dashboard() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggle]);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
-    if (!isCreating) return;
+    if (!isCreating && !itemMenuOpen) return;
 
-    const handleClickOutside = () => setIsCreating(false);
+    const handleClickOutside = () => {
+      setIsCreating(false);
+      setItemMenuOpen(false);
+    };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [isCreating]);
+  }, [isCreating, itemMenuOpen]);
 
   const handleSelect = useCallback((item) => {
     if (!item) {
@@ -152,6 +160,47 @@ export default function Dashboard() {
       handleSelect({ id: newId, ...newItem });
     }
     setIsCreating(false);
+  };
+
+  // Item action handlers
+  const handleRename = () => {
+    if (selectedItem) {
+      setNewName(selectedItem.name);
+      setRenameModalOpen(true);
+      setItemMenuOpen(false);
+    }
+  };
+
+  const handleRenameSubmit = async () => {
+    if (selectedItem && newName.trim()) {
+      await updateSection(selectedItem.id, { name: newName.trim() });
+      setRenameModalOpen(false);
+      setNewName('');
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (selectedItem) {
+      await duplicateSection(selectedItem.id);
+      setItemMenuOpen(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedItem) {
+      setDeleteModalOpen(true);
+      setItemMenuOpen(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedItem) {
+      // Navigate to parent or home before deleting
+      const parent = sections.find(s => s.id === selectedItem.parentId);
+      setSelectedItem(parent || null);
+      await deleteSection(selectedItem.id);
+      setDeleteModalOpen(false);
+    }
   };
 
   const renderContent = () => {
@@ -291,6 +340,48 @@ export default function Dashboard() {
             >
               <Search className="w-5 h-5" />
             </Button>
+            {/* Item actions menu - shown when viewing an item */}
+            {selectedItem && selectedItem.type !== 'reading-list' && (
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => { e.stopPropagation(); setItemMenuOpen(!itemMenuOpen); }}
+                  title="More actions"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+                {itemMenuOpen && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-0 top-full mt-1 w-48 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20"
+                  >
+                    <button
+                      onClick={handleRename}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation"
+                    >
+                      <Pencil size={16} className="text-neutral-400" />
+                      Rename
+                    </button>
+                    <button
+                      onClick={handleDuplicate}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation"
+                    >
+                      <Copy size={16} className="text-neutral-400" />
+                      Duplicate
+                    </button>
+                    <div className="border-t border-neutral-100 my-1" />
+                    <button
+                      onClick={handleDelete}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors touch-manipulation"
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         }
       />
@@ -336,6 +427,59 @@ export default function Dashboard() {
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Rename Modal */}
+      <Modal
+        isOpen={renameModalOpen}
+        onClose={() => {
+          setRenameModalOpen(false);
+          setNewName('');
+        }}
+        title="Rename"
+        size="sm"
+      >
+        <input
+          type="text"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Enter new name..."
+          autoFocus
+          className="w-full px-4 py-3 text-base border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-300 focus:border-neutral-300 outline-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleRenameSubmit();
+            }
+          }}
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="secondary" onClick={() => { setRenameModalOpen(false); setNewName(''); }}>
+            Cancel
+          </Button>
+          <Button onClick={handleRenameSubmit}>
+            Save
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Item"
+        size="sm"
+      >
+        <p className="text-neutral-600">
+          Are you sure you want to delete "{selectedItem?.name}"? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleDeleteConfirm}>
+            Delete
+          </Button>
+        </div>
       </Modal>
     </Layout>
   );
