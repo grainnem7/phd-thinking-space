@@ -40,7 +40,7 @@ export default function Modal({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/20"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-neutral-900/20"
       onClick={(e) => {
         if (e.target === overlayRef.current) {
           onClose();
@@ -48,19 +48,19 @@ export default function Modal({
       }}
     >
       <div
-        className={`w-full ${sizes[size]} bg-white border border-neutral-200 rounded-xl`}
+        className={`w-full ${sizes[size]} bg-white border border-neutral-200 rounded-t-xl sm:rounded-xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 sticky top-0 bg-white z-10">
           <h2 className="text-xs text-neutral-400 uppercase tracking-widest font-medium">{title}</h2>
           <button
             onClick={onClose}
-            className="text-neutral-300 hover:text-neutral-500 transition-colors"
+            className="text-neutral-300 hover:text-neutral-500 transition-colors p-1"
           >
-            <Plus size={15} className="rotate-45" />
+            <Plus size={18} className="rotate-45 sm:w-4 sm:h-4" />
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {children}
         </div>
       </div>

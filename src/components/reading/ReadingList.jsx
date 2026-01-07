@@ -119,40 +119,40 @@ export default function ReadingList() {
 
   return (
     <main className="flex-1 overflow-auto bg-[#fafafa]">
-      <div className="max-w-4xl mx-auto px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
-        <header className="flex items-center justify-between mb-8">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="font-serif text-3xl font-medium text-neutral-900 tracking-tight">
+            <h1 className="font-serif text-2xl sm:text-3xl font-medium text-neutral-900 tracking-tight">
               Reading List
             </h1>
-            <p className="text-sm text-neutral-400 mt-1">
+            <p className="text-sm sm:text-base text-neutral-400 mt-1">
               {counts['to-read']} papers to read
             </p>
           </div>
           <button
             onClick={() => { setEditingPaper(null); setShowAddModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 text-base bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors w-full sm:w-auto"
           >
-            <Plus size={16} />
+            <Plus size={18} />
             Add Paper
           </button>
         </header>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-neutral-200 pb-3">
+        {/* Tabs - scrollable on mobile */}
+        <div className="flex items-center gap-1 mb-6 border-b border-neutral-200 pb-3 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base rounded-lg transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-neutral-100 text-neutral-900 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
             >
               {tab.label}
-              <span className="ml-2 text-neutral-400">{counts[tab.id]}</span>
+              <span className="ml-1.5 sm:ml-2 text-neutral-400">{counts[tab.id]}</span>
             </button>
           ))}
         </div>
@@ -160,10 +160,10 @@ export default function ReadingList() {
         {/* Papers List */}
         {filteredPapers.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-neutral-400 mb-4">No papers in this list</p>
+            <p className="text-base text-neutral-500 mb-4">No papers in this list</p>
             <button
               onClick={() => { setEditingPaper(null); setShowAddModal(true); }}
-              className="text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+              className="text-base text-neutral-500 hover:text-neutral-700 transition-colors"
             >
               + Add your first paper
             </button>
@@ -173,8 +173,8 @@ export default function ReadingList() {
             {/* High Priority Section */}
             {groupedPapers.highPriority.length > 0 && (
               <>
-                <div className="px-6 py-3 bg-neutral-50 border-b border-neutral-100">
-                  <span className="text-xs text-amber-600 uppercase tracking-widest font-medium">
+                <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-neutral-50 border-b border-neutral-100">
+                  <span className="text-xs sm:text-sm text-amber-600 uppercase tracking-widest font-medium">
                     High Priority
                   </span>
                 </div>
@@ -195,8 +195,8 @@ export default function ReadingList() {
             {groupedPapers.other.length > 0 && (
               <>
                 {groupedPapers.highPriority.length > 0 && (
-                  <div className="px-6 py-3 bg-neutral-50 border-b border-neutral-100">
-                    <span className="text-xs text-neutral-400 uppercase tracking-widest font-medium">
+                  <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-neutral-50 border-b border-neutral-100">
+                    <span className="text-xs sm:text-sm text-neutral-400 uppercase tracking-widest font-medium">
                       Other
                     </span>
                   </div>
@@ -232,21 +232,21 @@ export default function ReadingList() {
 function PaperCard({ paper, timeAgo, onClick, onEdit, onDelete }) {
   return (
     <div
-      className="px-6 py-5 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 transition-colors cursor-pointer group"
+      className="px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 transition-colors cursor-pointer group"
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
         <div className="flex-1 min-w-0">
           {/* Title */}
           <div className="flex items-start gap-2">
-            <p className="text-base text-neutral-900 font-medium">{paper.title}</p>
+            <p className="text-base sm:text-lg text-neutral-900 font-medium line-clamp-2">{paper.title}</p>
             {paper.url && (
               <a
                 href={paper.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-neutral-300 hover:text-neutral-500 transition-colors flex-shrink-0 mt-1"
+                className="text-neutral-300 hover:text-neutral-500 transition-colors flex-shrink-0 mt-0.5 sm:mt-1"
               >
                 <ExternalLink size={14} />
               </a>
@@ -255,38 +255,41 @@ function PaperCard({ paper, timeAgo, onClick, onEdit, onDelete }) {
 
           {/* Authors & Year */}
           {(paper.authors || paper.year) && (
-            <p className="text-sm text-neutral-500 mt-1">
+            <p className="text-sm sm:text-base text-neutral-500 mt-1 line-clamp-1">
               {paper.authors}{paper.authors && paper.year && ' · '}{paper.year}
             </p>
           )}
 
-          {/* Tags */}
+          {/* Tags - show fewer on mobile */}
           {paper.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {paper.tags.map((tag) => (
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
+              {paper.tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="text-xs text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded"
+                  className="text-xs sm:text-sm text-neutral-500 bg-neutral-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded"
                 >
                   {tag}
                 </span>
               ))}
+              {paper.tags.length > 3 && (
+                <span className="text-xs sm:text-sm text-neutral-400">+{paper.tags.length - 3}</span>
+              )}
             </div>
           )}
         </div>
 
         {/* Right side: time & actions */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-sm text-neutral-400">{timeAgo(paper.createdAt)}</span>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <span className="text-sm sm:text-base text-neutral-400 hidden sm:inline">{timeAgo(paper.createdAt)}</span>
 
           <Dropdown
             align="right"
             trigger={
               <button
                 onClick={(e) => e.stopPropagation()}
-                className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-neutral-500 transition-all p-1"
+                className="sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 sm:text-neutral-300 hover:text-neutral-500 transition-all p-1"
               >
-                <MoreHorizontal size={16} />
+                <MoreHorizontal size={18} />
               </button>
             }
           >

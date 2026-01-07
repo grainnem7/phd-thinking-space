@@ -117,12 +117,12 @@ function TreeItem({
     <SortableItem item={item}>
       <div>
         <div
-          className={`group flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+          className={`group flex items-center justify-between px-3 sm:px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
             isSelected
               ? 'bg-neutral-100 text-neutral-900 font-medium'
               : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
           }`}
-          style={{ paddingLeft: `${level * 16 + 16}px` }}
+          style={{ paddingLeft: `${level * 12 + 12}px` }}
           onClick={() => onSelect(item)}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -143,14 +143,14 @@ function TreeItem({
             ) : (
               <span className="w-4" />
             )}
-            <span className="text-sm truncate">{item.name}</span>
+            <span className="text-sm sm:text-base truncate">{item.name}</span>
           </div>
           <Dropdown
             align="right"
             trigger={
               <button
                 onClick={(e) => e.stopPropagation()}
-                className="p-1 opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 transition-opacity"
+                className="p-1 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 transition-opacity"
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
@@ -342,7 +342,7 @@ export default function Sidebar({ selectedId, onSelect }) {
   };
 
   const sidebarClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-60 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
+    ? `fixed inset-y-0 left-0 z-50 w-72 sm:w-60 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`
     : `w-60 bg-white border-r border-neutral-200 flex-shrink-0 ${isOpen ? '' : 'hidden'}`;
@@ -359,11 +359,11 @@ export default function Sidebar({ selectedId, onSelect }) {
       <aside className={sidebarClasses}>
         <div className="flex flex-col h-full">
           {/* Logo - serif typography, no icon badge */}
-          <div className="p-6 border-b border-neutral-100">
+          <div className="p-4 sm:p-6 border-b border-neutral-100">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="font-serif text-xl font-medium text-neutral-900 tracking-tight">PhD Space</h1>
-                <p className="text-sm text-neutral-400 mt-0.5">Research Workspace</p>
+                <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 tracking-tight">PhD Space</h1>
+                <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Research Workspace</p>
               </div>
               {isMobile && (
                 <button onClick={close} className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors">
@@ -374,7 +374,7 @@ export default function Sidebar({ selectedId, onSelect }) {
           </div>
 
           {/* Search - minimal styling */}
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
               <input
@@ -382,7 +382,7 @@ export default function Sidebar({ selectedId, onSelect }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 transition-colors placeholder:text-neutral-300"
+                className="w-full pl-10 pr-4 py-2.5 text-sm sm:text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 transition-colors placeholder:text-neutral-400"
               />
             </div>
           </div>
@@ -391,25 +391,25 @@ export default function Sidebar({ selectedId, onSelect }) {
           <div className="px-3 pb-3 border-b border-neutral-100 mb-3">
             <button
               onClick={() => onSelect(null)}
-              className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+              className={`w-full flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 selectedId === null && selectedId !== 'reading-list'
                   ? 'bg-neutral-100 text-neutral-900 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
             >
               <Home className="w-4 h-4" />
-              <span className="text-sm">Dashboard</span>
+              <span className="text-sm sm:text-base">Dashboard</span>
             </button>
             <button
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
-              className={`w-full flex items-center gap-2 px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+              className={`w-full flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 selectedId === 'reading-list'
                   ? 'bg-neutral-100 text-neutral-900 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
             >
               <BookMarked className="w-4 h-4" />
-              <span className="text-sm">Reading List</span>
+              <span className="text-sm sm:text-base">Reading List</span>
             </button>
           </div>
 
@@ -442,12 +442,12 @@ export default function Sidebar({ selectedId, onSelect }) {
           </nav>
 
           {/* Add section - simple text button */}
-          <div className="p-4 border-t border-neutral-100">
+          <div className="p-3 sm:p-4 border-t border-neutral-100">
             <button
               onClick={() => handleAddSection('folder')}
-              className="w-full text-left text-sm text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
+              className="w-full text-left text-sm sm:text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
             >
-              <Plus size={15} />
+              <Plus size={16} />
               Add section
             </button>
           </div>

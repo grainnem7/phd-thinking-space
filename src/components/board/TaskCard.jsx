@@ -37,19 +37,19 @@ export default function TaskCard({ task, onEdit, onDelete }) {
       style={style}
       {...attributes}
       {...listeners}
-      className="group bg-neutral-50 border border-neutral-100 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-neutral-200 transition-colors"
+      className="group bg-neutral-50 border border-neutral-100 rounded-lg p-2.5 sm:p-3 cursor-grab active:cursor-grabbing hover:border-neutral-200 transition-colors"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className={`w-1.5 h-1.5 rounded-full ${priorityColors[task.priority]}`} />
-          <h4 className="text-sm text-neutral-900">{task.title}</h4>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${priorityColors[task.priority]}`} />
+          <h4 className="text-sm sm:text-base text-neutral-900 font-medium truncate">{task.title}</h4>
         </div>
         <Dropdown
           align="right"
           trigger={
             <button
               onClick={(e) => e.stopPropagation()}
-              className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-neutral-500 transition-all"
+              className="sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 sm:text-neutral-300 hover:text-neutral-500 transition-all flex-shrink-0"
             >
               <MoreHorizontal size={14} />
             </button>
@@ -69,25 +69,28 @@ export default function TaskCard({ task, onEdit, onDelete }) {
       </div>
 
       {task.description && (
-        <p className="text-xs text-neutral-400 mt-2 line-clamp-2">{task.description}</p>
+        <p className="text-xs sm:text-sm text-neutral-500 mt-1.5 sm:mt-2 line-clamp-2">{task.description}</p>
       )}
 
       {task.tags?.length > 0 && (
-        <div className="flex items-center gap-2 mt-3 flex-wrap">
-          {task.tags.map((tag) => (
+        <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 flex-wrap">
+          {task.tags.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="text-xs text-neutral-400 px-2 py-0.5 bg-neutral-100 rounded"
+              className="text-xs sm:text-sm text-neutral-500 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-neutral-100 rounded"
             >
               {tag}
             </span>
           ))}
+          {task.tags.length > 2 && (
+            <span className="text-xs text-neutral-400">+{task.tags.length - 2}</span>
+          )}
         </div>
       )}
 
       {task.dueDate && (
-        <div className="flex items-center gap-1 mt-2 text-xs text-neutral-400">
-          <Calendar size={12} />
+        <div className="flex items-center gap-1.5 mt-2 sm:mt-3 text-xs sm:text-sm text-neutral-500">
+          <Calendar size={12} className="sm:w-3.5 sm:h-3.5" />
           <span>{formatDate(task.dueDate)}</span>
         </div>
       )}

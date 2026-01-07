@@ -5,12 +5,14 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  getDoc,
   onSnapshot,
   query,
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../lib/firebase';
 import { useAuth } from './useAuth';
 
 export function useReadingList() {
@@ -103,12 +105,30 @@ export function useReadingList() {
     }
   }, [user]);
 
-  // Delete paper
+  // Delete paper (and associated file if exists)
   const deletePaper = useCallback(async (paperId) => {
     if (!user) return;
 
     try {
       const paperRef = doc(db, 'users', user.uid, 'papers', paperId);
+
+      // Get the paper to check for attached file
+      const paperSnap = await getDoc(paperRef);
+      if (paperSnap.exists()) {
+        const paperData = paperSnap.data();
+
+        // Delete the file from storage if it exists
+        if (paperData.file?.path) {
+          try {
+            const fileRef = ref(storage, paperData.file.path);
+            await deleteObject(fileRef);
+          } catch (fileError) {
+            // File might not exist, continue with paper deletion
+            console.warn('Could not delete file:', fileError);
+          }
+        }
+      }
+
       await deleteDoc(paperRef);
     } catch (error) {
       console.error('Error deleting paper:', error);

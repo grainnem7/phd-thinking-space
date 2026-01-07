@@ -71,8 +71,8 @@ export default function KanbanBoard({ board }) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
         <div className="text-center">
-          <p className="text-sm text-neutral-400">No board selected</p>
-          <p className="text-xs text-neutral-300 mt-1">Select a board from the sidebar to view tasks</p>
+          <p className="text-base text-neutral-500">No board selected</p>
+          <p className="text-sm text-neutral-400 mt-1">Select a board from the sidebar to view tasks</p>
         </div>
       </div>
     );
@@ -188,12 +188,12 @@ export default function KanbanBoard({ board }) {
   return (
     <div className="flex-1 flex flex-col bg-[#fafafa]">
       {/* Board Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-white">
-        <h2 className="font-serif text-xl font-medium text-neutral-900 tracking-tight">{board.name}</h2>
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-white">
+        <h2 className="font-serif text-xl sm:text-2xl font-medium text-neutral-900 tracking-tight">{board.name}</h2>
       </div>
 
       {/* Columns */}
-      <div className="flex-1 overflow-x-auto p-6">
+      <div className="flex-1 overflow-x-auto p-4 sm:p-6">
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetectionStrategy}
@@ -201,7 +201,7 @@ export default function KanbanBoard({ board }) {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 h-full">
+          <div className="flex gap-3 sm:gap-4 h-full">
             {columns
               .sort((a, b) => a.order - b.order)
               .map((column) => (
@@ -219,24 +219,24 @@ export default function KanbanBoard({ board }) {
 
             {/* Add Column */}
             {showAddColumn ? (
-              <div className="flex-shrink-0 w-72 bg-white border border-neutral-200 rounded-xl p-3">
+              <div className="flex-shrink-0 w-64 sm:w-72 bg-white border border-neutral-200 rounded-xl p-3">
                 <input
                   type="text"
                   value={newColumnName}
                   onChange={(e) => setNewColumnName(e.target.value)}
                   placeholder="Column name..."
                   autoFocus
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-300"
+                  className="w-full px-3 py-2 text-sm sm:text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-400"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddColumn();
                     if (e.key === 'Escape') setShowAddColumn(false);
                   }}
                 />
                 <div className="flex gap-2 mt-2">
-                  <button onClick={handleAddColumn} className="flex-1 py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors">
+                  <button onClick={handleAddColumn} className="flex-1 py-2 text-sm sm:text-base text-neutral-600 hover:text-neutral-900 transition-colors">
                     Add
                   </button>
-                  <button onClick={() => setShowAddColumn(false)} className="flex-1 py-2 text-sm text-neutral-400 hover:text-neutral-600 transition-colors">
+                  <button onClick={() => setShowAddColumn(false)} className="flex-1 py-2 text-sm sm:text-base text-neutral-400 hover:text-neutral-600 transition-colors">
                     Cancel
                   </button>
                 </div>
@@ -244,9 +244,9 @@ export default function KanbanBoard({ board }) {
             ) : (
               <button
                 onClick={() => setShowAddColumn(true)}
-                className="flex-shrink-0 w-72 h-12 flex items-center justify-center gap-2 text-neutral-400 hover:text-neutral-600 border border-dashed border-neutral-200 hover:border-neutral-300 rounded-xl transition-colors"
+                className="flex-shrink-0 w-64 sm:w-72 h-12 flex items-center justify-center gap-2 text-sm sm:text-base text-neutral-400 hover:text-neutral-600 border border-dashed border-neutral-200 hover:border-neutral-300 rounded-xl transition-colors"
               >
-                <Plus size={15} />
+                <Plus size={16} />
                 Add column
               </button>
             )}
