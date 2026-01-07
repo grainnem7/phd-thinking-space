@@ -97,6 +97,8 @@ export function useReadingList() {
         starred: paperData.starred || false,
         collections: paperData.collections || [],
         summary: paperData.summary || '',
+        // Attached file (if provided)
+        ...(paperData.file && { file: paperData.file }),
         tabs: defaultTabs,
         tabContent: { notes: '', quotes: '', questions: '' },
         createdAt: serverTimestamp(),

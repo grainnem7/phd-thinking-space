@@ -1,7 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ArrowLeft, ExternalLink, Star, Trash2, Copy, Check } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Star, Trash2, Copy, Check, FileText, Download, Upload, X } from 'lucide-react';
 import TabEditor from './TabEditor';
 import { generateHarvardReference, generateInTextCitation } from '../../utils/paperMetadata';
+import { useStorage } from '../../hooks/useStorage';
+import { useAuth } from '../../hooks/useAuth';
 
 const STATUS_OPTIONS = [
   { id: 'to-read', label: 'To Read' },
@@ -15,6 +17,148 @@ const PRIORITY_OPTIONS = [
   { id: 'low', label: 'Low' },
   { id: null, label: 'None' },
 ];
+
+// File Section Component
+function FileSection({ paper, onUpdate }) {
+  const { user } = useAuth();
+  const { uploadFile, deleteFile, uploading, uploadProgress } = useStorage();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/epub+zip'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please upload a PDF or EPUB file');
+      return;
+    }
+
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('File size must be less than 50MB');
+      return;
+    }
+
+    try {
+      const fileData = await uploadFile(file, `users/${user.uid}/papers`);
+      await onUpdate({ file: fileData });
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      alert('Failed to upload file. Please try again.');
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteFile = async () => {
+    if (!paper.file?.path) return;
+
+    try {
+      await deleteFile(paper.file.path);
+      await onUpdate({ file: null });
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error('Error deleting file:', err);
+      alert('Failed to delete file. Please try again.');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  return (
+    <section className="mb-8">
+      <label className="block text-xs uppercase tracking-widest text-black/50 mb-3">
+        Attached File
+      </label>
+
+      {paper.file ? (
+        // File exists - show download and delete options
+        <div className="flex items-center gap-3 p-3 bg-black/[0.02] rounded-lg">
+          <FileText size={20} className="text-black/40 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-black truncate">{paper.file.name}</p>
+            <p className="text-xs text-black/40">{formatFileSize(paper.file.size)}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={paper.file.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 text-black/40 hover:text-black transition-colors"
+              title="Download file"
+            >
+              <Download size={16} />
+            </a>
+            {showDeleteConfirm ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleDeleteFile}
+                  className="text-xs text-red-600 hover:text-red-700 px-2 py-1"
+                >
+                  Remove
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-xs text-black/40 hover:text-black px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 text-black/30 hover:text-red-600 transition-colors"
+                title="Remove file"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        // No file - show upload option
+        <div>
+          {uploading ? (
+            <div className="p-3 bg-black/[0.02] rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <Upload size={16} className="text-black/40 animate-pulse" />
+                <span className="text-sm text-black/60">Uploading...</span>
+              </div>
+              <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-black/40 transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <label className="flex items-center gap-3 p-3 border border-dashed border-black/20 rounded-lg cursor-pointer hover:border-black/40 transition-colors">
+              <Upload size={16} className="text-black/40" />
+              <span className="text-sm text-black/60">Upload PDF or EPUB</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.epub,application/pdf,application/epub+zip"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
 // Reference Section Component
 function ReferenceSection({ paper }) {
@@ -169,10 +313,10 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
   const tabs = paper.tabs || [{ id: 'notes', name: 'Notes' }];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="flex-1 bg-white min-h-0 flex flex-col">
       {/* Nav bar */}
-      <nav className="border-b border-black/5 sticky top-0 bg-white z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <nav className="border-b border-black/5 bg-white z-10 shrink-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <button
             onClick={onBack}
             className="text-sm text-black/40 hover:text-black transition-opacity flex items-center gap-1"
@@ -203,11 +347,92 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
-          {/* Main content */}
-          <main className="lg:col-span-8 order-2 lg:order-1">
-            {/* Title */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          {/* Mobile/Tablet: Compact metadata bar at top */}
+          <div className="lg:hidden mb-8 flex flex-wrap items-center gap-4 text-sm border-b border-black/5 pb-6">
+            {/* Status dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-black/40">Status:</span>
+              <select
+                value={paper.status || 'to-read'}
+                onChange={(e) => onUpdate({ status: e.target.value })}
+                className="bg-transparent border-b border-black/20 focus:border-black/40 outline-none text-black py-1"
+              >
+                {STATUS_OPTIONS.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Priority dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-black/40">Priority:</span>
+              <select
+                value={paper.priority || ''}
+                onChange={(e) => onUpdate({ priority: e.target.value || null })}
+                className="bg-transparent border-b border-black/20 focus:border-black/40 outline-none text-black py-1"
+              >
+                {PRIORITY_OPTIONS.map(opt => (
+                  <option key={opt.id || 'none'} value={opt.id || ''}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Collections (if any) */}
+            {collections.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-black/40">Collections:</span>
+                <div className="flex flex-wrap gap-1">
+                  {collections.map(col => (
+                    <button
+                      key={col.id}
+                      onClick={() => toggleCollection(col.id)}
+                      className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                        (paper.collections || []).includes(col.id)
+                          ? 'bg-black text-white'
+                          : 'bg-black/5 text-black/60 hover:bg-black/10'
+                      }`}
+                    >
+                      {col.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Delete - mobile */}
+            <div className="ml-auto">
+              {showDeleteConfirm ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onDelete}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="text-xs text-black/40 hover:text-black"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-black/30 hover:text-red-600 transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-12">
+            {/* Main content */}
+            <main className="flex-1 min-w-0">
+              {/* Title */}
             <h1 className="font-serif text-2xl sm:text-4xl tracking-tight text-black mb-2">
               {paper.title}
             </h1>
@@ -218,6 +443,9 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
                 {paper.authors}{paper.authors && paper.year && ' · '}{paper.year}
               </p>
             )}
+
+            {/* Attached File */}
+            <FileSection paper={paper} onUpdate={onUpdate} />
 
             {/* Summary */}
             <div className="mb-8">
@@ -299,8 +527,8 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
             </div>
           </main>
 
-          {/* Sidebar */}
-          <aside className="lg:col-span-4 space-y-8 sm:space-y-12 order-1 lg:order-2">
+          {/* Sidebar - Desktop only */}
+          <aside className="hidden lg:block w-56 shrink-0 space-y-8">
             {/* Status */}
             <div>
               <label className="block text-xs uppercase tracking-widest text-black/50 mb-3">
@@ -391,6 +619,7 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
               )}
             </div>
           </aside>
+          </div>
         </div>
       </div>
     </div>

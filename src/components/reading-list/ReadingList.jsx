@@ -115,7 +115,7 @@ export default function ReadingList() {
 
   // List view
   return (
-    <div className="flex-1 bg-[#fafafa] overflow-auto">
+    <div className="flex-1 bg-[#fafafa] min-h-0">
       <div className="max-w-4xl mx-auto px-6 sm:px-8 py-8 sm:py-12">
         {/* Header */}
         <header className="mb-8">

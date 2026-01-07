@@ -1,8 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Upload, Search, Loader2 } from 'lucide-react';
+import { X, Upload, Search, Loader2, FileText } from 'lucide-react';
 import { extractMetadataFromFile, fetchCrossRefMetadata } from '../../utils/paperMetadata';
+import { useStorage } from '../../hooks/useStorage';
+import { useAuth } from '../../hooks/useAuth';
+
+// File size limit: 50MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
 
 export default function AddPaperModal({ isOpen, onClose, onSave, collections, paper }) {
+  const { user } = useAuth();
+  const { uploadFile, uploading, uploadProgress } = useStorage();
+
   const [formData, setFormData] = useState({
     title: '',
     authors: '',
@@ -16,10 +30,13 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
     issue: '',
     pages: '',
   });
+  const [pendingFile, setPendingFile] = useState(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStatus, setExtractionStatus] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState('');
+  const [fileError, setFileError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Reset form when modal opens/closes or paper changes
   useEffect(() => {
@@ -53,8 +70,10 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
           pages: '',
         });
       }
+      setPendingFile(null);
       setExtractionStatus('');
       setLookupError('');
+      setFileError('');
     }
   }, [isOpen, paper]);
 
@@ -63,12 +82,23 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError('File too large. Maximum size is 50MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setFileError('');
     setIsExtracting(true);
     setExtractionStatus('Reading file...');
     setLookupError('');
 
     try {
       const metadata = await extractMetadataFromFile(file);
+
+      // Store the file for later upload
+      setPendingFile(file);
 
       if (metadata) {
         setExtractionStatus('Found metadata!');
@@ -90,12 +120,14 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
         // Clear status after a moment
         setTimeout(() => setExtractionStatus(''), 2000);
       } else {
-        setExtractionStatus('Could not extract metadata. Please enter manually.');
+        setExtractionStatus('File attached. Could not extract metadata - please enter manually.');
         setTimeout(() => setExtractionStatus(''), 3000);
       }
     } catch (error) {
       console.error('Extraction error:', error);
-      setExtractionStatus('Error reading file');
+      // Still keep the file even if metadata extraction fails
+      setPendingFile(file);
+      setExtractionStatus('File attached. Error reading metadata.');
       setTimeout(() => setExtractionStatus(''), 3000);
     } finally {
       setIsExtracting(false);
@@ -140,11 +172,32 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
     e.preventDefault();
     if (!formData.title.trim()) return;
 
-    await onSave({
-      ...formData,
-      year: formData.year ? parseInt(formData.year, 10) : null,
-    });
-    onClose();
+    setIsSaving(true);
+
+    try {
+      let fileData = null;
+
+      // Upload file if there's a pending file
+      if (pendingFile && user) {
+        try {
+          fileData = await uploadFile(pendingFile, `users/${user.uid}/papers`);
+        } catch (uploadErr) {
+          console.error('File upload error:', uploadErr);
+          setFileError('Failed to upload file. Paper will be saved without attachment.');
+        }
+      }
+
+      await onSave({
+        ...formData,
+        year: formData.year ? parseInt(formData.year, 10) : null,
+        ...(fileData && { file: fileData }),
+      });
+      onClose();
+    } catch (err) {
+      console.error('Save error:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const toggleCollection = (collectionId) => {
@@ -155,6 +208,8 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
         : [...prev.collections, collectionId]
     }));
   };
+
+  const isSubmitting = isSaving || uploading;
 
   if (!isOpen) return null;
 
@@ -176,6 +231,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
           <button
             onClick={onClose}
             className="text-black/30 hover:text-black/60 transition-opacity"
+            disabled={isSubmitting}
           >
             <X size={20} />
           </button>
@@ -189,31 +245,55 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
               <label className="block text-xs uppercase tracking-widest text-black/50 mb-3">
                 Import from file
               </label>
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className={`flex items-center gap-2 text-sm transition-colors ${
-                  isExtracting
-                    ? 'text-black/40'
-                    : 'text-black/60 hover:text-black'
-                }`}>
-                  {isExtracting ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Upload size={16} />
-                  )}
-                  <span>
-                    {isExtracting ? 'Extracting...' : 'Upload PDF or EPUB to auto-fill'}
-                  </span>
+
+              {pendingFile ? (
+                // Show pending file
+                <div className="flex items-center gap-3 p-3 bg-black/5 rounded-lg">
+                  <FileText size={20} className="text-black/40 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-black truncate">{pendingFile.name}</p>
+                    <p className="text-xs text-black/40">{formatFileSize(pendingFile.size)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPendingFile(null)}
+                    className="text-black/30 hover:text-black/60 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-                <input
-                  type="file"
-                  accept=".pdf,.epub"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  disabled={isExtracting}
-                />
-              </label>
+              ) : (
+                // Show upload button
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div className={`flex items-center gap-2 text-sm transition-colors ${
+                    isExtracting
+                      ? 'text-black/40'
+                      : 'text-black/60 hover:text-black'
+                  }`}>
+                    {isExtracting ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Upload size={16} />
+                    )}
+                    <span>
+                      {isExtracting ? 'Extracting...' : 'Upload PDF or EPUB to auto-fill & attach'}
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf,.epub"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={isExtracting || isSubmitting}
+                  />
+                </label>
+              )}
+
               {extractionStatus && (
                 <p className="text-xs text-black/40 mt-2">{extractionStatus}</p>
+              )}
+              {fileError && (
+                <p className="text-xs text-red-500 mt-2">{fileError}</p>
               )}
             </div>
           )}
@@ -236,11 +316,12 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                 }}
                 className="flex-1 px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
                 placeholder="10.xxxx/..."
+                disabled={isSubmitting}
               />
               <button
                 type="button"
                 onClick={handleDoiLookup}
-                disabled={isLookingUp || !formData.doi.trim()}
+                disabled={isLookingUp || !formData.doi.trim() || isSubmitting}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm text-black/60 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
               >
                 {isLookingUp ? (
@@ -269,6 +350,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
               placeholder="Paper title"
               autoFocus
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -283,6 +365,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
               onChange={(e) => setFormData(prev => ({ ...prev, authors: e.target.value }))}
               className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
               placeholder="Author names"
+              disabled={isSubmitting}
             />
           </div>
 
@@ -300,6 +383,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                 placeholder="2024"
                 min="1900"
                 max="2100"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -312,6 +396,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                 onChange={(e) => setFormData(prev => ({ ...prev, journal: e.target.value }))}
                 className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
                 placeholder="Journal name"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -328,6 +413,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                 onChange={(e) => setFormData(prev => ({ ...prev, volume: e.target.value }))}
                 className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
                 placeholder="12"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -340,6 +426,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                 onChange={(e) => setFormData(prev => ({ ...prev, issue: e.target.value }))}
                 className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
                 placeholder="3"
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -352,6 +439,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                 onChange={(e) => setFormData(prev => ({ ...prev, pages: e.target.value }))}
                 className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
                 placeholder="1-15"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -367,6 +455,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
               onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
               className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
               placeholder="https://..."
+              disabled={isSubmitting}
             />
           </div>
 
@@ -381,6 +470,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
               onChange={(e) => setFormData(prev => ({ ...prev, publisher: e.target.value }))}
               className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
               placeholder="Publisher name (for books)"
+              disabled={isSubmitting}
             />
           </div>
 
@@ -396,6 +486,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
                     key={col.id}
                     type="button"
                     onClick={() => toggleCollection(col.id)}
+                    disabled={isSubmitting}
                     className={`px-3 py-1.5 text-sm rounded transition-colors ${
                       formData.collections.includes(col.id)
                         ? 'bg-black text-white'
@@ -409,19 +500,38 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
             </div>
           )}
 
+          {/* Upload Progress */}
+          {uploading && (
+            <div className="pt-2">
+              <div className="flex items-center justify-between text-xs text-black/50 mb-1">
+                <span>Uploading file...</span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <div className="h-1 bg-black/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-black transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-black/40 hover:text-black transition-opacity"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-sm text-black/40 hover:text-black transition-opacity disabled:opacity-30"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm bg-black text-white rounded hover:bg-black/80 transition-colors"
+              disabled={isSubmitting || !formData.title.trim()}
+              className="px-4 py-2 text-sm bg-black text-white rounded hover:bg-black/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
+              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               {paper ? 'Save' : 'Add Paper'}
             </button>
           </div>
