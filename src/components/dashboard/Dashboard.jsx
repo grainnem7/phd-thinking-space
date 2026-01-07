@@ -62,21 +62,21 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
 
   return (
     <main className="flex-1 overflow-auto bg-[#fafafa]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8">
         {/* Header */}
-        <header className="mb-6 sm:mb-10">
-          <p className="text-sm sm:text-base text-neutral-400 uppercase tracking-widest mb-1 sm:mb-2">
+        <header className="mb-5 sm:mb-6 lg:mb-10">
+          <p className="text-sm text-neutral-400 uppercase tracking-widest mb-1">
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-          <h1 className="font-serif text-3xl sm:text-4xl font-medium text-neutral-900 tracking-tight">
+          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-medium text-neutral-900 tracking-tight">
             {getGreeting()}
           </h1>
         </header>
 
-        {/* Grid - responsive: 1 col mobile, 2 cols tablet, 12-col desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5">
-          {/* Deadlines */}
-          <div className="md:col-span-1 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[280px]">
+        {/* Grid - responsive layout optimized for all screen sizes */}
+        <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 lg:gap-5">
+          {/* Deadlines - full width on tablet portrait, narrower on landscape */}
+          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
             <DeadlinesWidget
               deadlines={deadlines}
               onAddDeadline={addDeadline}
@@ -85,7 +85,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Schedule */}
-          <div className="md:col-span-1 lg:col-span-5 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[280px]">
+          <div className="md:col-span-3 lg:col-span-5 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
             <ScheduleWidget
               currentTime={currentTime}
               blocks={scheduleBlocks}
@@ -94,8 +94,8 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
             />
           </div>
 
-          {/* Todo List */}
-          <div className="md:col-span-2 lg:col-span-3 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[280px]">
+          {/* Todo List - spans full width on tablet */}
+          <div className="md:col-span-6 lg:col-span-3 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
             <TodoWidget
               todos={todos}
               boards={boards}
@@ -106,12 +106,12 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Quick Capture */}
-          <div className="md:col-span-1 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[200px]">
+          <div className="md:col-span-3 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[200px]">
             <QuickCaptureWidget captures={quickCaptures} onAddCapture={addQuickCapture} />
           </div>
 
           {/* Recent Notes */}
-          <div className="md:col-span-1 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[200px]">
+          <div className="md:col-span-3 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[200px]">
             <RecentNotesWidget notes={notes} sections={sections} onNavigate={handleNoteNavigate} />
           </div>
         </div>

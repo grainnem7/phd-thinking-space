@@ -118,10 +118,10 @@ function TreeItem({
     <SortableItem item={item}>
       <div>
         <div
-          className={`group flex items-center justify-between px-3 sm:px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+          className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-colors mb-0.5 touch-manipulation ${
             isSelected
               ? 'bg-neutral-100 text-neutral-900 font-medium'
-              : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+              : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100'
           }`}
           style={{ paddingLeft: `${level * 12 + 12}px` }}
           onClick={() => onSelect(item)}
@@ -133,27 +133,27 @@ function TreeItem({
                   e.stopPropagation();
                   toggleExpanded(item.id);
                 }}
-                className="p-0.5 hover:bg-neutral-200 rounded transition-colors"
+                className="p-1.5 -ml-1 hover:bg-neutral-200 active:bg-neutral-300 rounded transition-colors touch-manipulation"
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                  <ChevronDown className="w-4 h-4 text-neutral-400" />
                 ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
+                  <ChevronRight className="w-4 h-4 text-neutral-400" />
                 )}
               </button>
             ) : (
-              <span className="w-4" />
+              <span className="w-5" />
             )}
-            <span className="text-sm sm:text-base truncate">{item.name}</span>
+            <span className="text-sm truncate">{item.name}</span>
           </div>
           <Dropdown
             align="right"
             trigger={
               <button
                 onClick={(e) => e.stopPropagation()}
-                className="p-1 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 transition-opacity"
+                className="p-2 -mr-1 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 active:text-neutral-800 transition-opacity touch-manipulation"
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <MoreHorizontal className="w-5 h-5" />
               </button>
             }
           >
@@ -209,7 +209,7 @@ function TreeItem({
 }
 
 export default function Sidebar({ selectedId, onSelect }) {
-  const { isOpen, close, isMobile, width, isResizing, startResizing } = useSidebar();
+  const { isOpen, isCollapsed, close, isMobile, isTablet, effectiveWidth, isResizing, startResizing, toggleCollapsed, expand } = useSidebar();
   const { user, logout } = useAuth();
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
   const navigate = useNavigate();
@@ -343,12 +343,12 @@ export default function Sidebar({ selectedId, onSelect }) {
   };
 
   const sidebarClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-72 sm:w-60 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
+    ? `fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`
-    : `bg-white border-r border-neutral-200 flex-shrink-0 relative ${isOpen ? '' : 'hidden'}`;
+    : `bg-white border-r border-neutral-200 flex-shrink-0 relative transition-all duration-200 ${isOpen ? '' : 'hidden'}`;
 
-  const sidebarStyle = isMobile ? {} : { width: `${width}px` };
+  const sidebarStyle = isMobile ? {} : { width: `${effectiveWidth}px` };
 
   return (
     <>
@@ -360,8 +360,8 @@ export default function Sidebar({ selectedId, onSelect }) {
       )}
 
       <aside className={sidebarClasses} style={sidebarStyle}>
-        {/* Resize handle - only on desktop */}
-        {!isMobile && isOpen && (
+        {/* Resize handle - only on desktop when expanded */}
+        {!isMobile && isOpen && !isCollapsed && (
           <div
             onMouseDown={startResizing}
             className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-neutral-300 transition-colors ${
@@ -371,114 +371,171 @@ export default function Sidebar({ selectedId, onSelect }) {
         )}
         <div className="flex flex-col h-full">
           {/* Logo - serif typography, no icon badge */}
-          <div className="p-4 sm:p-6 border-b border-neutral-100">
+          <div className={`border-b border-neutral-100 ${isCollapsed && !isMobile ? 'p-3' : 'p-4 sm:p-5'}`}>
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 tracking-tight">Thinking Space</h1>
-                <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Your Workspace</p>
-              </div>
-              {isMobile && (
-                <button onClick={close} className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors">
-                  <X className="w-5 h-5" />
+              {isCollapsed && !isMobile ? (
+                <button
+                  onClick={toggleCollapsed}
+                  className="w-full flex items-center justify-center p-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors"
+                  title="Expand sidebar"
+                >
+                  <ChevronRight className="w-5 h-5" />
                 </button>
+              ) : (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 tracking-tight truncate">Thinking Space</h1>
+                    <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Your Workspace</p>
+                  </div>
+                  {isMobile ? (
+                    <button onClick={close} className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors flex-shrink-0">
+                      <X className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={toggleCollapsed}
+                      className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors flex-shrink-0"
+                      title="Collapse sidebar"
+                    >
+                      <ChevronDown className="w-4 h-4 rotate-90" />
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          {/* Search - minimal styling */}
-          <div className="p-3 sm:p-4">
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2.5 text-sm sm:text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 transition-colors placeholder:text-neutral-400"
-              />
+          {/* Search - minimal styling (hidden when collapsed) */}
+          {(!isCollapsed || isMobile) && (
+            <div className="p-3 sm:p-4">
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 transition-colors placeholder:text-neutral-400"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Quick Navigation */}
-          <div className="px-3 pb-3 border-b border-neutral-100 mb-3">
+          <div className={`border-b border-neutral-100 mb-3 ${isCollapsed && !isMobile ? 'px-2 pb-3' : 'px-3 pb-3'}`}>
             <button
               onClick={() => onSelect(null)}
-              className={`w-full flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+              className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 selectedId === null && selectedId !== 'reading-list'
                   ? 'bg-neutral-100 text-neutral-900 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
+              title={isCollapsed && !isMobile ? 'Dashboard' : undefined}
             >
-              <Home className="w-4 h-4" />
-              <span className="text-sm sm:text-base">Dashboard</span>
+              <Home className="w-5 h-5 flex-shrink-0" />
+              {(!isCollapsed || isMobile) && <span className="text-sm">Dashboard</span>}
             </button>
             <button
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
-              className={`w-full flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-lg cursor-pointer transition-colors mb-0.5 ${
+              className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 selectedId === 'reading-list'
                   ? 'bg-neutral-100 text-neutral-900 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
+              title={isCollapsed && !isMobile ? 'Reading List' : undefined}
             >
-              <BookMarked className="w-4 h-4" />
-              <span className="text-sm sm:text-base">Reading List</span>
+              <BookMarked className="w-5 h-5 flex-shrink-0" />
+              {(!isCollapsed || isMobile) && <span className="text-sm">Reading List</span>}
             </button>
           </div>
 
-          {/* Navigation Tree */}
-          <nav className="flex-1 overflow-y-auto px-3">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={rootSections.map(s => s.id)}
-                strategy={verticalListSortingStrategy}
+          {/* Navigation Tree - collapsed shows icons only */}
+          <nav className={`flex-1 overflow-y-auto ${isCollapsed && !isMobile ? 'px-2' : 'px-3'}`}>
+            {isCollapsed && !isMobile ? (
+              // Collapsed view - show icons only
+              <div className="space-y-1">
+                {rootSections.map((section) => {
+                  const Icon = getIcon(section.icon);
+                  const isSelected = selectedId === section.id;
+                  return (
+                    <button
+                      key={section.id}
+                      onClick={() => onSelect(section)}
+                      className={`w-full flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'bg-neutral-100 text-neutral-900'
+                          : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+                      }`}
+                      title={section.name}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              // Expanded view - full tree
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
               >
-                {rootSections.map((section) => (
-                  <TreeItem
-                    key={section.id}
-                    item={section}
-                    sections={sections}
-                    selectedId={selectedId}
-                    onSelect={onSelect}
-                    expandedIds={expandedIds}
-                    toggleExpanded={toggleExpanded}
-                    onContextMenu={handleContextMenu}
-                    searchQuery={searchQuery}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+                <SortableContext
+                  items={rootSections.map(s => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {rootSections.map((section) => (
+                    <TreeItem
+                      key={section.id}
+                      item={section}
+                      sections={sections}
+                      selectedId={selectedId}
+                      onSelect={onSelect}
+                      expandedIds={expandedIds}
+                      toggleExpanded={toggleExpanded}
+                      onContextMenu={handleContextMenu}
+                      searchQuery={searchQuery}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
           </nav>
 
           {/* Add section - simple text button */}
-          <div className="p-3 sm:p-4 border-t border-neutral-100">
+          <div className={`border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
             <button
               onClick={() => handleAddSection('folder')}
-              className="w-full text-left text-sm sm:text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
+              className={`w-full text-neutral-400 hover:text-neutral-600 transition-colors flex items-center ${
+                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'gap-2 text-left text-sm'
+              }`}
+              title={isCollapsed && !isMobile ? 'Add section' : undefined}
             >
-              <Plus size={16} />
-              Add section
+              <Plus size={18} />
+              {(!isCollapsed || isMobile) && <span>Add section</span>}
             </button>
           </div>
 
           {/* User & Logout */}
-          <div className="p-3 sm:p-4 border-t border-neutral-100 space-y-2">
-            <button
-              onClick={() => setModalState({ type: 'reset' })}
-              className="w-full text-left text-sm sm:text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
-            >
-              <RotateCcw size={16} />
-              Reset to defaults
-            </button>
+          <div className={`border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-2'}`}>
+            {(!isCollapsed || isMobile) && (
+              <button
+                onClick={() => setModalState({ type: 'reset' })}
+                className="w-full text-left text-sm text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
+              >
+                <RotateCcw size={16} />
+                Reset to defaults
+              </button>
+            )}
             <button
               onClick={handleLogout}
-              className="w-full text-left text-sm sm:text-base text-neutral-400 hover:text-red-500 transition-colors flex items-center gap-2"
+              className={`w-full text-neutral-400 hover:text-red-500 transition-colors flex items-center ${
+                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'gap-2 text-left text-sm'
+              }`}
+              title={isCollapsed && !isMobile ? 'Sign out' : undefined}
             >
-              <LogOut size={16} />
-              Sign out
+              <LogOut size={18} />
+              {(!isCollapsed || isMobile) && <span>Sign out</span>}
             </button>
           </div>
         </div>

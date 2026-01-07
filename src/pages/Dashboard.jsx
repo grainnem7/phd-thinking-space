@@ -7,17 +7,18 @@ import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
 import ReadingList from '../components/reading/ReadingList';
-import { Menu, Search } from 'lucide-react';
+import { Menu, Search, Plus, FileText, Kanban, Folder } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
 
 export default function Dashboard() {
-  const { sections, loading } = useFirestore();
+  const { sections, loading, addSection } = useFirestore();
   const { toggle, isOpen, isMobile } = useSidebar();
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -35,12 +36,22 @@ export default function Dashboard() {
       // Escape: Close modals
       if (e.key === 'Escape') {
         setSearchOpen(false);
+        setIsCreating(false);
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggle]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!isCreating) return;
+
+    const handleClickOutside = () => setIsCreating(false);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isCreating]);
 
   const handleSelect = useCallback((item) => {
     if (!item) {
@@ -115,6 +126,34 @@ export default function Dashboard() {
       )
     : [];
 
+  const handleCreateItem = async (type) => {
+    const parentId = selectedItem?.id || null;
+    const siblings = sections.filter(s => s.parentId === parentId);
+    const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order || 0)) : -1;
+
+    const newItem = {
+      name: type === 'note' ? 'Untitled Note' : type === 'board' ? 'Untitled Board' : 'New Folder',
+      type,
+      parentId,
+      order: maxOrder + 1,
+      ...(type === 'board' && {
+        columns: [
+          { id: 'todo', name: 'To Do', order: 0 },
+          { id: 'in-progress', name: 'In Progress', order: 1 },
+          { id: 'done', name: 'Done', order: 2 },
+        ],
+        tasks: [],
+      }),
+    };
+
+    const newId = await addSection(newItem);
+    if (newId) {
+      // Navigate to the new item
+      handleSelect({ id: newId, ...newItem });
+    }
+    setIsCreating(false);
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -149,20 +188,82 @@ export default function Dashboard() {
 
     // Folder - show children
     return (
-      <div className="flex-1 p-10 bg-[#fafafa]">
-        <h2 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight mb-6">{selectedItem.name}</h2>
+      <div className="flex-1 p-6 sm:p-10 bg-[#fafafa]">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight">{selectedItem.name}</h2>
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsCreating(!isCreating); }}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+            >
+              <Plus size={16} />
+              Add
+            </button>
+            {isCreating && (
+              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-10">
+                <button
+                  onClick={() => handleCreateItem('note')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  <FileText size={16} className="text-neutral-400" />
+                  New Note
+                </button>
+                <button
+                  onClick={() => handleCreateItem('board')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  <Kanban size={16} className="text-neutral-400" />
+                  New Board
+                </button>
+                <button
+                  onClick={() => handleCreateItem('folder')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                >
+                  <Folder size={16} className="text-neutral-400" />
+                  New Folder
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
         {children.length === 0 ? (
-          <p className="text-sm text-neutral-400">This folder is empty. Add notes or boards from the sidebar.</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
+              <Folder size={24} className="text-neutral-400" />
+            </div>
+            <p className="text-neutral-500 mb-4">This folder is empty</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleCreateItem('note')}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+              >
+                <FileText size={16} />
+                Add Note
+              </button>
+              <button
+                onClick={() => handleCreateItem('board')}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+              >
+                <Kanban size={16} />
+                Add Board
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {children.map((child) => (
               <button
                 key={child.id}
                 onClick={() => handleSelect(child)}
-                className="p-4 bg-white border border-neutral-200 rounded-xl text-left hover:border-neutral-300 transition-colors"
+                className="p-4 bg-white border border-neutral-200 rounded-xl text-left hover:border-neutral-300 transition-colors group"
               >
-                <p className="text-base text-neutral-900">{child.name}</p>
-                <p className="text-xs text-neutral-400 mt-1 capitalize">{child.type}</p>
+                <div className="flex items-center gap-3">
+                  {child.type === 'note' && <FileText size={18} className="text-neutral-400" />}
+                  {child.type === 'board' && <Kanban size={18} className="text-neutral-400" />}
+                  {child.type === 'folder' && <Folder size={18} className="text-neutral-400" />}
+                  {!child.type && <FileText size={18} className="text-neutral-400" />}
+                  <p className="text-base text-neutral-900 group-hover:text-neutral-700">{child.name}</p>
+                </div>
               </button>
             ))}
           </div>
