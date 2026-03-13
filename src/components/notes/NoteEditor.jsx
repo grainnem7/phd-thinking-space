@@ -7,21 +7,13 @@ import { Packer } from "docx";
 import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
 import { pdf } from "@react-pdf/renderer";
 
-export default function NoteEditor({ note }) {
-  const [content, setContent] = useState('');
+export default function NoteEditor({ note, updateSection }) {
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const { isSaving, lastSaved, debouncedSave } = useNotes(note?.id);
+  const { isSaving, lastSaved, error, debouncedSave } = useNotes(note?.id, updateSection);
   const editorRef = useRef(null);
 
-  useEffect(() => {
-    if (note?.content !== undefined) {
-      setContent(note.content);
-    }
-  }, [note?.id, note?.content]);
-
   const handleChange = useCallback((newContent) => {
-    setContent(newContent);
     debouncedSave(newContent);
   }, [debouncedSave]);
 
@@ -142,13 +134,18 @@ export default function NoteEditor({ note }) {
           <span className="text-xs text-neutral-300">
             {isSaving ? 'Saving...' : lastSaved ? `Saved ${formatLastSaved()}` : ''}
           </span>
+          {error && (
+            <span className="text-xs text-red-500" title={error}>
+              Save failed
+            </span>
+          )}
         </div>
       </div>
 
       {/* Editor */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-10 py-10">
-          <BlockNoteEditor ref={editorRef} content={content} onChange={handleChange} />
+          <BlockNoteEditor key={note?.id} ref={editorRef} content={note?.content} onChange={handleChange} />
         </div>
       </div>
     </div>

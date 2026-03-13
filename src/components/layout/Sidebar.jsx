@@ -42,6 +42,7 @@ import {
   Home,
   RotateCcw,
   Monitor,
+  UserPlus,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -212,7 +213,7 @@ function TreeItem({
 
 export default function Sidebar({ selectedId, onSelect }) {
   const { isOpen, isCollapsed, close, isMobile, isTablet, effectiveWidth, isResizing, startResizing, toggleCollapsed, expand } = useSidebar();
-  const { user, logout } = useAuth();
+  const { user, logout, isDemo } = useAuth();
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const navigate = useNavigate();
@@ -521,6 +522,13 @@ export default function Sidebar({ selectedId, onSelect }) {
 
           {/* User & Logout */}
           <div className={`flex-shrink-0 border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-2'}`}>
+            {/* Demo mode banner */}
+            {isDemo && (!isCollapsed || isMobile) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2">
+                <p className="text-xs text-amber-700 font-medium">Demo Mode</p>
+                <p className="text-xs text-amber-600 mt-0.5">Changes are stored locally only</p>
+              </div>
+            )}
             {/* E-ink mode toggle */}
             <button
               onClick={toggleEinkMode}
@@ -548,16 +556,29 @@ export default function Sidebar({ selectedId, onSelect }) {
                 Reset to defaults
               </button>
             )}
-            <button
-              onClick={handleLogout}
-              className={`w-full text-neutral-400 hover:text-red-500 transition-colors flex items-center ${
-                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'gap-2 text-left text-sm'
-              }`}
-              title={isCollapsed && !isMobile ? 'Sign out' : undefined}
-            >
-              <LogOut size={18} />
-              {(!isCollapsed || isMobile) && <span>Sign out</span>}
-            </button>
+            {isDemo ? (
+              <button
+                onClick={handleLogout}
+                className={`w-full text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-colors flex items-center rounded-lg ${
+                  isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 text-left text-sm px-3 py-2'
+                }`}
+                title={isCollapsed && !isMobile ? 'Sign up' : undefined}
+              >
+                <UserPlus size={18} />
+                {(!isCollapsed || isMobile) && <span>Sign up to save</span>}
+              </button>
+            ) : (
+              <button
+                onClick={handleLogout}
+                className={`w-full text-neutral-400 hover:text-red-500 transition-colors flex items-center ${
+                  isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'gap-2 text-left text-sm'
+                }`}
+                title={isCollapsed && !isMobile ? 'Sign out' : undefined}
+              >
+                <LogOut size={18} />
+                {(!isCollapsed || isMobile) && <span>Sign out</span>}
+              </button>
+            )}
           </div>
         </div>
       </aside>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { differenceInDays, format, parseISO } from 'date-fns';
+import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import WidgetWrapper from './WidgetWrapper';
 
 export default function DeadlineWidget({ onRemove, deadlines = [], onAddDeadline, onDeleteDeadline }) {
@@ -8,7 +8,7 @@ export default function DeadlineWidget({ onRemove, deadlines = [], onAddDeadline
   const [newDeadline, setNewDeadline] = useState({ title: '', date: '' });
 
   const getDaysRemaining = (dateStr) => {
-    return differenceInDays(parseISO(dateStr), new Date());
+    return differenceInCalendarDays(parseISO(dateStr), new Date());
   };
 
   const handleAdd = () => {

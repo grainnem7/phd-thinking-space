@@ -22,15 +22,111 @@ const defaultTabs = [
   { id: 'questions', name: 'Questions' },
 ];
 
+// Demo data for papers
+const DEMO_PAPERS = [
+  {
+    id: 'demo-paper-1',
+    title: 'Attention Is All You Need',
+    authors: 'Vaswani, A., Shazeer, N., Parmar, N., et al.',
+    year: 2017,
+    url: 'https://arxiv.org/abs/1706.03762',
+    doi: '',
+    journal: 'Advances in Neural Information Processing Systems',
+    status: 'read',
+    priority: 'high',
+    starred: true,
+    collections: ['demo-collection-1'],
+    summary: 'Introduces the Transformer architecture, which has become the foundation for modern NLP models.',
+    tabs: defaultTabs,
+    tabContent: {
+      notes: '# Key Takeaways\n\n- Self-attention mechanism replaces recurrence\n- Parallel processing enables faster training\n- Multi-head attention captures different aspects of relationships',
+      quotes: '"We propose a new simple network architecture, the Transformer, based solely on attention mechanisms"',
+      questions: '- How does the positional encoding work exactly?\n- What are the limitations of self-attention for very long sequences?'
+    },
+    createdAt: new Date('2024-01-15').toISOString(),
+  },
+  {
+    id: 'demo-paper-2',
+    title: 'Deep Residual Learning for Image Recognition',
+    authors: 'He, K., Zhang, X., Ren, S., Sun, J.',
+    year: 2016,
+    url: 'https://arxiv.org/abs/1512.03385',
+    journal: 'CVPR',
+    status: 'reading',
+    priority: 'medium',
+    starred: false,
+    collections: ['demo-collection-1'],
+    summary: 'Introduces residual connections that enable training of very deep neural networks.',
+    tabs: defaultTabs,
+    tabContent: { notes: '', quotes: '', questions: '' },
+    createdAt: new Date('2024-01-10').toISOString(),
+  },
+  {
+    id: 'demo-paper-3',
+    title: 'BERT: Pre-training of Deep Bidirectional Transformers',
+    authors: 'Devlin, J., Chang, M., Lee, K., Toutanova, K.',
+    year: 2019,
+    url: 'https://arxiv.org/abs/1810.04805',
+    journal: 'NAACL',
+    status: 'to-read',
+    priority: null,
+    starred: true,
+    collections: ['demo-collection-2'],
+    summary: '',
+    tabs: defaultTabs,
+    tabContent: { notes: '', quotes: '', questions: '' },
+    createdAt: new Date('2024-01-05').toISOString(),
+  },
+];
+
+const DEMO_COLLECTIONS = [
+  { id: 'demo-collection-1', name: 'Deep Learning Foundations' },
+  { id: 'demo-collection-2', name: 'NLP Papers' },
+];
+
 export function useReadingList() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const [papers, setPapers] = useState([]);
   const [collections, setCollections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper to save demo data
+  const saveDemoPapers = useCallback((newPapers) => {
+    setPapers(newPapers);
+    sessionStorage.setItem('demo-papers', JSON.stringify(newPapers));
+  }, []);
+
+  const saveDemoCollections = useCallback((newCollections) => {
+    setCollections(newCollections);
+    sessionStorage.setItem('demo-collections', JSON.stringify(newCollections));
+  }, []);
+
   // Subscribe to papers
   useEffect(() => {
     if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Demo mode: use local state
+    if (isDemo) {
+      const savedPapers = sessionStorage.getItem('demo-papers');
+      const savedCollections = sessionStorage.getItem('demo-collections');
+
+      if (savedPapers) {
+        setPapers(JSON.parse(savedPapers));
+      } else {
+        setPapers(DEMO_PAPERS);
+        sessionStorage.setItem('demo-papers', JSON.stringify(DEMO_PAPERS));
+      }
+
+      if (savedCollections) {
+        setCollections(JSON.parse(savedCollections));
+      } else {
+        setCollections(DEMO_COLLECTIONS);
+        sessionStorage.setItem('demo-collections', JSON.stringify(DEMO_COLLECTIONS));
+      }
+
       setIsLoading(false);
       return;
     }
@@ -51,11 +147,11 @@ export function useReadingList() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isDemo]);
 
   // Subscribe to collections
   useEffect(() => {
-    if (!user) return;
+    if (!user || isDemo) return;
 
     const collectionsRef = collection(db, 'users', user.uid, 'paperCollections');
     const q = query(collectionsRef, orderBy('name', 'asc'));
@@ -71,11 +167,40 @@ export function useReadingList() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isDemo]);
 
   // Add paper with new data model
   const addPaper = useCallback(async (paperData) => {
     if (!user) return null;
+
+    // Demo mode: local state
+    if (isDemo) {
+      const newId = `demo-paper-${Date.now()}`;
+      const newPaper = {
+        id: newId,
+        title: paperData.title || 'Untitled',
+        authors: paperData.authors || '',
+        year: paperData.year || null,
+        url: paperData.url || '',
+        doi: paperData.doi || '',
+        journal: paperData.journal || '',
+        publisher: paperData.publisher || '',
+        volume: paperData.volume || '',
+        issue: paperData.issue || '',
+        pages: paperData.pages || '',
+        status: paperData.status || 'to-read',
+        priority: paperData.priority || null,
+        starred: paperData.starred || false,
+        collections: paperData.collections || [],
+        summary: paperData.summary || '',
+        tabs: defaultTabs,
+        tabContent: { notes: '', quotes: '', questions: '' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      saveDemoPapers([newPaper, ...papers]);
+      return newId;
+    }
 
     try {
       const papersRef = collection(db, 'users', user.uid, 'papers');
@@ -109,11 +234,22 @@ export function useReadingList() {
       console.error('Error adding paper:', error);
       return null;
     }
-  }, [user]);
+  }, [user, isDemo, papers, saveDemoPapers]);
 
   // Update paper
   const updatePaper = useCallback(async (paperId, updates) => {
     if (!user) return;
+
+    // Demo mode: local state
+    if (isDemo) {
+      const newPapers = papers.map(p =>
+        p.id === paperId
+          ? { ...p, ...updates, updatedAt: new Date().toISOString() }
+          : p
+      );
+      saveDemoPapers(newPapers);
+      return;
+    }
 
     try {
       const paperRef = doc(db, 'users', user.uid, 'papers', paperId);
@@ -126,11 +262,17 @@ export function useReadingList() {
     } catch (error) {
       console.error('Error updating paper:', error);
     }
-  }, [user]);
+  }, [user, isDemo, papers, saveDemoPapers]);
 
   // Delete paper (and associated file if exists)
   const deletePaper = useCallback(async (paperId) => {
     if (!user) return;
+
+    // Demo mode: local state
+    if (isDemo) {
+      saveDemoPapers(papers.filter(p => p.id !== paperId));
+      return;
+    }
 
     try {
       const paperRef = doc(db, 'users', user.uid, 'papers', paperId);
@@ -156,7 +298,7 @@ export function useReadingList() {
     } catch (error) {
       console.error('Error deleting paper:', error);
     }
-  }, [user]);
+  }, [user, isDemo, papers, saveDemoPapers]);
 
   // Add collection
   const addCollection = useCallback(async (name) => {
@@ -165,6 +307,13 @@ export function useReadingList() {
     // Check if collection already exists
     const existingCollection = collections.find(c => c.name.toLowerCase() === name.toLowerCase());
     if (existingCollection) return existingCollection.id;
+
+    // Demo mode: local state
+    if (isDemo) {
+      const newId = `demo-collection-${Date.now()}`;
+      saveDemoCollections([...collections, { id: newId, name }]);
+      return newId;
+    }
 
     try {
       const collectionsRef = collection(db, 'users', user.uid, 'paperCollections');
@@ -177,11 +326,20 @@ export function useReadingList() {
       console.error('Error adding collection:', error);
       return null;
     }
-  }, [user, collections]);
+  }, [user, isDemo, collections, saveDemoCollections]);
 
   // Update collection
   const updateCollection = useCallback(async (collectionId, updates) => {
     if (!user) return;
+
+    // Demo mode: local state
+    if (isDemo) {
+      const newCollections = collections.map(c =>
+        c.id === collectionId ? { ...c, ...updates } : c
+      );
+      saveDemoCollections(newCollections);
+      return;
+    }
 
     try {
       const collectionRef = doc(db, 'users', user.uid, 'paperCollections', collectionId);
@@ -189,11 +347,23 @@ export function useReadingList() {
     } catch (error) {
       console.error('Error updating collection:', error);
     }
-  }, [user]);
+  }, [user, isDemo, collections, saveDemoCollections]);
 
   // Delete collection
   const deleteCollection = useCallback(async (collectionId) => {
     if (!user) return;
+
+    // Demo mode: local state
+    if (isDemo) {
+      saveDemoCollections(collections.filter(c => c.id !== collectionId));
+      // Remove collection from all papers
+      const updatedPapers = papers.map(p => ({
+        ...p,
+        collections: (p.collections || []).filter(c => c !== collectionId)
+      }));
+      saveDemoPapers(updatedPapers);
+      return;
+    }
 
     try {
       const collectionRef = doc(db, 'users', user.uid, 'paperCollections', collectionId);
@@ -210,7 +380,7 @@ export function useReadingList() {
     } catch (error) {
       console.error('Error deleting collection:', error);
     }
-  }, [user, papers, updatePaper]);
+  }, [user, isDemo, papers, collections, saveDemoPapers, saveDemoCollections, updatePaper]);
 
   // Tab management
   const addTab = useCallback(async (paperId, tabName = 'New Tab') => {

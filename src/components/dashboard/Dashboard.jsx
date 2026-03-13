@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, Trash2, Pencil, X, Check } from 'lucide-react';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useFirestore } from '../../hooks/useFirestore';
-import { format, formatDistanceToNow, differenceInDays, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, differenceInCalendarDays, parseISO } from 'date-fns';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -21,8 +21,10 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
     todos,
     isLoading,
     addDeadline,
+    updateDeadline,
     deleteDeadline,
     addScheduleBlock,
+    updateScheduleBlock,
     deleteScheduleBlock,
     addQuickCapture,
     addTodo,
@@ -80,6 +82,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
             <DeadlinesWidget
               deadlines={deadlines}
               onAddDeadline={addDeadline}
+              onUpdateDeadline={updateDeadline}
               onDeleteDeadline={deleteDeadline}
             />
           </div>
@@ -90,6 +93,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
               currentTime={currentTime}
               blocks={scheduleBlocks}
               onAddBlock={addScheduleBlock}
+              onUpdateBlock={updateScheduleBlock}
               onDeleteBlock={deleteScheduleBlock}
             />
           </div>
@@ -133,11 +137,13 @@ function WidgetHeader({ title, onAdd }) {
   );
 }
 
-function DeadlinesWidget({ deadlines = [], onAddDeadline, onDeleteDeadline }) {
+function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDeleteDeadline }) {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [newDeadline, setNewDeadline] = useState({ title: '', date: '' });
+  const [editDeadline, setEditDeadline] = useState({ title: '', date: '' });
 
-  const getDaysRemaining = (dateStr) => differenceInDays(parseISO(dateStr), new Date());
+  const getDaysRemaining = (dateStr) => differenceInCalendarDays(parseISO(dateStr), new Date());
 
   const handleAdd = () => {
     if (newDeadline.title && newDeadline.date) {
@@ -145,6 +151,24 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onDeleteDeadline }) {
       setNewDeadline({ title: '', date: '' });
       setIsAdding(false);
     }
+  };
+
+  const handleStartEdit = (d) => {
+    setEditingId(d.id);
+    setEditDeadline({ title: d.title, date: d.date });
+  };
+
+  const handleSaveEdit = () => {
+    if (editDeadline.title && editDeadline.date && editingId) {
+      onUpdateDeadline?.(editingId, { title: editDeadline.title, date: editDeadline.date });
+      setEditingId(null);
+      setEditDeadline({ title: '', date: '' });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditDeadline({ title: '', date: '' });
   };
 
   const sorted = [...deadlines].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -190,6 +214,39 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onDeleteDeadline }) {
               const days = getDaysRemaining(d.date);
               const isUrgent = days <= 7 && days >= 0;
               const isOverdue = days < 0;
+              const isEditing = editingId === d.id;
+
+              if (isEditing) {
+                return (
+                  <div key={d.id} className="p-4 sm:p-6 space-y-3 bg-neutral-50">
+                    <input
+                      type="text"
+                      placeholder="Deadline title"
+                      value={editDeadline.title}
+                      onChange={(e) => setEditDeadline({ ...editDeadline, title: e.target.value })}
+                      className="w-full px-3 py-2.5 text-base bg-white border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-400"
+                      autoFocus
+                    />
+                    <input
+                      type="date"
+                      value={editDeadline.date}
+                      onChange={(e) => setEditDeadline({ ...editDeadline, date: e.target.value })}
+                      className="w-full px-3 py-2.5 text-base bg-white border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveEdit} disabled={!editDeadline.title || !editDeadline.date}
+                        className="flex-1 py-2 text-base text-neutral-600 hover:text-neutral-900 transition-colors disabled:text-neutral-300 flex items-center justify-center gap-1">
+                        <Check size={16} /> Save
+                      </button>
+                      <button onClick={handleCancelEdit}
+                        className="flex-1 py-2 text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center justify-center gap-1">
+                        <X size={16} /> Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={d.id} className={`px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between group ${isOverdue ? 'opacity-40' : ''}`}>
                   <div className="flex-1 min-w-0 mr-3">
@@ -198,13 +255,33 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onDeleteDeadline }) {
                       {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : format(parseISO(d.date), 'MMM d')}
                     </p>
                   </div>
-                  <div className="flex items-baseline gap-1 flex-shrink-0">
-                    <span className={`font-serif text-3xl sm:text-4xl font-medium tabular-nums ${isUrgent ? 'text-amber-600' : 'text-neutral-300'}`}>
-                      {isOverdue ? Math.abs(days) : days}
-                    </span>
-                    <span className={`text-sm sm:text-base ${isUrgent ? 'text-amber-600' : 'text-neutral-400'}`}>
-                      days
-                    </span>
+                  <div className="flex items-center gap-2">
+                    {/* Action buttons - visible on hover */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleStartEdit(d)}
+                        className="p-1.5 text-neutral-300 hover:text-neutral-600 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => onDeleteDeadline?.(d.id)}
+                        className="p-1.5 text-neutral-300 hover:text-red-500 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    {/* Days display */}
+                    <div className="flex items-baseline gap-1 flex-shrink-0">
+                      <span className={`font-serif text-3xl sm:text-4xl font-medium tabular-nums ${isUrgent ? 'text-amber-600' : 'text-neutral-300'}`}>
+                        {isOverdue ? Math.abs(days) : days}
+                      </span>
+                      <span className={`text-sm sm:text-base ${isUrgent ? 'text-amber-600' : 'text-neutral-400'}`}>
+                        days
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
@@ -216,9 +293,11 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onDeleteDeadline }) {
   );
 }
 
-function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onDeleteBlock }) {
+function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, onDeleteBlock }) {
   const [isAdding, setIsAdding] = useState(false);
   const [newBlock, setNewBlock] = useState({ title: '', startTime: '09:00', endTime: '10:00' });
+  const [editingId, setEditingId] = useState(null);
+  const [editBlock, setEditBlock] = useState({ title: '', startTime: '09:00', endTime: '10:00' });
 
   const parseTime = (timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -280,13 +359,88 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onDeleteBlock })
             {sortedBlocks.map((block) => {
               const isPast = parseTime(block.endTime) < currentMinutes;
               const isCurrent = block.id === currentBlock?.id;
+
+              if (editingId === block.id) {
+                return (
+                  <div key={block.id} className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100">
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={editBlock.title}
+                        onChange={(e) => setEditBlock({ ...editBlock, title: e.target.value })}
+                        placeholder="Task name"
+                        className="w-full px-3 py-2.5 text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="time"
+                          value={editBlock.startTime}
+                          onChange={(e) => setEditBlock({ ...editBlock, startTime: e.target.value })}
+                          className="flex-1 px-3 py-2.5 text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                        />
+                        <input
+                          type="time"
+                          value={editBlock.endTime}
+                          onChange={(e) => setEditBlock({ ...editBlock, endTime: e.target.value })}
+                          className="flex-1 px-3 py-2.5 text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (!editBlock.title.trim()) return;
+                            onUpdateBlock?.(block.id, {
+                              title: editBlock.title.trim(),
+                              startTime: editBlock.startTime,
+                              endTime: editBlock.endTime,
+                            });
+                            setEditingId(null);
+                          }}
+                          className="flex-1 py-2 text-base text-neutral-600 hover:text-neutral-900 transition-colors"
+                        >
+                          <Check size={16} className="inline mr-2" />
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="flex-1 py-2 text-base text-neutral-400 hover:text-neutral-600 transition-colors"
+                        >
+                          <X size={16} className="inline mr-2" />
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={block.id} className={`px-4 sm:px-6 py-3 sm:py-4 flex items-start gap-3 sm:gap-5 ${isPast ? 'opacity-40' : ''} ${isCurrent ? 'bg-neutral-50' : ''}`}>
                   <span className={`text-base sm:text-lg tabular-nums flex-shrink-0 ${isCurrent ? 'text-neutral-900 font-medium' : 'text-neutral-400'}`}>
                     {block.startTime}
                   </span>
                   <p className={`flex-1 text-base sm:text-lg ${isCurrent ? 'text-neutral-900 font-medium' : 'text-neutral-600'}`}>{block.title}</p>
-                  {isCurrent && <span className="text-xs sm:text-sm text-rose-500 font-medium uppercase flex-shrink-0">Now</span>}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingId(block.id);
+                        setEditBlock({ title: block.title, startTime: block.startTime, endTime: block.endTime });
+                      }}
+                      className="p-1.5 text-neutral-300 hover:text-neutral-600 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => onDeleteBlock?.(block.id)}
+                      className="p-1.5 text-neutral-300 hover:text-red-500 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    {isCurrent && <span className="text-xs sm:text-sm text-rose-500 font-medium uppercase flex-shrink-0">Now</span>}
+                  </div>
                 </div>
               );
             })}

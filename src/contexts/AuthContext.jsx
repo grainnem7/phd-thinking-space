@@ -2,10 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
-  updateProfile,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../lib/firebase';
@@ -20,11 +17,30 @@ export function useAuth() {
   return context;
 }
 
+// Demo user constant
+const DEMO_USER = {
+  uid: 'demo-user',
+  email: 'demo@example.com',
+  displayName: 'Demo User',
+  photoURL: null,
+  isDemo: true,
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
+    // Check for existing demo session
+    const demoSession = sessionStorage.getItem('demo-mode');
+    if (demoSession === 'true') {
+      setUser(DEMO_USER);
+      setIsDemo(true);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'profile', 'info'));
@@ -102,28 +118,33 @@ export function AuthProvider({ children }) {
     return result.user;
   };
 
-  const signInWithEmail = async (email, password) => {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
+  const enterDemoMode = () => {
+    sessionStorage.setItem('demo-mode', 'true');
+    setUser(DEMO_USER);
+    setIsDemo(true);
   };
 
-  const signUpWithEmail = async (email, password, displayName) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(result.user, { displayName });
-    await createUserProfile({ ...result.user, displayName });
-    return result.user;
+  const exitDemoMode = () => {
+    sessionStorage.removeItem('demo-mode');
+    setUser(null);
+    setIsDemo(false);
   };
 
   const logout = async () => {
-    await signOut(auth);
+    if (isDemo) {
+      exitDemoMode();
+    } else {
+      await signOut(auth);
+    }
   };
 
   const value = {
     user,
     loading,
+    isDemo,
     signInWithGoogle,
-    signInWithEmail,
-    signUpWithEmail,
+    enterDemoMode,
+    exitDemoMode,
     logout,
   };
 

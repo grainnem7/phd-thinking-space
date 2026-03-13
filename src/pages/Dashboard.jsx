@@ -232,7 +232,7 @@ export default function Dashboard() {
 
     // If it's explicitly a note, or has no children (leaf node), show editor
     if (selectedItem.type === 'note' || (selectedItem.type !== 'folder' && children.length === 0)) {
-      return <NoteEditor note={selectedItem} sections={sections} />;
+      return <NoteEditor note={selectedItem} sections={sections} updateSection={updateSection} />;
     }
 
     // Folder - show children
