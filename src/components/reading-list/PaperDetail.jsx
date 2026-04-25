@@ -4,6 +4,7 @@ import TabEditor from './TabEditor';
 import { generateHarvardReference, generateInTextCitation } from '../../utils/paperMetadata';
 import { useStorage } from '../../hooks/useStorage';
 import { useAuth } from '../../hooks/useAuth';
+import { useConfirm } from '../common/ConfirmDialog';
 
 const STATUS_OPTIONS = [
   { id: 'to-read', label: 'To Read' },
@@ -232,6 +233,7 @@ function ReferenceSection({ paper }) {
 }
 
 export default function PaperDetail({ paper, collections, onBack, onUpdate, onDelete }) {
+  const confirm = useConfirm();
   const [activeTabId, setActiveTabId] = useState(paper.tabs?.[0]?.id || 'notes');
   const [editingTabId, setEditingTabId] = useState(null);
   const [editingTabName, setEditingTabName] = useState('');
@@ -283,6 +285,18 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
 
   const handleDeleteTab = async (tabId) => {
     if ((paper.tabs || []).length <= 1) return;
+
+    const tab = (paper.tabs || []).find(t => t.id === tabId);
+    const hasContent = !!(paper.tabContent?.[tabId]);
+    const ok = await confirm({
+      title: tab ? `Delete tab "${tab.name}"?` : 'Delete tab?',
+      body: hasContent
+        ? 'The notes in this tab will be permanently deleted. This cannot be undone.'
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
 
     const updatedTabs = (paper.tabs || []).filter(tab => tab.id !== tabId);
     const updatedContent = { ...(paper.tabContent || {}) };

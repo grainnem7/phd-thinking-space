@@ -149,7 +149,7 @@ export function useDashboard() {
     }
 
     const capturesRef = collection(db, 'users', user.uid, 'quickCaptures');
-    const q = query(capturesRef, orderBy('createdAt', 'desc'), limit(10));
+    const q = query(capturesRef, orderBy('createdAt', 'desc'), limit(100));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const capturesList = snapshot.docs.map((doc) => ({

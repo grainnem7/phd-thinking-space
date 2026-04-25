@@ -44,6 +44,9 @@ export function useNotes(noteId, saveSection) {
         }, { merge: true });
       }
 
+      // Clear pending marker once the save has actually committed
+      pendingContentRef.current = null;
+
       if (shouldUpdateState) {
         setLastSaved(new Date());
         setError(null);
@@ -67,6 +70,22 @@ export function useNotes(noteId, saveSection) {
       saveContent(content);
     }, 2000);
   }, [saveContent]);
+
+  // Warn the user if they try to leave the tab while a debounced save is pending.
+  // pendingContentRef is set on every keystroke via debouncedSave and cleared
+  // only after the save has committed; covers both the 2s debounce window and
+  // any in-flight save that hasn't returned yet.
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (pendingContentRef.current !== null) {
+        e.preventDefault();
+        // Required for some older browsers; modern Chrome/Firefox use the event default.
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   // Flush pending save when switching notes or unmounting
   useEffect(() => {

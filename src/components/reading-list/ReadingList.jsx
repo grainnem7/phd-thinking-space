@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Search as SearchIcon, X, Plus, Settings } from 'lucide-react';
 import { useReadingList } from '../../hooks/useReadingList';
+import { useConfirm } from '../common/ConfirmDialog';
 import PaperDetail from './PaperDetail';
 import AddPaperModal from './AddPaperModal';
 
@@ -25,6 +26,7 @@ export default function ReadingList() {
     getCounts,
   } = useReadingList();
 
+  const confirm = useConfirm();
   const [selectedPaperId, setSelectedPaperId] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeCollection, setActiveCollection] = useState('all');
@@ -33,6 +35,22 @@ export default function ReadingList() {
   const [showCollections, setShowCollections] = useState(false);
   const [showAddPaper, setShowAddPaper] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+
+  const handleDeleteCollection = async (col) => {
+    const paperCount = papers.filter(p => p.collections?.includes(col.id)).length;
+    const ok = await confirm({
+      title: `Delete collection "${col.name}"?`,
+      body: paperCount > 0
+        ? `${paperCount} ${paperCount === 1 ? 'paper has' : 'papers have'} this collection label. The papers will not be deleted, but they will lose this label. This cannot be undone.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) {
+      if (activeCollection === col.id) setActiveCollection('all');
+      deleteCollection(col.id);
+    }
+  };
 
   const counts = getCounts();
 
@@ -267,8 +285,10 @@ export default function ReadingList() {
                   <div key={col.id} className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 rounded-full text-sm">
                     <span className="text-neutral-700">{col.name}</span>
                     <button
-                      onClick={() => deleteCollection(col.id)}
-                      className="text-neutral-400 hover:text-neutral-600 transition-colors"
+                      onClick={() => handleDeleteCollection(col)}
+                      aria-label={`Delete ${col.name} collection`}
+                      title={`Delete "${col.name}"`}
+                      className="text-neutral-400 hover:text-red-500 transition-colors"
                     >
                       <X size={14} />
                     </button>

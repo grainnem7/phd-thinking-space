@@ -59,20 +59,23 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  const createUserProfile = async (user) => {
+  const createUserProfile = async (user, { skipDefaults = false } = {}) => {
     const profileRef = doc(db, 'users', user.uid, 'profile', 'info');
     const profileSnap = await getDoc(profileRef);
-    
+
     if (!profileSnap.exists()) {
       await setDoc(profileRef, {
         displayName: user.displayName || 'User',
         email: user.email,
         createdAt: serverTimestamp(),
       });
-      
-      // Create default sections
-      await createDefaultSections(user.uid);
+
+      if (!skipDefaults) {
+        await createDefaultSections(user.uid);
+      }
     }
+
+    return !profileSnap.exists();
   };
 
   const createDefaultSections = async (userId) => {
@@ -112,10 +115,57 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async ({ skipDefaults = false } = {}) => {
     const result = await signInWithPopup(auth, googleProvider);
-    await createUserProfile(result.user);
-    return result.user;
+    const isNewUser = await createUserProfile(result.user, { skipDefaults });
+    return { user: result.user, isNewUser };
+  };
+
+  // Demo storage keys → Firestore subcollection names
+  const DEMO_MIGRATION_MAP = {
+    'demo-sections': 'sections',
+    'demo-deadlines': 'deadlines',
+    'demo-scheduleBlocks': 'scheduleBlocks',
+    'demo-quickCaptures': 'quickCaptures',
+    'demo-todos': 'dashboardTodos',
+    'demo-papers': 'papers',
+    'demo-collections': 'paperCollections',
+  };
+
+  const hasDemoData = () =>
+    Object.keys(DEMO_MIGRATION_MAP).some((k) => sessionStorage.getItem(k));
+
+  const clearDemoData = () => {
+    Object.keys(DEMO_MIGRATION_MAP).forEach((k) => sessionStorage.removeItem(k));
+    sessionStorage.removeItem('demo-mode');
+  };
+
+  const migrateDemoData = async (userId) => {
+    const { collection, addDoc } = await import('firebase/firestore');
+    let migratedCount = 0;
+    for (const [storageKey, firestoreCollection] of Object.entries(DEMO_MIGRATION_MAP)) {
+      const raw = sessionStorage.getItem(storageKey);
+      if (!raw) continue;
+      try {
+        const items = JSON.parse(raw);
+        if (!Array.isArray(items)) continue;
+        const collRef = collection(db, 'users', userId, firestoreCollection);
+        for (const item of items) {
+          // Strip the demo-prefixed local id; let Firestore assign a new one
+          const { id: _ignored, ...rest } = item;
+          await addDoc(collRef, {
+            ...rest,
+            createdAt: rest.createdAt || serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          migratedCount += 1;
+        }
+      } catch (e) {
+        console.error(`Failed to migrate ${storageKey}:`, e);
+      }
+    }
+    clearDemoData();
+    return migratedCount;
   };
 
   const enterDemoMode = () => {
@@ -146,6 +196,9 @@ export function AuthProvider({ children }) {
     enterDemoMode,
     exitDemoMode,
     logout,
+    hasDemoData,
+    migrateDemoData,
+    clearDemoData,
   };
 
   return (

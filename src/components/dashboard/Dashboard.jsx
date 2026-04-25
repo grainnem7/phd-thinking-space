@@ -4,6 +4,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useFirestore } from '../../hooks/useFirestore';
 import { format, formatDistanceToNow } from 'date-fns';
 import { daysUntil, parseLocalDate } from '../../utils/date';
+import { useConfirm } from '../common/ConfirmDialog';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -36,10 +37,56 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
   } = useDashboard();
 
   const { sections: allSections } = useFirestore();
+  const confirm = useConfirm();
 
   const boards = useMemo(() => {
     return allSections.filter(s => s.type === 'board');
   }, [allSections]);
+
+  const confirmDeleteDeadline = useCallback(async (id) => {
+    const item = deadlines.find(d => d.id === id);
+    const ok = await confirm({
+      title: item ? `Delete "${item.title}"?` : 'Delete deadline?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) deleteDeadline(id);
+  }, [deadlines, deleteDeadline, confirm]);
+
+  const confirmDeleteScheduleBlock = useCallback(async (id) => {
+    const item = scheduleBlocks.find(b => b.id === id);
+    const ok = await confirm({
+      title: item ? `Delete "${item.title}"?` : 'Delete time block?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) deleteScheduleBlock(id);
+  }, [scheduleBlocks, deleteScheduleBlock, confirm]);
+
+  const confirmDeleteQuickCapture = useCallback(async (id) => {
+    const item = quickCaptures.find(c => c.id === id);
+    const preview = item?.text ? (item.text.length > 50 ? `${item.text.slice(0, 50)}…` : item.text) : 'this capture';
+    const ok = await confirm({
+      title: 'Delete capture?',
+      body: `"${preview}"\n\nThis cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) deleteQuickCapture(id);
+  }, [quickCaptures, deleteQuickCapture, confirm]);
+
+  const confirmDeleteTodo = useCallback(async (id) => {
+    const item = todos.find(t => t.id === id);
+    const ok = await confirm({
+      title: item ? `Delete "${item.title}"?` : 'Delete todo?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) deleteTodo(id);
+  }, [todos, deleteTodo, confirm]);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -86,7 +133,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
               deadlines={deadlines}
               onAddDeadline={addDeadline}
               onUpdateDeadline={updateDeadline}
-              onDeleteDeadline={deleteDeadline}
+              onDeleteDeadline={confirmDeleteDeadline}
             />
           </div>
 
@@ -97,7 +144,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
               blocks={scheduleBlocks}
               onAddBlock={addScheduleBlock}
               onUpdateBlock={updateScheduleBlock}
-              onDeleteBlock={deleteScheduleBlock}
+              onDeleteBlock={confirmDeleteScheduleBlock}
             />
           </div>
 
@@ -108,27 +155,27 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
               boards={boards}
               onAddTodo={addTodo}
               onToggleTodo={toggleTodo}
-              onDeleteTodo={deleteTodo}
+              onDeleteTodo={confirmDeleteTodo}
             />
           </div>
 
           {/* Quick Capture */}
-          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[220px]">
+          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col h-[420px]">
             <QuickCaptureWidget
               captures={quickCaptures}
               onAddCapture={addQuickCapture}
               onUpdateCapture={updateQuickCapture}
-              onDeleteCapture={deleteQuickCapture}
+              onDeleteCapture={confirmDeleteQuickCapture}
             />
           </div>
 
           {/* Focus Timer (Pomodoro) */}
-          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[220px]">
+          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col h-[420px]">
             <PomodoroWidget />
           </div>
 
           {/* Recent Notes */}
-          <div className="md:col-span-6 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[220px]">
+          <div className="md:col-span-6 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col h-[420px]">
             <RecentNotesWidget notes={notes} sections={sections} onNavigate={handleNoteNavigate} />
           </div>
         </div>
@@ -674,7 +721,16 @@ function QuickCaptureWidget({ captures = [], onAddCapture, onUpdateCapture, onDe
 
   return (
     <>
-      <WidgetHeader title="Quick Capture" />
+      <WidgetHeader
+        title="Quick Capture"
+        actions={
+          captures.length > 0 ? (
+            <span className="text-sm text-neutral-400 tabular-nums">
+              {captures.length}
+            </span>
+          ) : null
+        }
+      />
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-neutral-100">
           <input
@@ -694,7 +750,7 @@ function QuickCaptureWidget({ captures = [], onAddCapture, onUpdateCapture, onDe
           </div>
         ) : (
           <div className="divide-y divide-neutral-100">
-            {captures.slice(0, 5).map((c) => {
+            {captures.map((c) => {
               if (editingId === c.id) {
                 return (
                   <div key={c.id} className="px-4 sm:px-6 py-3 sm:py-4 bg-neutral-50 space-y-3">

@@ -164,8 +164,18 @@ export default function KanbanBoard({ board, onRename, onDelete }) {
     updateColumn(columns, columnId, { name: newName });
   };
 
-  const handleDeleteColumn = (columnId) => {
-    deleteColumn(columns, tasks, columnId);
+  const handleDeleteColumn = async (columnId) => {
+    const column = columns.find(c => c.id === columnId);
+    const taskCount = tasks.filter(t => t.columnId === columnId).length;
+    const ok = await confirm({
+      title: column ? `Delete column "${column.name}"?` : 'Delete column?',
+      body: taskCount > 0
+        ? `This will also delete ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'} in this column. This cannot be undone.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) deleteColumn(columns, tasks, columnId);
   };
 
   const handleAddTask = (columnId) => {
@@ -176,8 +186,15 @@ export default function KanbanBoard({ board, onRename, onDelete }) {
     setModalState({ isOpen: true, task, columnId: task.columnId });
   };
 
-  const handleDeleteTask = (taskId) => {
-    deleteTask(tasks, taskId);
+  const handleDeleteTask = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    const ok = await confirm({
+      title: task ? `Delete "${task.title}"?` : 'Delete task?',
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) deleteTask(tasks, taskId);
   };
 
   const handleSaveTask = (taskData) => {

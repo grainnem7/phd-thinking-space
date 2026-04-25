@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useConfirm } from '../components/common/ConfirmDialog';
 import { Chrome, Play } from 'lucide-react';
 
 export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { signInWithGoogle, enterDemoMode } = useAuth();
+  const { signInWithGoogle, enterDemoMode, hasDemoData, migrateDemoData, clearDemoData } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
@@ -15,7 +17,27 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signInWithGoogle();
+      // If the user explored demo first, ask whether to bring that work along.
+      // Demo data lives in sessionStorage and would otherwise be discarded.
+      let shouldMigrate = false;
+      if (hasDemoData()) {
+        shouldMigrate = await confirm({
+          title: 'Keep your demo work?',
+          body: 'You have items from your demo session (notes, deadlines, captures, etc.). Import them into your new account, or start fresh?',
+          confirmLabel: 'Import to my account',
+          cancelLabel: 'Start fresh',
+          danger: false,
+        });
+      }
+
+      const { user } = await signInWithGoogle({ skipDefaults: shouldMigrate });
+
+      if (shouldMigrate) {
+        await migrateDemoData(user.uid);
+      } else {
+        clearDemoData();
+      }
+
       navigate('/');
     } catch (err) {
       setError(err.message.replace('Firebase: ', ''));

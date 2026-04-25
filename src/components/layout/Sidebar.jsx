@@ -626,9 +626,29 @@ export default function Sidebar({ selectedId, onSelect }) {
         title="Delete Item"
         size="sm"
       >
-        <p className="text-slate-600">
-          Are you sure you want to delete "{modalState.item?.name}"? This action cannot be undone.
-        </p>
+        {(() => {
+          const target = modalState.item;
+          if (!target) return null;
+          // Recursively count descendants
+          const countDescendants = (id) => {
+            const children = sections.filter(s => s.parentId === id);
+            return children.reduce((acc, c) => acc + 1 + countDescendants(c.id), 0);
+          };
+          const descendantCount = countDescendants(target.id);
+          return (
+            <p className="text-slate-600">
+              Delete "{target.name}"?
+              {descendantCount > 0 && (
+                <>
+                  {' '}This will also delete{' '}
+                  <strong>{descendantCount} {descendantCount === 1 ? 'item' : 'items'}</strong>
+                  {' '}inside it (notes, boards, sub-folders).
+                </>
+              )}
+              {' '}This cannot be undone.
+            </p>
+          );
+        })()}
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={() => setModalState({ type: null, item: null })}>
             Cancel
@@ -643,11 +663,11 @@ export default function Sidebar({ selectedId, onSelect }) {
       <Modal
         isOpen={modalState.type === 'reset'}
         onClose={() => setModalState({ type: null, item: null })}
-        title="Reset to Defaults"
+        title="Reset all data"
         size="sm"
       >
         <p className="text-slate-600">
-          This will delete all your current sections and create the default "Notes" folder and "Tasks" board. This action cannot be undone.
+          This will <strong>permanently delete all your notes, boards, and folders</strong> ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
         </p>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={() => setModalState({ type: null, item: null })}>
@@ -658,7 +678,7 @@ export default function Sidebar({ selectedId, onSelect }) {
             onSelect(null);
             setModalState({ type: null, item: null });
           }}>
-            Reset
+            Delete all & reset
           </Button>
         </div>
       </Modal>
