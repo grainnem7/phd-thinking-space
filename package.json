@@ -27,7 +27,7 @@
     "firebase": "^12.7.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
-    "pdfjs-dist": "^5.4.530",
+    "pdfjs-dist": "5.4.296",
     "react": "^19.2.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
