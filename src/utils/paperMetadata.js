@@ -488,3 +488,264 @@ export function generateInTextCitation(paper, includePageNumber = false, pageNum
 
   return citation;
 }
+
+// ============================================
+// SHARED AUTHOR PARSING
+// ============================================
+
+// Splits a free-form authors string into [{ surname, given }] entries.
+// Handles common separators (comma, " and ", "&", semicolon).
+function splitAuthors(authorsString) {
+  if (!authorsString) return [];
+  const raw = authorsString
+    .split(/;\s*|\s+and\s+|\s*&\s*|,\s*(?=[A-Z])/)
+    .map((a) => a.trim())
+    .filter(Boolean);
+  return raw.map((a) => {
+    const parts = a.split(/\s+/);
+    if (parts.length === 1) return { surname: parts[0], given: '' };
+    return {
+      surname: parts[parts.length - 1],
+      given: parts.slice(0, -1).join(' '),
+    };
+  });
+}
+
+function initials(given) {
+  if (!given) return '';
+  return given
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0]?.toUpperCase() + '.')
+    .join(' ');
+}
+
+// ============================================
+// APA 7th edition
+// ============================================
+
+export function generateAPAReference(paper) {
+  const { title = '', year = 'n.d.', journal, volume, issue, pages, doi, url, publisher } = paper;
+  const authors = splitAuthors(paper.authors);
+
+  // Author list: Last, F. M., & Last, F. M. (up to 20)
+  let authorPart = '';
+  if (authors.length === 0) {
+    authorPart = '';
+  } else if (authors.length === 1) {
+    authorPart = `${authors[0].surname}, ${initials(authors[0].given)}`;
+  } else if (authors.length <= 20) {
+    const formatted = authors.map((a) => `${a.surname}, ${initials(a.given)}`);
+    const last = formatted.pop();
+    authorPart = `${formatted.join(', ')}, & ${last}`;
+  } else {
+    // 21+ authors: list first 19, then ..., then last
+    const formatted = authors.slice(0, 19).map((a) => `${a.surname}, ${initials(a.given)}`);
+    const last = `${authors[authors.length - 1].surname}, ${initials(authors[authors.length - 1].given)}`;
+    authorPart = `${formatted.join(', ')}, ... ${last}`;
+  }
+
+  let ref = authorPart ? `${authorPart} ` : '';
+  ref += `(${year}). `;
+  ref += `${title}. `;
+
+  if (journal) {
+    ref += `${journal}`;
+    if (volume) {
+      ref += `, ${volume}`;
+      if (issue) ref += `(${issue})`;
+    }
+    if (pages) ref += `, ${pages}`;
+    ref += '.';
+  } else if (publisher) {
+    ref += `${publisher}.`;
+  }
+
+  if (doi) ref += ` https://doi.org/${doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}`;
+  else if (url) ref += ` ${url}`;
+
+  return ref.trim();
+}
+
+// ============================================
+// MLA 9th edition
+// ============================================
+
+export function generateMLAReference(paper) {
+  const { title = '', year, journal, volume, issue, pages, doi, url, publisher } = paper;
+  const authors = splitAuthors(paper.authors);
+
+  let authorPart = '';
+  if (authors.length === 1) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}`;
+  } else if (authors.length === 2) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}, and ${authors[1].given} ${authors[1].surname}`;
+  } else if (authors.length >= 3) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}, et al.`;
+  }
+
+  let ref = authorPart ? `${authorPart}. ` : '';
+  ref += `"${title}." `;
+
+  if (journal) {
+    ref += `${journal}`;
+    if (volume) ref += `, vol. ${volume}`;
+    if (issue) ref += `, no. ${issue}`;
+    if (year) ref += `, ${year}`;
+    if (pages) ref += `, pp. ${pages}`;
+    ref += '.';
+  } else if (publisher) {
+    ref += `${publisher}, ${year || ''}.`;
+  } else if (year) {
+    ref += `${year}.`;
+  }
+
+  if (doi) ref += ` doi:${doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}.`;
+  else if (url) ref += ` ${url}.`;
+
+  return ref.trim();
+}
+
+// ============================================
+// Chicago author-date
+// ============================================
+
+export function generateChicagoReference(paper) {
+  const { title = '', year = 'n.d.', journal, volume, issue, pages, doi, url, publisher } = paper;
+  const authors = splitAuthors(paper.authors);
+
+  let authorPart = '';
+  if (authors.length === 1) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}`;
+  } else if (authors.length === 2) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}, and ${authors[1].given} ${authors[1].surname}`;
+  } else if (authors.length === 3) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}, ${authors[1].given} ${authors[1].surname}, and ${authors[2].given} ${authors[2].surname}`;
+  } else if (authors.length >= 4) {
+    authorPart = `${authors[0].surname}, ${authors[0].given}, et al.`;
+  }
+
+  let ref = authorPart ? `${authorPart}. ` : '';
+  ref += `${year}. `;
+  ref += `"${title}." `;
+
+  if (journal) {
+    ref += `${journal} `;
+    if (volume) ref += `${volume}`;
+    if (issue) ref += ` (${issue})`;
+    if (pages) ref += `: ${pages}`;
+    ref += '.';
+  } else if (publisher) {
+    ref += `${publisher}.`;
+  }
+
+  if (doi) ref += ` https://doi.org/${doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}.`;
+  else if (url) ref += ` ${url}.`;
+
+  return ref.trim();
+}
+
+// ============================================
+// IEEE
+// ============================================
+
+export function generateIEEEReference(paper) {
+  const { title = '', year, journal, volume, issue, pages, doi, publisher } = paper;
+  const authors = splitAuthors(paper.authors);
+
+  // IEEE: F. Last, F. Last and F. Last
+  const formatted = authors.map((a) => {
+    const ini = a.given
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((p) => p[0]?.toUpperCase() + '.')
+      .join(' ');
+    return `${ini} ${a.surname}`.trim();
+  });
+
+  let authorPart = '';
+  if (formatted.length === 1) authorPart = formatted[0];
+  else if (formatted.length === 2) authorPart = `${formatted[0]} and ${formatted[1]}`;
+  else if (formatted.length >= 3) {
+    const last = formatted.pop();
+    authorPart = `${formatted.join(', ')}, and ${last}`;
+  }
+
+  let ref = authorPart ? `${authorPart}, ` : '';
+  ref += `"${title},"`;
+  if (journal) {
+    ref += ` ${journal}`;
+    if (volume) ref += `, vol. ${volume}`;
+    if (issue) ref += `, no. ${issue}`;
+    if (pages) ref += `, pp. ${pages}`;
+    if (year) ref += `, ${year}`;
+    ref += '.';
+  } else if (publisher) {
+    ref += ` ${publisher}, ${year || ''}.`;
+  } else if (year) {
+    ref += ` ${year}.`;
+  }
+  if (doi) ref += ` doi: ${doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}.`;
+
+  return ref.trim();
+}
+
+// ============================================
+// BibTeX
+// ============================================
+
+// Generate a stable cite key like "smith2023attention" from the first author's
+// surname, year, and the first significant word of the title.
+export function generateBibTeXKey(paper) {
+  const authors = splitAuthors(paper.authors);
+  const surname = authors[0]?.surname?.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+  const yr = paper.year ? String(paper.year).replace(/[^0-9]/g, '') : 'nd';
+  const titleWord = (paper.title || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .find((w) => w.length > 3 && !['the', 'and', 'with', 'from', 'this', 'that'].includes(w)) || '';
+  return `${surname}${yr}${titleWord.replace(/[^a-z0-9]/g, '')}`;
+}
+
+// Escape BibTeX special characters in field values.
+function escapeBibTeX(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\\/g, '\\textbackslash{}')
+    .replace(/[{}]/g, (c) => `\\${c}`)
+    .replace(/[&%$#_^~]/g, (c) => `\\${c}`);
+}
+
+export function generateBibTeX(paper) {
+  const key = generateBibTeXKey(paper);
+  const authors = splitAuthors(paper.authors);
+  const authorField = authors
+    .map((a) => `${a.surname}, ${a.given}`.trim().replace(/,\s*$/, ''))
+    .join(' and ');
+
+  const isJournal = !!paper.journal;
+  const entryType = isJournal ? 'article' : (paper.publisher ? 'book' : 'misc');
+
+  const fields = [];
+  if (paper.title) fields.push(`  title = {${escapeBibTeX(paper.title)}}`);
+  if (authorField) fields.push(`  author = {${escapeBibTeX(authorField)}}`);
+  if (paper.year) fields.push(`  year = {${paper.year}}`);
+  if (paper.journal) fields.push(`  journal = {${escapeBibTeX(paper.journal)}}`);
+  if (paper.publisher) fields.push(`  publisher = {${escapeBibTeX(paper.publisher)}}`);
+  if (paper.volume) fields.push(`  volume = {${paper.volume}}`);
+  if (paper.issue) fields.push(`  number = {${paper.issue}}`);
+  if (paper.pages) fields.push(`  pages = {${paper.pages}}`);
+  if (paper.doi) fields.push(`  doi = {${paper.doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}}`);
+  if (paper.url) fields.push(`  url = {${paper.url}}`);
+
+  return `@${entryType}{${key},\n${fields.join(',\n')}\n}`;
+}
+
+export const CITATION_STYLES = [
+  { id: 'harvard', label: 'Harvard', generate: generateHarvardReference },
+  { id: 'apa', label: 'APA', generate: generateAPAReference },
+  { id: 'mla', label: 'MLA', generate: generateMLAReference },
+  { id: 'chicago', label: 'Chicago', generate: generateChicagoReference },
+  { id: 'ieee', label: 'IEEE', generate: generateIEEEReference },
+  { id: 'bibtex', label: 'BibTeX', generate: generateBibTeX },
+];

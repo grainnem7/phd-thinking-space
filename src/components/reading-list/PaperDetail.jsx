@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ArrowLeft, ExternalLink, Star, Trash2, Copy, Check, FileText, Download, Upload, X } from 'lucide-react';
 import TabEditor from './TabEditor';
-import { generateHarvardReference, generateInTextCitation } from '../../utils/paperMetadata';
+import { generateInTextCitation, CITATION_STYLES } from '../../utils/paperMetadata';
 import { useStorage } from '../../hooks/useStorage';
 import { useAuth } from '../../hooks/useAuth';
 import { useConfirm } from '../common/ConfirmDialog';
@@ -164,9 +164,16 @@ function FileSection({ paper, onUpdate }) {
 // Reference Section Component
 function ReferenceSection({ paper }) {
   const [copied, setCopied] = useState(null);
+  const [styleId, setStyleId] = useState(() => localStorage.getItem('citation-style') || 'harvard');
 
-  const harvardRef = generateHarvardReference(paper);
+  useEffect(() => {
+    localStorage.setItem('citation-style', styleId);
+  }, [styleId]);
+
+  const style = CITATION_STYLES.find((s) => s.id === styleId) || CITATION_STYLES[0];
+  const reference = style.generate(paper);
   const inTextCite = generateInTextCitation(paper);
+  const isCode = styleId === 'bibtex';
 
   const copyToClipboard = (text, type) => {
     navigator.clipboard.writeText(text);
@@ -176,21 +183,40 @@ function ReferenceSection({ paper }) {
 
   return (
     <section className="mt-8 pt-8 border-t border-black/5">
-      <label className="block text-xs uppercase tracking-widest text-black/50 mb-4">
-        Reference
-      </label>
+      <div className="flex items-center justify-between mb-4">
+        <label className="block text-xs uppercase tracking-widest text-black/50">
+          Reference
+        </label>
+        <select
+          value={styleId}
+          onChange={(e) => setStyleId(e.target.value)}
+          aria-label="Citation style"
+          className="text-xs bg-black/5 border border-black/10 rounded px-2 py-1 focus:outline-none focus:border-black/30 cursor-pointer"
+        >
+          {CITATION_STYLES.map((s) => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      </div>
 
-      {/* Harvard Reference */}
+      {/* Reference */}
       <div className="mb-6">
         <div className="flex items-start justify-between gap-4">
-          <p className="text-sm text-black/70 leading-relaxed flex-1">
-            {harvardRef}
-          </p>
+          {isCode ? (
+            <pre className="text-xs text-black/70 leading-relaxed flex-1 bg-black/5 px-3 py-2 rounded font-mono whitespace-pre-wrap break-all">
+              {reference}
+            </pre>
+          ) : (
+            <p className="text-sm text-black/70 leading-relaxed flex-1">
+              {reference}
+            </p>
+          )}
           <button
-            onClick={() => copyToClipboard(harvardRef, 'harvard')}
+            onClick={() => copyToClipboard(reference, 'reference')}
+            aria-label="Copy reference"
             className="flex items-center gap-1 text-xs text-black/30 hover:text-black shrink-0 transition-colors"
           >
-            {copied === 'harvard' ? (
+            {copied === 'reference' ? (
               <>
                 <Check size={12} />
                 Copied!
@@ -212,6 +238,7 @@ function ReferenceSection({ paper }) {
           <code className="text-sm text-black/70 bg-black/5 px-2 py-1 rounded">{inTextCite}</code>
           <button
             onClick={() => copyToClipboard(inTextCite, 'intext')}
+            aria-label="Copy in-text citation"
             className="flex items-center gap-1 text-xs text-black/30 hover:text-black shrink-0 transition-colors"
           >
             {copied === 'intext' ? (

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Search as SearchIcon, X, Plus, Settings } from 'lucide-react';
+import { Search as SearchIcon, X, Plus, Settings, Download } from 'lucide-react';
 import { useReadingList } from '../../hooks/useReadingList';
 import { useConfirm } from '../common/ConfirmDialog';
+import { generateBibTeX } from '../../utils/paperMetadata';
 import PaperDetail from './PaperDetail';
 import AddPaperModal from './AddPaperModal';
 
@@ -35,6 +36,21 @@ export default function ReadingList() {
   const [showCollections, setShowCollections] = useState(false);
   const [showAddPaper, setShowAddPaper] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+
+  const handleExportBibliography = (papersToExport) => {
+    if (!papersToExport.length) return;
+    const bib = papersToExport.map(generateBibTeX).join('\n\n');
+    const blob = new Blob([bib], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    link.download = `bibliography-${date}.bib`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const handleDeleteCollection = async (col) => {
     const paperCount = papers.filter(p => p.collections?.includes(col.id)).length;
@@ -217,6 +233,16 @@ export default function ReadingList() {
               title="Manage Collections"
             >
               <Settings size={18} />
+            </button>
+
+            <button
+              onClick={() => handleExportBibliography(filteredPapers)}
+              disabled={filteredPapers.length === 0}
+              className="p-2 rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label={`Export ${filteredPapers.length} papers as BibTeX`}
+              title={`Export ${filteredPapers.length} papers as BibTeX (.bib)`}
+            >
+              <Download size={18} />
             </button>
           </div>
 
