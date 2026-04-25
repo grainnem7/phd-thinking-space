@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ArrowLeft, ExternalLink, Star, Trash2, Copy, Check, FileText, Download, Upload, X } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Star, Trash2, Copy, Check, FileText, Download, Upload, X, BookOpen } from 'lucide-react';
 import TabEditor from './TabEditor';
+import PdfViewer from './PdfViewer';
 import { generateInTextCitation, CITATION_STYLES } from '../../utils/paperMetadata';
 import { useStorage } from '../../hooks/useStorage';
 import { useAuth } from '../../hooks/useAuth';
@@ -20,7 +21,7 @@ const PRIORITY_OPTIONS = [
 ];
 
 // File Section Component
-function FileSection({ paper, onUpdate }) {
+function FileSection({ paper, onUpdate, onOpenViewer }) {
   const { user } = useAuth();
   const { uploadFile, deleteFile, uploading, uploadProgress } = useStorage();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -91,12 +92,23 @@ function FileSection({ paper, onUpdate }) {
             <p className="text-xs text-black/40">{formatFileSize(paper.file.size)}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {onOpenViewer && paper.file?.name?.toLowerCase().endsWith('.pdf') && (
+              <button
+                onClick={onOpenViewer}
+                className="p-2 text-black/40 hover:text-black transition-colors"
+                aria-label="Open PDF in viewer"
+                title="Open in viewer"
+              >
+                <BookOpen size={16} />
+              </button>
+            )}
             <a
               href={paper.file.url}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 text-black/40 hover:text-black transition-colors"
               title="Download file"
+              aria-label="Download file"
             >
               <Download size={16} />
             </a>
@@ -266,6 +278,7 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
   const [editingTabName, setEditingTabName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [localSummary, setLocalSummary] = useState(paper.summary || '');
+  const [viewerOpen, setViewerOpen] = useState(false);
   const summaryTimeoutRef = useRef(null);
 
   // Update local summary when paper changes
@@ -342,6 +355,59 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
       tabContent: { ...(paper.tabContent || {}), [tabId]: content }
     });
   }, [paper.tabContent, onUpdate]);
+
+  // Append a quoted passage to the paper's "Quotes" tab. Creates the tab if
+  // it doesn't exist. Persists two BlockNote paragraphs: the quote (italic)
+  // and a "— page N" attribution.
+  const handleAddQuoteFromViewer = useCallback(async ({ text, page }) => {
+    if (!text) return;
+    const tabs = paper.tabs || [{ id: 'notes', name: 'Notes' }];
+    let quotesTab = tabs.find((t) => t.name.toLowerCase() === 'quotes');
+    let updatedTabs = tabs;
+    if (!quotesTab) {
+      const newId = `tab-${Date.now()}`;
+      quotesTab = { id: newId, name: 'Quotes' };
+      updatedTabs = [...tabs, quotesTab];
+    }
+
+    const existingRaw = paper.tabContent?.[quotesTab.id];
+    let existing = [];
+    if (existingRaw) {
+      try {
+        const parsed = JSON.parse(existingRaw);
+        if (Array.isArray(parsed)) existing = parsed;
+      } catch { /* ignore malformed; start fresh */ }
+    }
+
+    const baseProps = { textColor: 'default', backgroundColor: 'default', textAlignment: 'left' };
+    const id1 = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `b-${Date.now()}-q`;
+    const id2 = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `b-${Date.now()}-c`;
+    const newBlocks = [
+      {
+        id: id1,
+        type: 'paragraph',
+        props: baseProps,
+        content: [{ type: 'text', text: `"${text}"`, styles: { italic: true } }],
+        children: [],
+      },
+      {
+        id: id2,
+        type: 'paragraph',
+        props: baseProps,
+        content: [{ type: 'text', text: `— page ${page}`, styles: {} }],
+        children: [],
+      },
+    ];
+
+    await onUpdate({
+      tabs: updatedTabs,
+      tabContent: {
+        ...(paper.tabContent || {}),
+        [quotesTab.id]: JSON.stringify([...existing, ...newBlocks]),
+      },
+    });
+    setActiveTabId(quotesTab.id);
+  }, [paper.tabs, paper.tabContent, onUpdate]);
 
   const toggleCollection = (collectionId) => {
     const currentCollections = paper.collections || [];
@@ -486,7 +552,7 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
             )}
 
             {/* Attached File */}
-            <FileSection paper={paper} onUpdate={onUpdate} />
+            <FileSection paper={paper} onUpdate={onUpdate} onOpenViewer={() => setViewerOpen(true)} />
 
             {/* Summary */}
             <div className="mb-8">
@@ -663,6 +729,14 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
           </div>
         </div>
       </div>
+
+      {viewerOpen && paper.file?.url && (
+        <PdfViewer
+          url={paper.file.url}
+          onClose={() => setViewerOpen(false)}
+          onAddQuote={handleAddQuoteFromViewer}
+        />
+      )}
     </div>
   );
 }
