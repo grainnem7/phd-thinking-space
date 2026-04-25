@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Calendar, MoreHorizontal, Trash2, Pencil } from 'lucide-react';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
+import { parseLocalDate } from '../../utils/date';
 
 const priorityColors = {
   low: 'bg-neutral-300',
@@ -26,8 +27,8 @@ export default function TaskCard({ task, onEdit, onDelete }) {
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
+    if (!date) return null;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, ChevronRight, Trash2, Pencil, X, Check } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Plus, ChevronRight, Trash2, Pencil, X, Check, Play, Pause, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useFirestore } from '../../hooks/useFirestore';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -113,7 +113,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Quick Capture */}
-          <div className="md:col-span-3 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[200px]">
+          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[220px]">
             <QuickCaptureWidget
               captures={quickCaptures}
               onAddCapture={addQuickCapture}
@@ -122,8 +122,13 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
             />
           </div>
 
+          {/* Focus Timer (Pomodoro) */}
+          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[220px]">
+            <PomodoroWidget />
+          </div>
+
           {/* Recent Notes */}
-          <div className="md:col-span-3 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[200px]">
+          <div className="md:col-span-6 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[220px]">
             <RecentNotesWidget notes={notes} sections={sections} onNavigate={handleNoteNavigate} />
           </div>
         </div>
@@ -132,15 +137,18 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
   );
 }
 
-function WidgetHeader({ title, onAdd }) {
+function WidgetHeader({ title, onAdd, actions }) {
   return (
     <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 flex items-center justify-between flex-shrink-0">
       <h2 className="text-sm text-neutral-500 uppercase tracking-widest font-medium">{title}</h2>
-      {onAdd && (
-        <button onClick={onAdd} className="text-neutral-300 hover:text-neutral-500 transition-colors p-1">
-          <Plus size={20} />
-        </button>
-      )}
+      <div className="flex items-center gap-2">
+        {actions}
+        {onAdd && (
+          <button onClick={onAdd} className="text-neutral-300 hover:text-neutral-500 transition-colors p-1">
+            <Plus size={20} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -774,6 +782,20 @@ function RecentNotesWidget({ notes = [], sections = [], onNavigate }) {
     try { return formatDistanceToNow(d, { addSuffix: true }); } catch { return ''; }
   };
 
+  const getPreview = (content) => {
+    if (!content) return '';
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        const block = parsed.find(b => b.content?.length > 0 && b.content[0].text);
+        if (block) return block.content.map(c => c.text).join('').slice(0, 80);
+      }
+    } catch {
+      return content.slice(0, 80);
+    }
+    return '';
+  };
+
   return (
     <>
       <WidgetHeader title="Recent Notes" />
@@ -784,16 +806,243 @@ function RecentNotesWidget({ notes = [], sections = [], onNavigate }) {
           </div>
         ) : (
           <div className="divide-y divide-neutral-100">
-            {recent.map((note) => (
-              <button key={note.id} onClick={() => onNavigate?.(note)}
-                className="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-neutral-50 transition-colors group">
-                <div className="flex-1 min-w-0 mr-2">
-                  <p className="text-base sm:text-lg text-neutral-900 truncate">{note.name}</p>
-                  <p className="text-sm sm:text-base text-neutral-400 mt-1 truncate">{getSectionName(note.parentId)} · {timeAgo(note)}</p>
-                </div>
-                <ChevronRight size={18} className="text-neutral-300 group-hover:text-neutral-500 transition-colors flex-shrink-0" />
+            {recent.map((note) => {
+              const preview = getPreview(note.content);
+              return (
+                <button key={note.id} onClick={() => onNavigate?.(note)}
+                  className="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-neutral-50 transition-colors group">
+                  <div className="flex-1 min-w-0 mr-2">
+                    <p className="text-base sm:text-lg text-neutral-900 truncate">{note.name}</p>
+                    {preview && <p className="text-sm text-neutral-400 mt-0.5 truncate">{preview}</p>}
+                    <p className="text-xs sm:text-sm text-neutral-400 mt-1 truncate">{getSectionName(note.parentId)} · {timeAgo(note)}</p>
+                  </div>
+                  <ChevronRight size={18} className="text-neutral-300 group-hover:text-neutral-500 transition-colors flex-shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+const POMODORO_DEFAULTS = { workDuration: 25, breakDuration: 5, longBreakDuration: 15, sessionsBeforeLongBreak: 4 };
+
+function loadPomodoroSettings() {
+  try {
+    const raw = localStorage.getItem('pomodoroSettings');
+    if (!raw) return POMODORO_DEFAULTS;
+    return { ...POMODORO_DEFAULTS, ...JSON.parse(raw) };
+  } catch {
+    return POMODORO_DEFAULTS;
+  }
+}
+
+function PomodoroWidget() {
+  const [settings, setSettings] = useState(loadPomodoroSettings);
+  const [showSettings, setShowSettings] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(() => loadPomodoroSettings().workDuration * 60);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isBreak, setIsBreak] = useState(false);
+  const [sessions, setSessions] = useState(() => {
+    const v = parseInt(localStorage.getItem('pomodoroSessions') || '0', 10);
+    return Number.isFinite(v) ? v : 0;
+  });
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('pomodoroSound') !== 'false');
+
+  useEffect(() => { localStorage.setItem('pomodoroSettings', JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem('pomodoroSound', String(soundEnabled)); }, [soundEnabled]);
+  useEffect(() => { localStorage.setItem('pomodoroSessions', String(sessions)); }, [sessions]);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+
+  const playNotification = useCallback((isWorkComplete) => {
+    if (!soundEnabled) return;
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(isWorkComplete ? 'Focus complete!' : 'Break over!', {
+        body: isWorkComplete ? 'Time for a break.' : 'Ready to focus?',
+      });
+    }
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const beep = (f, t, d) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination); o.frequency.value = f;
+        g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.01, t + d);
+        o.start(t); o.stop(t + d);
+      };
+      const now = ctx.currentTime;
+      beep(523, now, 0.2); beep(659, now + 0.25, 0.2); beep(784, now + 0.5, 0.4);
+      setTimeout(() => ctx.close(), 1500);
+    } catch { /* audio unavailable, fall back to silent */ }
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    let interval;
+    if (isRunning && timeLeft > 0) {
+      interval = setInterval(() => setTimeLeft((p) => p - 1), 1000);
+    } else if (timeLeft === 0 && isRunning) {
+      playNotification(!isBreak);
+      if (!isBreak) setSessions((p) => p + 1);
+      const nextIsBreak = !isBreak;
+      const nextDuration = nextIsBreak
+        ? ((sessions + 1) % settings.sessionsBeforeLongBreak === 0 ? settings.longBreakDuration : settings.breakDuration)
+        : settings.workDuration;
+      setIsBreak(nextIsBreak);
+      setTimeLeft(nextDuration * 60);
+      setIsRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning, timeLeft, isBreak, sessions, settings, playNotification]);
+
+  const reset = () => {
+    setIsRunning(false);
+    setIsBreak(false);
+    setTimeLeft(settings.workDuration * 60);
+  };
+
+  return (
+    <>
+      <WidgetHeader
+        title="Focus Timer"
+        actions={
+          <>
+            <button
+              onClick={() => setSoundEnabled((v) => !v)}
+              className={`text-neutral-300 hover:text-neutral-500 transition-colors p-1 ${!soundEnabled ? 'text-neutral-500' : ''}`}
+              title={soundEnabled ? 'Mute' : 'Unmute'}
+            >
+              {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              className="text-neutral-300 hover:text-neutral-500 transition-colors p-1"
+              title="Settings"
+            >
+              <Settings size={16} />
+            </button>
+          </>
+        }
+      />
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {showSettings ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-neutral-400 mb-1.5 block">Work (min)</label>
+                <input
+                  type="number"
+                  value={settings.workDuration}
+                  onChange={(e) => setSettings({ ...settings, workDuration: +e.target.value || 25 })}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                  min="1"
+                  max="120"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 mb-1.5 block">Break (min)</label>
+                <input
+                  type="number"
+                  value={settings.breakDuration}
+                  onChange={(e) => setSettings({ ...settings, breakDuration: +e.target.value || 5 })}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                  min="1"
+                  max="60"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 mb-1.5 block">Long break (min)</label>
+                <input
+                  type="number"
+                  value={settings.longBreakDuration}
+                  onChange={(e) => setSettings({ ...settings, longBreakDuration: +e.target.value || 15 })}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                  min="1"
+                  max="60"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 mb-1.5 block">Long every</label>
+                <input
+                  type="number"
+                  value={settings.sessionsBeforeLongBreak}
+                  onChange={(e) => setSettings({ ...settings, sessionsBeforeLongBreak: +e.target.value || 4 })}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                  min="2"
+                  max="10"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => playNotification(true)}
+                className="flex-1 py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+              >
+                Test sound
               </button>
-            ))}
+              <button
+                onClick={() => {
+                  setShowSettings(false);
+                  if (!isRunning) {
+                    setTimeLeft(settings.workDuration * 60);
+                    setIsBreak(false);
+                  }
+                }}
+                className="flex-1 py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+            <button
+              onClick={() => setSessions(0)}
+              className="w-full text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
+            >
+              Reset session count ({sessions})
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              {isRunning && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
+              <span className="font-serif text-4xl sm:text-5xl font-medium text-neutral-900 tabular-nums tracking-tight">
+                {formatTime(timeLeft)}
+              </span>
+            </div>
+            <p className="text-sm sm:text-base text-neutral-400 mb-5">
+              {isBreak ? 'Break time' : isRunning ? 'Focusing' : 'Ready to focus'}
+            </p>
+            <div className="flex items-center gap-4">
+              {!isRunning ? (
+                <button
+                  onClick={() => setIsRunning(true)}
+                  className="flex items-center gap-2 text-base text-neutral-600 hover:text-neutral-900 transition-colors"
+                >
+                  <Play size={16} /> Start
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsRunning(false)}
+                  className="flex items-center gap-2 text-base text-neutral-600 hover:text-neutral-900 transition-colors"
+                >
+                  <Pause size={16} /> Pause
+                </button>
+              )}
+              <button
+                onClick={reset}
+                className="flex items-center gap-2 text-base text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <RotateCcw size={16} /> Reset
+              </button>
+              <span className="ml-auto text-sm text-neutral-400">{sessions} sessions</span>
+            </div>
           </div>
         )}
       </div>
