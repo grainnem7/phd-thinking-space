@@ -1,6 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  getFirestore,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -16,7 +21,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-export const db = getFirestore(app);
+
+// Firestore with persistent IndexedDB cache so reads/writes work offline
+// (e.g. capturing a quick idea on a train) and sync when the connection
+// returns. Falls back to in-memory cache automatically if IndexedDB is
+// unavailable (private browsing, multiple tabs without the manager, etc.)
+let db;
+try {
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} catch (e) {
+  console.warn('Firestore persistent cache unavailable, falling back to in-memory:', e);
+  db = getFirestore(app);
+}
+export { db };
 export const storage = getStorage(app);
 
 export default app;
