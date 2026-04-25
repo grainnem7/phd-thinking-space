@@ -202,6 +202,7 @@ export default function ReadingList() {
               className={`p-2 rounded-lg transition-colors ${
                 showSearch ? 'bg-neutral-200 text-neutral-900' : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
               }`}
+              aria-label="Search papers"
               title="Search"
             >
               <SearchIcon size={18} />
@@ -212,6 +213,7 @@ export default function ReadingList() {
               className={`p-2 rounded-lg transition-colors ${
                 showCollections ? 'bg-neutral-200 text-neutral-900' : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
               }`}
+              aria-label="Manage collections"
               title="Manage Collections"
             >
               <Settings size={18} />

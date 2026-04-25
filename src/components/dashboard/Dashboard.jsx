@@ -191,7 +191,12 @@ function WidgetHeader({ title, onAdd, actions }) {
       <div className="flex items-center gap-2">
         {actions}
         {onAdd && (
-          <button onClick={onAdd} className="text-neutral-300 hover:text-neutral-500 transition-colors p-1">
+          <button
+            onClick={onAdd}
+            aria-label={`Add to ${title}`}
+            title={`Add to ${title}`}
+            className="text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1.5 -m-1 touch-manipulation"
+          >
             <Plus size={20} />
           </button>
         )}
@@ -973,14 +978,17 @@ function PomodoroWidget() {
           <>
             <button
               onClick={() => setSoundEnabled((v) => !v)}
-              className={`text-neutral-300 hover:text-neutral-500 transition-colors p-1 ${!soundEnabled ? 'text-neutral-500' : ''}`}
+              aria-label={soundEnabled ? 'Mute pomodoro' : 'Unmute pomodoro'}
+              aria-pressed={!soundEnabled}
+              className={`text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1 ${!soundEnabled ? 'text-neutral-500 dark:text-neutral-300' : ''}`}
               title={soundEnabled ? 'Mute' : 'Unmute'}
             >
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
             <button
               onClick={() => setShowSettings((v) => !v)}
-              className="text-neutral-300 hover:text-neutral-500 transition-colors p-1"
+              aria-label="Pomodoro settings"
+              className="text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1"
               title="Settings"
             >
               <Settings size={16} />

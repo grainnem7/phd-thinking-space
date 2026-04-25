@@ -50,9 +50,11 @@ export default function TaskCard({ task, onEdit, onDelete }) {
           trigger={
             <button
               onClick={(e) => e.stopPropagation()}
-              className="sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 sm:text-neutral-300 hover:text-neutral-500 transition-all flex-shrink-0"
+              aria-label={`Actions for ${task.title}`}
+              title="Task actions"
+              className="sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 sm:text-neutral-300 hover:text-neutral-500 transition-all flex-shrink-0 p-1.5 -m-1 touch-manipulation"
             >
-              <MoreHorizontal size={14} />
+              <MoreHorizontal size={16} />
             </button>
           }
         >

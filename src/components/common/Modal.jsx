@@ -55,7 +55,9 @@ export default function Modal({
           <h2 className="text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-medium">{title}</h2>
           <button
             onClick={onClose}
-            className="text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1"
+            aria-label="Close dialog"
+            title="Close"
+            className="text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-2 sm:p-1 -m-1 sm:m-0 touch-manipulation"
           >
             <Plus size={18} className="rotate-45 sm:w-4 sm:h-4" />
           </button>

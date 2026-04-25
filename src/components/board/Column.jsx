@@ -67,8 +67,12 @@ export default function Column({
         <Dropdown
           align="right"
           trigger={
-            <button className="text-neutral-300 hover:text-neutral-500 transition-colors">
-              <MoreHorizontal size={15} />
+            <button
+              aria-label={`Actions for ${column.name}`}
+              title="Column actions"
+              className="text-neutral-300 hover:text-neutral-500 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1.5 -m-1 touch-manipulation"
+            >
+              <MoreHorizontal size={16} />
             </button>
           }
         >

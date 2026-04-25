@@ -158,7 +158,9 @@ function TreeItem({
             trigger={
               <button
                 onClick={(e) => e.stopPropagation()}
-                className="p-2 -mr-1 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 active:text-neutral-800 transition-opacity touch-manipulation"
+                aria-label={`Actions for ${item.name}`}
+                title="Item actions"
+                className="p-2 -mr-1 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 active:text-neutral-800 dark:text-neutral-500 dark:hover:text-neutral-300 transition-opacity touch-manipulation"
               >
                 <MoreHorizontal className="w-5 h-5" />
               </button>

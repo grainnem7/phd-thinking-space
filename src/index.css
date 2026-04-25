@@ -87,6 +87,32 @@ button, a, input {
   transition: color 150ms, background-color 150ms, border-color 150ms;
 }
 
+/* Visible focus indicator for keyboard users only — preserves the existing
+   focus:outline-none + focus:border-X patterns when clicking with a mouse,
+   but always shows a ring when navigating via Tab. */
+*:focus-visible {
+  outline: 2px solid #525252;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+html.dark *:focus-visible {
+  outline-color: #d4d4d4;
+}
+
+/* Honor prefers-reduced-motion for users who opt out of animations.
+   Keep transitions effectively instant; animation-iteration-count: 1 stops
+   any infinite animations on the next cycle. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Minimal scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
