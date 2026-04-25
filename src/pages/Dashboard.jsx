@@ -9,15 +9,18 @@ import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
 import ReadingList from '../components/reading-list/ReadingList';
-import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy } from 'lucide-react';
+import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
+import CommandPalette from '../components/common/CommandPalette';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Dashboard() {
   const { sections, loading, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
   const { toggle, isOpen, isMobile } = useSidebar();
-  const { focusMode } = useFocusMode();
+  const { focusMode, toggle: toggleFocusMode } = useFocusMode();
+  const { isDark, toggle: toggleTheme } = useTheme();
   const confirm = useConfirm();
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -475,47 +478,21 @@ export default function Dashboard() {
       )}
       {renderContent()}
 
-      {/* Search Modal */}
-      <Modal
-        isOpen={searchOpen}
-        onClose={() => {
-          setSearchOpen(false);
-          setSearchQuery('');
-        }}
-        title="Search"
-        size="md"
-      >
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search notes and boards..."
-          className="mb-4"
-        />
-        {searchQuery && (
-          <div className="max-h-64 overflow-y-auto">
-            {filteredSections.length === 0 ? (
-              <p className="text-center text-slate-500 py-4">No results found</p>
-            ) : (
-              <div className="space-y-1">
-                {filteredSections.map((section) => (
-                  <button
-                    key={section.id}
-                    onClick={() => {
-                      handleSelect(section);
-                      setSearchOpen(false);
-                      setSearchQuery('');
-                    }}
-                    className="w-full flex items-center gap-3 p-2 text-left hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <span className="text-sm font-medium text-slate-900">{section.name}</span>
-                    <span className="text-xs text-slate-500 capitalize">{section.type}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+      {/* Command Palette */}
+      <CommandPalette
+        open={searchOpen}
+        onOpenChange={(v) => { setSearchOpen(v); if (!v) setSearchQuery(''); }}
+        sections={sections}
+        actions={[
+          { id: 'add-note', label: 'New note', icon: FileText, keywords: 'create add', run: () => handleCreateItem('note') },
+          { id: 'add-board', label: 'New board', icon: Kanban, keywords: 'create add tasks kanban', run: () => handleCreateItem('board') },
+          { id: 'add-folder', label: 'New folder', icon: Folder, keywords: 'create add', run: () => handleCreateItem('folder') },
+          { id: 'reading-list', label: 'Open Reading List', icon: BookOpen, keywords: 'papers references', run: () => handleSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' }) },
+          { id: 'toggle-dark', label: isDark ? 'Switch to light mode' : 'Switch to dark mode', icon: isDark ? Sun : Moon, keywords: 'theme color', run: toggleTheme },
+          { id: 'toggle-focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', icon: Maximize2, keywords: 'distraction-free zen', shortcut: 'Ctrl+Shift+F', run: toggleFocusMode },
+        ]}
+        onNavigate={handleSelect}
+      />
 
       {/* Rename Modal */}
       <Modal
