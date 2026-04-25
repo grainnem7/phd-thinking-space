@@ -42,6 +42,8 @@ import {
   Home,
   RotateCcw,
   Monitor,
+  Sun,
+  Moon,
   UserPlus,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
@@ -49,6 +51,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFirestore } from '../../hooks/useFirestore';
 import { useEink } from '../../contexts/EinkContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import SearchInput from '../common/SearchInput';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
@@ -124,7 +127,7 @@ function TreeItem({
         <div
           className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-colors mb-0.5 touch-manipulation ${
             isSelected
-              ? 'bg-neutral-100 text-neutral-900 font-medium'
+              ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
               : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100'
           }`}
           style={{ paddingLeft: `${level * 12 + 12}px` }}
@@ -218,6 +221,7 @@ export default function Sidebar({ selectedId, onSelect }) {
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const { focusMode } = useFocusMode();
+  const { isDark, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -349,10 +353,10 @@ export default function Sidebar({ selectedId, onSelect }) {
   };
 
   const sidebarClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
+    ? `fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-transform duration-200 ${
         isOpen && !focusMode ? 'translate-x-0' : '-translate-x-full'
       }`
-    : `bg-white border-r border-neutral-200 flex-shrink-0 relative transition-all duration-200 ${isOpen && !focusMode ? '' : 'hidden'}`;
+    : `bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex-shrink-0 relative transition-all duration-200 ${isOpen && !focusMode ? '' : 'hidden'}`;
 
   const sidebarStyle = isMobile ? {} : { width: `${effectiveWidth}px` };
 
@@ -390,7 +394,7 @@ export default function Sidebar({ selectedId, onSelect }) {
               ) : (
                 <>
                   <div className="flex-1 min-w-0">
-                    <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 tracking-tight truncate">Thinking Space</h1>
+                    <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight truncate">Thinking Space</h1>
                     <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Your Workspace</p>
                   </div>
                   {isMobile ? (
@@ -421,7 +425,7 @@ export default function Sidebar({ selectedId, onSelect }) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 transition-colors placeholder:text-neutral-400"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-300 dark:focus:border-neutral-600 transition-colors placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100"
                 />
               </div>
             </div>
@@ -433,7 +437,7 @@ export default function Sidebar({ selectedId, onSelect }) {
               onClick={() => onSelect(null)}
               className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 selectedId === null && selectedId !== 'reading-list'
-                  ? 'bg-neutral-100 text-neutral-900 font-medium'
+                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
               title={isCollapsed && !isMobile ? 'Dashboard' : undefined}
@@ -445,7 +449,7 @@ export default function Sidebar({ selectedId, onSelect }) {
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
               className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
                 selectedId === 'reading-list'
-                  ? 'bg-neutral-100 text-neutral-900 font-medium'
+                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
               title={isCollapsed && !isMobile ? 'Reading List' : undefined}
@@ -469,7 +473,7 @@ export default function Sidebar({ selectedId, onSelect }) {
                       onClick={() => onSelect(section)}
                       className={`w-full flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${
                         isSelected
-                          ? 'bg-neutral-100 text-neutral-900'
+                          ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
                           : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
                       }`}
                       title={section.name}
@@ -531,20 +535,39 @@ export default function Sidebar({ selectedId, onSelect }) {
                 <p className="text-xs text-amber-600 mt-0.5">Changes are stored locally only</p>
               </div>
             )}
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggleTheme}
+              className={`w-full text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex items-center ${
+                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'justify-between text-left text-sm'
+              }`}
+              title={isCollapsed && !isMobile ? (isDark ? 'Dark mode: On' : 'Dark mode: Off') : undefined}
+              aria-label="Toggle dark mode"
+            >
+              <div className="flex items-center gap-2">
+                {isDark ? <Moon size={16} className="text-neutral-200" /> : <Sun size={16} />}
+                {(!isCollapsed || isMobile) && <span>Dark mode</span>}
+              </div>
+              {(!isCollapsed || isMobile) && (
+                <span className={`text-xs ${isDark ? 'text-neutral-200 font-medium' : 'text-neutral-400'}`}>
+                  {isDark ? 'On' : 'Off'}
+                </span>
+              )}
+            </button>
             {/* E-ink mode toggle */}
             <button
               onClick={toggleEinkMode}
-              className={`w-full text-neutral-400 hover:text-neutral-600 transition-colors flex items-center ${
-                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'justify-between text-left text-sm'
+              className={`w-full text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex items-center ${
+                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'justify-between text-left text-sm'
               }`}
               title={isCollapsed && !isMobile ? (einkMode ? 'E-reader mode: On' : 'E-reader mode: Off') : undefined}
             >
               <div className="flex items-center gap-2">
-                <Monitor size={16} className={einkMode ? 'text-neutral-900' : ''} />
+                <Monitor size={16} className={einkMode ? 'text-neutral-900 dark:text-neutral-100' : ''} />
                 {(!isCollapsed || isMobile) && <span>E-reader mode</span>}
               </div>
               {(!isCollapsed || isMobile) && (
-                <span className={`text-xs ${einkMode ? 'text-neutral-900 font-medium' : 'text-neutral-400'}`}>
+                <span className={`text-xs ${einkMode ? 'text-neutral-900 dark:text-neutral-100 font-medium' : 'text-neutral-400'}`}>
                   {einkMode ? 'On' : 'Off'}
                 </span>
               )}

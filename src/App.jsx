@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { EinkProvider } from './contexts/EinkContext';
 import { FocusModeProvider } from './contexts/FocusModeContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ConfirmProvider } from './components/common/ConfirmDialog';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -66,13 +67,15 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <EinkProvider>
-        <AuthProvider>
-          <ConfirmProvider>
-            <AppRoutes />
-          </ConfirmProvider>
-        </AuthProvider>
-      </EinkProvider>
+      <ThemeProvider>
+        <EinkProvider>
+          <AuthProvider>
+            <ConfirmProvider>
+              <AppRoutes />
+            </ConfirmProvider>
+          </AuthProvider>
+        </EinkProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

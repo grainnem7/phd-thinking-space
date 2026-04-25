@@ -183,41 +183,41 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
 
   if (!note) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
+      <div className="flex-1 flex items-center justify-center bg-[#fafafa] dark:bg-neutral-950">
         <div className="text-center">
-          <p className="text-sm text-neutral-400">No note selected</p>
-          <p className="text-xs text-neutral-300 mt-1">Select a note from the sidebar to start editing</p>
+          <p className="text-sm text-neutral-400 dark:text-neutral-500">No note selected</p>
+          <p className="text-xs text-neutral-300 dark:text-neutral-600 mt-1">Select a note from the sidebar to start editing</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white relative">
+    <div className="flex-1 flex flex-col bg-white dark:bg-neutral-900 relative">
       {/* Minimal status bar */}
       {!focusMode && (
-        <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100">
-          <span className="text-xs text-neutral-400 tabular-nums">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100 dark:border-neutral-800">
+          <span className="text-xs text-neutral-400 dark:text-neutral-500 tabular-nums">
             {wordStats.words.toLocaleString()} {wordStats.words === 1 ? 'word' : 'words'}
-            <span className="text-neutral-300"> · </span>
+            <span className="text-neutral-300 dark:text-neutral-600"> · </span>
             {wordStats.chars.toLocaleString()} {wordStats.chars === 1 ? 'char' : 'chars'}
           </span>
           <div className="flex items-center gap-4">
             <button
               onClick={handleExportDocx}
               disabled={isExportingDocx || isExportingPdf}
-              className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
+              className="text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
             >
               {isExportingDocx ? 'Exporting...' : 'DOCX'}
             </button>
             <button
               onClick={handleExportPdf}
               disabled={isExportingDocx || isExportingPdf}
-              className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
+              className="text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
             >
               {isExportingPdf ? 'Exporting...' : 'PDF'}
             </button>
-            <span className="text-xs text-neutral-300">
+            <span className="text-xs text-neutral-300 dark:text-neutral-600">
               {isSaving ? 'Saving...' : lastSaved ? `Saved ${formatLastSaved()}` : ''}
             </span>
             {error && (
@@ -229,7 +229,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
               onClick={toggleFocusMode}
               aria-label="Enter focus mode"
               title="Focus mode (Ctrl+Shift+F)"
-              className="text-neutral-300 hover:text-neutral-600 transition-colors p-1"
+              className="text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1"
             >
               <Maximize2 size={16} />
             </button>
@@ -238,7 +238,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
                 onClick={handleDelete}
                 aria-label={`Delete ${note.name}`}
                 title="Delete note"
-                className="text-neutral-300 hover:text-red-500 transition-colors p-1"
+                className="text-neutral-300 hover:text-red-500 dark:text-neutral-600 dark:hover:text-red-400 transition-colors p-1"
               >
                 <Trash2 size={16} />
               </button>
@@ -251,7 +251,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
           onClick={toggleFocusMode}
           aria-label="Exit focus mode"
           title="Exit focus mode (Esc or Ctrl+Shift+F)"
-          className="fixed top-4 right-4 z-30 text-neutral-300 hover:text-neutral-600 transition-colors p-2 bg-white/80 rounded-lg backdrop-blur-sm"
+          className="fixed top-4 right-4 z-30 text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-2 bg-white/80 dark:bg-neutral-900/80 rounded-lg backdrop-blur-sm"
         >
           <Minimize2 size={16} />
         </button>
@@ -277,7 +277,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
             }}
             placeholder="Untitled"
             aria-label="Note title"
-            className="w-full font-serif text-3xl sm:text-4xl font-medium text-neutral-900 tracking-tight bg-transparent focus:outline-none placeholder:text-neutral-300"
+            className="w-full font-serif text-3xl sm:text-4xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight bg-transparent focus:outline-none placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
           />
         </div>
         <div className="max-w-3xl mx-auto px-10 pb-10">

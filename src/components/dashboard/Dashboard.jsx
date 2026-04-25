@@ -120,7 +120,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           <p className="text-sm text-neutral-400 uppercase tracking-widest mb-1">
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-medium text-neutral-900 tracking-tight">
+          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight">
             {getGreeting()}
           </h1>
         </header>
@@ -128,7 +128,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
         {/* Grid - responsive layout optimized for all screen sizes */}
         <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 lg:gap-5">
           {/* Deadlines - full width on tablet portrait, narrower on landscape */}
-          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
+          <div className="md:col-span-3 lg:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
             <DeadlinesWidget
               deadlines={deadlines}
               onAddDeadline={addDeadline}
@@ -138,7 +138,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Schedule */}
-          <div className="md:col-span-3 lg:col-span-5 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
+          <div className="md:col-span-3 lg:col-span-5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
             <ScheduleWidget
               currentTime={currentTime}
               blocks={scheduleBlocks}
@@ -149,7 +149,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Todo List - spans full width on tablet */}
-          <div className="md:col-span-6 lg:col-span-3 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
+          <div className="md:col-span-6 lg:col-span-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col min-h-[240px] lg:min-h-[280px]">
             <TodoWidget
               todos={todos}
               boards={boards}
@@ -160,7 +160,7 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Quick Capture */}
-          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col h-[420px]">
+          <div className="md:col-span-3 lg:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col h-[420px]">
             <QuickCaptureWidget
               captures={quickCaptures}
               onAddCapture={addQuickCapture}
@@ -170,12 +170,12 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
           </div>
 
           {/* Focus Timer (Pomodoro) */}
-          <div className="md:col-span-3 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col h-[420px]">
+          <div className="md:col-span-3 lg:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col h-[420px]">
             <PomodoroWidget />
           </div>
 
           {/* Recent Notes */}
-          <div className="md:col-span-6 lg:col-span-4 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col h-[420px]">
+          <div className="md:col-span-6 lg:col-span-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col h-[420px]">
             <RecentNotesWidget notes={notes} sections={sections} onNavigate={handleNoteNavigate} />
           </div>
         </div>
@@ -186,8 +186,8 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
 
 function WidgetHeader({ title, onAdd, actions }) {
   return (
-    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 flex items-center justify-between flex-shrink-0">
-      <h2 className="text-sm text-neutral-500 uppercase tracking-widest font-medium">{title}</h2>
+    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between flex-shrink-0">
+      <h2 className="text-sm text-neutral-500 dark:text-neutral-400 uppercase tracking-widest font-medium">{title}</h2>
       <div className="flex items-center gap-2">
         {actions}
         {onAdd && (
@@ -241,7 +241,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
       <WidgetHeader title="Deadlines" onAdd={() => setIsAdding(true)} />
       <div className="flex-1 overflow-y-auto">
         {isAdding && (
-          <div className="p-4 sm:p-6 border-b border-neutral-100 space-y-3">
+          <div className="p-4 sm:p-6 border-b border-neutral-100 dark:border-neutral-800 space-y-3">
             <input
               type="text"
               placeholder="Deadline title"
@@ -272,7 +272,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {sorted.map((d) => {
               const days = getDaysRemaining(d.date);
               const isUrgent = days <= 7 && days >= 0;
@@ -313,7 +313,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
               return (
                 <div key={d.id} className={`px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between group ${isOverdue ? 'opacity-40' : ''}`}>
                   <div className="flex-1 min-w-0 mr-3">
-                    <p className="text-base sm:text-lg text-neutral-900 truncate">{d.title}</p>
+                    <p className="text-base sm:text-lg text-neutral-900 dark:text-neutral-100 truncate">{d.title}</p>
                     <p className="text-sm sm:text-base text-neutral-400 mt-1">
                       {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : format(parseLocalDate(d.date), 'MMM d')}
                     </p>
@@ -384,10 +384,10 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, o
       <WidgetHeader title="Today's Schedule" onAdd={() => setIsAdding(true)} />
       <div className="flex-1 overflow-y-auto">
         {/* Current time display */}
-        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-100">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-neutral-100 dark:border-neutral-800">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-rose-500" />
-            <span className="font-serif text-4xl sm:text-5xl font-medium text-neutral-900 tabular-nums tracking-tight">
+            <span className="font-serif text-4xl sm:text-5xl font-medium text-neutral-900 dark:text-neutral-100 tabular-nums tracking-tight">
               {format(currentTime, 'HH:mm')}
             </span>
           </div>
@@ -395,7 +395,7 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, o
         </div>
 
         {isAdding && (
-          <div className="p-4 sm:p-6 border-b border-neutral-100 space-y-3">
+          <div className="p-4 sm:p-6 border-b border-neutral-100 dark:border-neutral-800 space-y-3">
             <input type="text" placeholder="Task name" value={newBlock.title} onChange={(e) => setNewBlock({ ...newBlock, title: e.target.value })}
               className="w-full px-3 py-2.5 text-base bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300 placeholder:text-neutral-400" autoFocus />
             <div className="flex gap-2">
@@ -418,14 +418,14 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, o
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {sortedBlocks.map((block) => {
               const isPast = parseTime(block.endTime) < currentMinutes;
               const isCurrent = block.id === currentBlock?.id;
 
               if (editingId === block.id) {
                 return (
-                  <div key={block.id} className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100">
+                  <div key={block.id} className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800">
                     <div className="space-y-3">
                       <input
                         type="text"
@@ -558,7 +558,7 @@ function TodoWidget({ todos = [], boards = [], onAddTodo, onToggleTodo, onDelete
       <div className="flex-1 overflow-y-auto">
         {/* Progress bar */}
         {totalCount > 0 && (
-          <div className="px-4 sm:px-6 py-3 border-b border-neutral-100">
+          <div className="px-4 sm:px-6 py-3 border-b border-neutral-100 dark:border-neutral-800">
             <div className="flex items-center justify-between text-sm text-neutral-500 mb-2">
               <span>{completedCount} of {totalCount} done</span>
               <span>{totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%</span>
@@ -574,7 +574,7 @@ function TodoWidget({ todos = [], boards = [], onAddTodo, onToggleTodo, onDelete
 
         {/* Add new todo */}
         {isAdding && (
-          <div className="p-4 sm:p-6 border-b border-neutral-100 space-y-3">
+          <div className="p-4 sm:p-6 border-b border-neutral-100 dark:border-neutral-800 space-y-3">
             <input
               type="text"
               placeholder="What needs to be done?"
@@ -595,7 +595,7 @@ function TodoWidget({ todos = [], boards = [], onAddTodo, onToggleTodo, onDelete
 
         {/* Board picker */}
         {showBoardPicker && (
-          <div className="p-4 sm:p-6 border-b border-neutral-100">
+          <div className="p-4 sm:p-6 border-b border-neutral-100 dark:border-neutral-800">
             <p className="text-sm text-neutral-500 mb-3">Import from boards:</p>
             {boardTasks.length === 0 ? (
               <p className="text-sm text-neutral-400">No tasks in your boards</p>
@@ -631,7 +631,7 @@ function TodoWidget({ todos = [], boards = [], onAddTodo, onToggleTodo, onDelete
             )}
           </div>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {todos.map((todo) => (
               <div key={todo.id} className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 group">
                 <button
@@ -732,7 +732,7 @@ function QuickCaptureWidget({ captures = [], onAddCapture, onUpdateCapture, onDe
         }
       />
       <div className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 border-b border-neutral-100">
+        <div className="p-4 sm:p-6 border-b border-neutral-100 dark:border-neutral-800">
           <input
             type="text"
             value={text}
@@ -749,7 +749,7 @@ function QuickCaptureWidget({ captures = [], onAddCapture, onUpdateCapture, onDe
             <p className="text-base text-neutral-400">No captures yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {captures.map((c) => {
               if (editingId === c.id) {
                 return (
@@ -861,14 +861,14 @@ function RecentNotesWidget({ notes = [], sections = [], onNavigate }) {
             <p className="text-base text-neutral-400">No notes yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {recent.map((note) => {
               const preview = getPreview(note.content);
               return (
                 <button key={note.id} onClick={() => onNavigate?.(note)}
                   className="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-neutral-50 transition-colors group">
                   <div className="flex-1 min-w-0 mr-2">
-                    <p className="text-base sm:text-lg text-neutral-900 truncate">{note.name}</p>
+                    <p className="text-base sm:text-lg text-neutral-900 dark:text-neutral-100 truncate">{note.name}</p>
                     {preview && <p className="text-sm text-neutral-400 mt-0.5 truncate">{preview}</p>}
                     <p className="text-xs sm:text-sm text-neutral-400 mt-1 truncate">{getSectionName(note.parentId)} · {timeAgo(note)}</p>
                   </div>
@@ -1068,7 +1068,7 @@ function PomodoroWidget() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               {isRunning && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
-              <span className="font-serif text-4xl sm:text-5xl font-medium text-neutral-900 tabular-nums tracking-tight">
+              <span className="font-serif text-4xl sm:text-5xl font-medium text-neutral-900 dark:text-neutral-100 tabular-nums tracking-tight">
                 {formatTime(timeLeft)}
               </span>
             </div>

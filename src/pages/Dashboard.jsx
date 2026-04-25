@@ -243,7 +243,7 @@ export default function Dashboard() {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex-1 flex items-center justify-center bg-[#fafafa]">
+        <div className="flex-1 flex items-center justify-center bg-[#fafafa] dark:bg-neutral-950">
           <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
         </div>
       );
@@ -295,19 +295,19 @@ export default function Dashboard() {
 
     // Folder - show children
     return (
-      <div className="flex-1 p-6 sm:p-10 bg-[#fafafa]">
+      <div className="flex-1 p-6 sm:p-10 bg-[#fafafa] dark:bg-neutral-950">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-serif text-2xl font-medium text-neutral-900 tracking-tight">{selectedItem.name}</h2>
+          <h2 className="font-serif text-2xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight">{selectedItem.name}</h2>
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); setIsCreating(!isCreating); }}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
             >
               <Plus size={16} />
               Add
             </button>
             {isCreating && (
-              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-10">
+              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 z-10">
                 <button
                   onClick={() => handleCreateItem('note')}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
@@ -342,14 +342,14 @@ export default function Dashboard() {
             <div className="flex gap-3">
               <button
                 onClick={() => handleCreateItem('note')}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
               >
                 <FileText size={16} />
                 Add Note
               </button>
               <button
                 onClick={() => handleCreateItem('board')}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
               >
                 <Kanban size={16} />
                 Add Board
@@ -370,14 +370,14 @@ export default function Dashboard() {
                     handleSelect(child);
                   }
                 }}
-                className="relative p-4 bg-white border border-neutral-200 rounded-xl text-left hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-300 transition-colors cursor-pointer group"
+                className="relative p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-left hover:border-neutral-300 dark:hover:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors cursor-pointer group"
               >
                 <div className="flex items-center gap-3 pr-16">
                   {child.type === 'note' && <FileText size={18} className="text-neutral-400" />}
                   {child.type === 'board' && <Kanban size={18} className="text-neutral-400" />}
                   {child.type === 'folder' && <Folder size={18} className="text-neutral-400" />}
                   {!child.type && <FileText size={18} className="text-neutral-400" />}
-                  <p className="text-base text-neutral-900 group-hover:text-neutral-700 truncate">{child.name}</p>
+                  <p className="text-base text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 truncate">{child.name}</p>
                 </div>
                 <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button

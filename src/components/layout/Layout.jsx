@@ -5,7 +5,7 @@ export default function Layout({ children, selectedId, onSelect }) {
   const { isOpen, isMobile } = useSidebar();
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-neutral-950 overflow-hidden">
       <Sidebar selectedId={selectedId} onSelect={onSelect} />
       <main className={`flex-1 flex flex-col min-h-0 overflow-auto ${!isMobile && !isOpen ? 'w-full' : ''}`}>
         {children}
