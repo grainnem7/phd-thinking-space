@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './useAuth';
 
@@ -343,12 +343,41 @@ export function useDashboard() {
 
     try {
       const capturesRef = collection(db, 'users', user.uid, 'quickCaptures');
-      await addDoc(capturesRef, {
-        ...capture,
-        createdAt: serverTimestamp(),
-      });
+      await addDoc(capturesRef, capture);
     } catch (error) {
       console.error('Error adding quick capture:', error);
+    }
+  }, [user, isDemo, quickCaptures, saveDemoQuickCaptures]);
+
+  const updateQuickCapture = useCallback(async (id, updates) => {
+    if (!user) return;
+
+    if (isDemo) {
+      saveDemoQuickCaptures(quickCaptures.map(c => c.id === id ? { ...c, ...updates } : c));
+      return;
+    }
+
+    try {
+      const captureRef = doc(db, 'users', user.uid, 'quickCaptures', id);
+      await updateDoc(captureRef, updates);
+    } catch (error) {
+      console.error('Error updating quick capture:', error);
+    }
+  }, [user, isDemo, quickCaptures, saveDemoQuickCaptures]);
+
+  const deleteQuickCapture = useCallback(async (id) => {
+    if (!user) return;
+
+    if (isDemo) {
+      saveDemoQuickCaptures(quickCaptures.filter(c => c.id !== id));
+      return;
+    }
+
+    try {
+      const captureRef = doc(db, 'users', user.uid, 'quickCaptures', id);
+      await deleteDoc(captureRef);
+    } catch (error) {
+      console.error('Error deleting quick capture:', error);
     }
   }, [user, isDemo, quickCaptures, saveDemoQuickCaptures]);
 
@@ -440,6 +469,8 @@ export function useDashboard() {
     updateScheduleBlock,
     deleteScheduleBlock,
     addQuickCapture,
+    updateQuickCapture,
+    deleteQuickCapture,
     addTodo,
     updateTodo,
     deleteTodo,

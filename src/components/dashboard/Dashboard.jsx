@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, ChevronRight, Trash2, Pencil, X, Check } from 'lucide-react';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useFirestore } from '../../hooks/useFirestore';
-import { format, formatDistanceToNow, differenceInCalendarDays, parseISO } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
+import { daysUntil, parseLocalDate } from '../../utils/date';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -27,6 +28,8 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
     updateScheduleBlock,
     deleteScheduleBlock,
     addQuickCapture,
+    updateQuickCapture,
+    deleteQuickCapture,
     addTodo,
     toggleTodo,
     deleteTodo,
@@ -111,7 +114,12 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
 
           {/* Quick Capture */}
           <div className="md:col-span-3 lg:col-span-6 bg-white border border-neutral-200 rounded-xl overflow-hidden flex flex-col min-h-[180px] lg:min-h-[200px]">
-            <QuickCaptureWidget captures={quickCaptures} onAddCapture={addQuickCapture} />
+            <QuickCaptureWidget
+              captures={quickCaptures}
+              onAddCapture={addQuickCapture}
+              onUpdateCapture={updateQuickCapture}
+              onDeleteCapture={deleteQuickCapture}
+            />
           </div>
 
           {/* Recent Notes */}
@@ -143,7 +151,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
   const [newDeadline, setNewDeadline] = useState({ title: '', date: '' });
   const [editDeadline, setEditDeadline] = useState({ title: '', date: '' });
 
-  const getDaysRemaining = (dateStr) => differenceInCalendarDays(parseISO(dateStr), new Date());
+  const getDaysRemaining = daysUntil;
 
   const handleAdd = () => {
     if (newDeadline.title && newDeadline.date) {
@@ -171,7 +179,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
     setEditDeadline({ title: '', date: '' });
   };
 
-  const sorted = [...deadlines].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const sorted = [...deadlines].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
   return (
     <>
@@ -252,7 +260,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
                   <div className="flex-1 min-w-0 mr-3">
                     <p className="text-base sm:text-lg text-neutral-900 truncate">{d.title}</p>
                     <p className="text-sm sm:text-base text-neutral-400 mt-1">
-                      {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : format(parseISO(d.date), 'MMM d')}
+                      {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : format(parseLocalDate(d.date), 'MMM d')}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -615,14 +623,34 @@ function TodoWidget({ todos = [], boards = [], onAddTodo, onToggleTodo, onDelete
   );
 }
 
-function QuickCaptureWidget({ captures = [], onAddCapture }) {
+function QuickCaptureWidget({ captures = [], onAddCapture, onUpdateCapture, onDeleteCapture }) {
   const [text, setText] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
 
   const handleSubmit = () => {
     if (text.trim()) {
       onAddCapture?.({ text: text.trim(), createdAt: new Date().toISOString() });
       setText('');
     }
+  };
+
+  const handleStartEdit = (c) => {
+    setEditingId(c.id);
+    setEditText(c.text);
+  };
+
+  const handleSaveEdit = () => {
+    if (editText.trim() && editingId) {
+      onUpdateCapture?.(editingId, { text: editText.trim() });
+      setEditingId(null);
+      setEditText('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditText('');
   };
 
   const parseDate = (v) => {
@@ -658,12 +686,65 @@ function QuickCaptureWidget({ captures = [], onAddCapture }) {
           </div>
         ) : (
           <div className="divide-y divide-neutral-100">
-            {captures.slice(0, 5).map((c) => (
-              <div key={c.id} className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-neutral-50 transition-colors">
-                <p className="text-base sm:text-lg text-neutral-600">{c.text}</p>
-                <p className="text-sm sm:text-base text-neutral-400 mt-1">{timeAgo(c.createdAt)}</p>
-              </div>
-            ))}
+            {captures.slice(0, 5).map((c) => {
+              if (editingId === c.id) {
+                return (
+                  <div key={c.id} className="px-4 sm:px-6 py-3 sm:py-4 bg-neutral-50 space-y-3">
+                    <input
+                      type="text"
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEdit();
+                        if (e.key === 'Escape') handleCancelEdit();
+                      }}
+                      className="w-full px-3 py-2.5 text-base bg-white border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-300"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={!editText.trim()}
+                        className="flex-1 py-2 text-base text-neutral-600 hover:text-neutral-900 transition-colors disabled:text-neutral-300 flex items-center justify-center gap-1"
+                      >
+                        <Check size={16} /> Save
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="flex-1 py-2 text-base text-neutral-400 hover:text-neutral-600 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <X size={16} /> Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={c.id} className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-neutral-50 transition-colors flex items-start justify-between gap-3 group">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base sm:text-lg text-neutral-600">{c.text}</p>
+                    <p className="text-sm sm:text-base text-neutral-400 mt-1">{timeAgo(c.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button
+                      onClick={() => handleStartEdit(c)}
+                      className="p-1.5 text-neutral-300 hover:text-neutral-600 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => onDeleteCapture?.(c.id)}
+                      className="p-1.5 text-neutral-300 hover:text-red-500 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
