@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { EinkProvider } from './contexts/EinkContext';
+import { ConfirmProvider } from './components/common/ConfirmDialog';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
@@ -64,7 +65,9 @@ export default function App() {
     <BrowserRouter>
       <EinkProvider>
         <AuthProvider>
-          <AppRoutes />
+          <ConfirmProvider>
+            <AppRoutes />
+          </ConfirmProvider>
         </AuthProvider>
       </EinkProvider>
     </BrowserRouter>

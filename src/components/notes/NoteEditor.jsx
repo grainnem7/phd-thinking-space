@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNotes } from '../../hooks/useNotes';
-import { Cloud, CloudOff, Clock, Download, FileText } from 'lucide-react';
+import { Cloud, CloudOff, Clock, Download, FileText, Trash2 } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
 import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
 import { Packer } from "docx";
 import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
 import { pdf } from "@react-pdf/renderer";
+import { useConfirm } from '../common/ConfirmDialog';
 
-export default function NoteEditor({ note, updateSection }) {
+export default function NoteEditor({ note, updateSection, onDelete }) {
+  const confirm = useConfirm();
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { isSaving, lastSaved, error, debouncedSave } = useNotes(note?.id, updateSection);
@@ -61,6 +63,17 @@ export default function NoteEditor({ note, updateSection }) {
     } finally {
       setIsExportingDocx(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!note || !onDelete) return;
+    const ok = await confirm({
+      title: `Delete "${note.name}"?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) onDelete(note.id);
   };
 
   const handleExportPdf = async () => {
@@ -138,6 +151,16 @@ export default function NoteEditor({ note, updateSection }) {
             <span className="text-xs text-red-500" title={error}>
               Save failed
             </span>
+          )}
+          {onDelete && (
+            <button
+              onClick={handleDelete}
+              aria-label={`Delete ${note.name}`}
+              title="Delete note"
+              className="text-neutral-300 hover:text-red-500 transition-colors p-1"
+            >
+              <Trash2 size={16} />
+            </button>
           )}
         </div>
       </div>

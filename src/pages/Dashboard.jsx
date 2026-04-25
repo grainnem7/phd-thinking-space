@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useFirestore } from '../hooks/useFirestore';
 import { useSidebar } from '../contexts/SidebarContext';
+import { useConfirm } from '../components/common/ConfirmDialog';
 import Layout from '../components/layout/Layout';
 import Header from '../components/layout/Header';
 import NoteEditor from '../components/notes/NoteEditor';
@@ -15,12 +16,14 @@ import Modal from '../components/common/Modal';
 export default function Dashboard() {
   const { sections, loading, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
   const { toggle, isOpen, isMobile } = useSidebar();
+  const confirm = useConfirm();
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
 
@@ -163,18 +166,24 @@ export default function Dashboard() {
   };
 
   // Item action handlers
+  const openRename = (item) => {
+    setRenameTarget(item);
+    setNewName(item.name);
+    setRenameModalOpen(true);
+  };
+
   const handleRename = () => {
     if (selectedItem) {
-      setNewName(selectedItem.name);
-      setRenameModalOpen(true);
+      openRename(selectedItem);
       setItemMenuOpen(false);
     }
   };
 
   const handleRenameSubmit = async () => {
-    if (selectedItem && newName.trim()) {
-      await updateSection(selectedItem.id, { name: newName.trim() });
+    if (renameTarget && newName.trim()) {
+      await updateSection(renameTarget.id, { name: newName.trim() });
       setRenameModalOpen(false);
+      setRenameTarget(null);
       setNewName('');
     }
   };
@@ -203,6 +212,32 @@ export default function Dashboard() {
     }
   };
 
+  const handleChildRename = (e, child) => {
+    e.stopPropagation();
+    openRename(child);
+  };
+
+  const handleChildDelete = async (e, child) => {
+    e.stopPropagation();
+    const childCount = sections.filter(s => s.parentId === child.id).length;
+    const ok = await confirm({
+      title: `Delete "${child.name}"?`,
+      body: childCount > 0
+        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (ok) {
+      // If we deleted the currently-selected item, navigate to its parent
+      if (selectedItem && (selectedItem.id === child.id || sections.some(s => s.id === selectedItem.id && s.parentId === child.id))) {
+        const parent = sections.find(s => s.id === child.parentId);
+        setSelectedItem(parent || null);
+      }
+      await deleteSection(child.id);
+    }
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -224,7 +259,17 @@ export default function Dashboard() {
     }
 
     if (selectedItem.type === 'board') {
-      return <KanbanBoard board={selectedItem} />;
+      return (
+        <KanbanBoard
+          board={selectedItem}
+          onRename={(b) => openRename(b)}
+          onDelete={async (id) => {
+            const parent = sections.find(s => s.id === selectedItem.parentId);
+            setSelectedItem(parent || null);
+            await deleteSection(id);
+          }}
+        />
+      );
     }
 
     // Check if this is a folder with children
@@ -232,7 +277,18 @@ export default function Dashboard() {
 
     // If it's explicitly a note, or has no children (leaf node), show editor
     if (selectedItem.type === 'note' || (selectedItem.type !== 'folder' && children.length === 0)) {
-      return <NoteEditor note={selectedItem} sections={sections} updateSection={updateSection} />;
+      return (
+        <NoteEditor
+          note={selectedItem}
+          sections={sections}
+          updateSection={updateSection}
+          onDelete={async (id) => {
+            const parent = sections.find(s => s.id === selectedItem.parentId);
+            setSelectedItem(parent || null);
+            await deleteSection(id);
+          }}
+        />
+      );
     }
 
     // Folder - show children
@@ -301,19 +357,47 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {children.map((child) => (
-              <button
+              <div
                 key={child.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleSelect(child)}
-                className="p-4 bg-white border border-neutral-200 rounded-xl text-left hover:border-neutral-300 transition-colors group"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSelect(child);
+                  }
+                }}
+                className="relative p-4 bg-white border border-neutral-200 rounded-xl text-left hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-300 transition-colors cursor-pointer group"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pr-16">
                   {child.type === 'note' && <FileText size={18} className="text-neutral-400" />}
                   {child.type === 'board' && <Kanban size={18} className="text-neutral-400" />}
                   {child.type === 'folder' && <Folder size={18} className="text-neutral-400" />}
                   {!child.type && <FileText size={18} className="text-neutral-400" />}
-                  <p className="text-base text-neutral-900 group-hover:text-neutral-700">{child.name}</p>
+                  <p className="text-base text-neutral-900 group-hover:text-neutral-700 truncate">{child.name}</p>
                 </div>
-              </button>
+                <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => handleChildRename(e, child)}
+                    aria-label={`Rename ${child.name}`}
+                    title="Rename"
+                    className="p-1.5 text-neutral-400 hover:text-neutral-700 bg-white rounded transition-colors"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleChildDelete(e, child)}
+                    aria-label={`Delete ${child.name}`}
+                    title="Delete"
+                    className="p-1.5 text-neutral-400 hover:text-red-500 bg-white rounded transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -434,6 +518,7 @@ export default function Dashboard() {
         isOpen={renameModalOpen}
         onClose={() => {
           setRenameModalOpen(false);
+          setRenameTarget(null);
           setNewName('');
         }}
         title="Rename"
@@ -453,7 +538,7 @@ export default function Dashboard() {
           }}
         />
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => { setRenameModalOpen(false); setNewName(''); }}>
+          <Button variant="secondary" onClick={() => { setRenameModalOpen(false); setRenameTarget(null); setNewName(''); }}>
             Cancel
           </Button>
           <Button onClick={handleRenameSubmit}>

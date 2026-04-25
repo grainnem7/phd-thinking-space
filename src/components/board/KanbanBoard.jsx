@@ -11,14 +11,17 @@ import {
 import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Layout } from 'lucide-react';
+import { Plus, Layout, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useBoards } from '../../hooks/useBoards';
 import Column from './Column';
 import TaskCard from './TaskCard';
 import TaskModal from './TaskModal';
 import Button from '../common/Button';
+import Dropdown, { DropdownItem } from '../common/Dropdown';
+import { useConfirm } from '../common/ConfirmDialog';
 
-export default function KanbanBoard({ board }) {
+export default function KanbanBoard({ board, onRename, onDelete }) {
+  const confirm = useConfirm();
   const [activeTask, setActiveTask] = useState(null);
   const [activeColumn, setActiveColumn] = useState(null);
   const [modalState, setModalState] = useState({ isOpen: false, task: null, columnId: null });
@@ -190,6 +193,50 @@ export default function KanbanBoard({ board }) {
       {/* Board Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 bg-white">
         <h2 className="font-serif text-xl sm:text-2xl font-medium text-neutral-900 tracking-tight">{board.name}</h2>
+        {(onRename || onDelete) && (
+          <Dropdown
+            align="right"
+            trigger={
+              <button
+                aria-label="Board actions"
+                title="Board actions"
+                className="text-neutral-400 hover:text-neutral-700 transition-colors p-1.5"
+              >
+                <MoreVertical size={18} />
+              </button>
+            }
+          >
+            {({ close }) => (
+              <>
+                {onRename && (
+                  <DropdownItem onClick={() => { onRename(board); close(); }}>
+                    <Pencil size={14} /> Rename
+                  </DropdownItem>
+                )}
+                {onDelete && (
+                  <DropdownItem
+                    danger
+                    onClick={async () => {
+                      close();
+                      const taskCount = (board.tasks || []).length;
+                      const ok = await confirm({
+                        title: `Delete "${board.name}"?`,
+                        body: taskCount > 0
+                          ? `This board has ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}. Deleting it will remove them too. This cannot be undone.`
+                          : 'This cannot be undone.',
+                        confirmLabel: 'Delete',
+                        danger: true,
+                      });
+                      if (ok) onDelete(board.id);
+                    }}
+                  >
+                    <Trash2 size={14} /> Delete board
+                  </DropdownItem>
+                )}
+              </>
+            )}
+          </Dropdown>
+        )}
       </div>
 
       {/* Columns */}
