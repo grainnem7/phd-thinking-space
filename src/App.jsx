@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SidebarProvider } from './contexts/SidebarContext';
 import { EinkProvider } from './contexts/EinkContext';
+import { FocusModeProvider } from './contexts/FocusModeContext';
 import { ConfirmProvider } from './components/common/ConfirmDialog';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -50,7 +51,9 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <SidebarProvider>
-              <Dashboard />
+              <FocusModeProvider>
+                <Dashboard />
+              </FocusModeProvider>
             </SidebarProvider>
           </PrivateRoute>
         }

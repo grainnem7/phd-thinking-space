@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useFirestore } from '../hooks/useFirestore';
 import { useSidebar } from '../contexts/SidebarContext';
+import { useFocusMode } from '../contexts/FocusModeContext';
 import { useConfirm } from '../components/common/ConfirmDialog';
 import Layout from '../components/layout/Layout';
 import Header from '../components/layout/Header';
@@ -16,6 +17,7 @@ import Modal from '../components/common/Modal';
 export default function Dashboard() {
   const { sections, loading, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
   const { toggle, isOpen, isMobile } = useSidebar();
+  const { focusMode } = useFocusMode();
   const confirm = useConfirm();
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -407,6 +409,7 @@ export default function Dashboard() {
 
   return (
     <Layout selectedId={selectedItem?.id} onSelect={handleSelect}>
+      {!focusMode && (
       <Header
         breadcrumbs={getBreadcrumbs()}
         actions={
@@ -469,6 +472,7 @@ export default function Dashboard() {
           </>
         }
       />
+      )}
       {renderContent()}
 
       {/* Search Modal */}

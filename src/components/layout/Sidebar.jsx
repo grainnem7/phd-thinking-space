@@ -48,6 +48,7 @@ import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFirestore } from '../../hooks/useFirestore';
 import { useEink } from '../../contexts/EinkContext';
+import { useFocusMode } from '../../contexts/FocusModeContext';
 import SearchInput from '../common/SearchInput';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
@@ -216,6 +217,7 @@ export default function Sidebar({ selectedId, onSelect }) {
   const { user, logout, isDemo } = useAuth();
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
+  const { focusMode } = useFocusMode();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -348,9 +350,9 @@ export default function Sidebar({ selectedId, onSelect }) {
 
   const sidebarClasses = isMobile
     ? `fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-neutral-200 transform transition-transform duration-200 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
+        isOpen && !focusMode ? 'translate-x-0' : '-translate-x-full'
       }`
-    : `bg-white border-r border-neutral-200 flex-shrink-0 relative transition-all duration-200 ${isOpen ? '' : 'hidden'}`;
+    : `bg-white border-r border-neutral-200 flex-shrink-0 relative transition-all duration-200 ${isOpen && !focusMode ? '' : 'hidden'}`;
 
   const sidebarStyle = isMobile ? {} : { width: `${effectiveWidth}px` };
 

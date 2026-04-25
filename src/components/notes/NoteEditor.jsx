@@ -1,23 +1,91 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNotes } from '../../hooks/useNotes';
-import { Cloud, CloudOff, Clock, Download, FileText, Trash2 } from 'lucide-react';
+import { Cloud, CloudOff, Clock, Download, FileText, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
 import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
 import { Packer } from "docx";
 import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
 import { pdf } from "@react-pdf/renderer";
 import { useConfirm } from '../common/ConfirmDialog';
+import { useFocusMode } from '../../contexts/FocusModeContext';
+
+// Walk a BlockNote document tree and concatenate inline text. Returns "" for malformed input.
+function extractTextFromBlocks(blocks) {
+  if (!Array.isArray(blocks)) return '';
+  let out = '';
+  for (const block of blocks) {
+    if (Array.isArray(block?.content)) {
+      for (const inline of block.content) {
+        if (typeof inline?.text === 'string') out += inline.text + ' ';
+      }
+    } else if (typeof block?.content === 'string') {
+      out += block.content + ' ';
+    }
+    if (Array.isArray(block?.children) && block.children.length) {
+      out += extractTextFromBlocks(block.children);
+    }
+  }
+  return out;
+}
+
+function countWords(content) {
+  if (!content) return { words: 0, chars: 0 };
+  let parsed = content;
+  if (typeof content === 'string') {
+    try { parsed = JSON.parse(content); } catch { return { words: 0, chars: 0 }; }
+  }
+  const text = extractTextFromBlocks(parsed).trim();
+  return {
+    words: text ? text.split(/\s+/).length : 0,
+    chars: text.length,
+  };
+}
 
 export default function NoteEditor({ note, updateSection, onDelete }) {
   const confirm = useConfirm();
+  const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(note?.name || '');
+  const [wordStats, setWordStats] = useState(() => countWords(note?.content));
+  const wordCountTimeoutRef = useRef(null);
   const { isSaving, lastSaved, error, debouncedSave } = useNotes(note?.id, updateSection);
   const editorRef = useRef(null);
 
+  // Sync local title draft when navigating to a different note or when name changes externally
+  useEffect(() => {
+    setTitleDraft(note?.name || '');
+  }, [note?.id, note?.name]);
+
+  // Reset word count when switching notes
+  useEffect(() => {
+    setWordStats(countWords(note?.content));
+  }, [note?.id]);
+
   const handleChange = useCallback((newContent) => {
     debouncedSave(newContent);
+    if (wordCountTimeoutRef.current) clearTimeout(wordCountTimeoutRef.current);
+    wordCountTimeoutRef.current = setTimeout(() => {
+      setWordStats(countWords(newContent));
+    }, 500);
   }, [debouncedSave]);
+
+  useEffect(() => {
+    return () => {
+      if (wordCountTimeoutRef.current) clearTimeout(wordCountTimeoutRef.current);
+    };
+  }, []);
+
+  const saveTitle = async () => {
+    if (!note || !updateSection) return;
+    const trimmed = titleDraft.trim();
+    if (!trimmed) {
+      setTitleDraft(note.name);
+      return;
+    }
+    if (trimmed === note.name) return;
+    await updateSection(note.id, { name: trimmed });
+  };
 
   const formatLastSaved = () => {
     if (!lastSaved) return null;
@@ -125,49 +193,94 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white relative">
       {/* Minimal status bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100">
-        <span className="text-sm text-neutral-400">{note.name}</span>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleExportDocx}
-            disabled={isExportingDocx || isExportingPdf}
-            className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
-          >
-            {isExportingDocx ? 'Exporting...' : 'DOCX'}
-          </button>
-          <button
-            onClick={handleExportPdf}
-            disabled={isExportingDocx || isExportingPdf}
-            className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
-          >
-            {isExportingPdf ? 'Exporting...' : 'PDF'}
-          </button>
-          <span className="text-xs text-neutral-300">
-            {isSaving ? 'Saving...' : lastSaved ? `Saved ${formatLastSaved()}` : ''}
+      {!focusMode && (
+        <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100">
+          <span className="text-xs text-neutral-400 tabular-nums">
+            {wordStats.words.toLocaleString()} {wordStats.words === 1 ? 'word' : 'words'}
+            <span className="text-neutral-300"> · </span>
+            {wordStats.chars.toLocaleString()} {wordStats.chars === 1 ? 'char' : 'chars'}
           </span>
-          {error && (
-            <span className="text-xs text-red-500" title={error}>
-              Save failed
-            </span>
-          )}
-          {onDelete && (
+          <div className="flex items-center gap-4">
             <button
-              onClick={handleDelete}
-              aria-label={`Delete ${note.name}`}
-              title="Delete note"
-              className="text-neutral-300 hover:text-red-500 transition-colors p-1"
+              onClick={handleExportDocx}
+              disabled={isExportingDocx || isExportingPdf}
+              className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
             >
-              <Trash2 size={16} />
+              {isExportingDocx ? 'Exporting...' : 'DOCX'}
             </button>
-          )}
+            <button
+              onClick={handleExportPdf}
+              disabled={isExportingDocx || isExportingPdf}
+              className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
+            >
+              {isExportingPdf ? 'Exporting...' : 'PDF'}
+            </button>
+            <span className="text-xs text-neutral-300">
+              {isSaving ? 'Saving...' : lastSaved ? `Saved ${formatLastSaved()}` : ''}
+            </span>
+            {error && (
+              <span className="text-xs text-red-500" title={error}>
+                Save failed
+              </span>
+            )}
+            <button
+              onClick={toggleFocusMode}
+              aria-label="Enter focus mode"
+              title="Focus mode (Ctrl+Shift+F)"
+              className="text-neutral-300 hover:text-neutral-600 transition-colors p-1"
+            >
+              <Maximize2 size={16} />
+            </button>
+            {onDelete && (
+              <button
+                onClick={handleDelete}
+                aria-label={`Delete ${note.name}`}
+                title="Delete note"
+                className="text-neutral-300 hover:text-red-500 transition-colors p-1"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+      {focusMode && (
+        <button
+          onClick={toggleFocusMode}
+          aria-label="Exit focus mode"
+          title="Exit focus mode (Esc or Ctrl+Shift+F)"
+          className="fixed top-4 right-4 z-30 text-neutral-300 hover:text-neutral-600 transition-colors p-2 bg-white/80 rounded-lg backdrop-blur-sm"
+        >
+          <Minimize2 size={16} />
+        </button>
+      )}
 
       {/* Editor */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-10 py-10">
+        <div className="max-w-3xl mx-auto px-10 pt-10 pb-2">
+          <input
+            type="text"
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+              if (e.key === 'Escape') {
+                setTitleDraft(note.name);
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder="Untitled"
+            aria-label="Note title"
+            className="w-full font-serif text-3xl sm:text-4xl font-medium text-neutral-900 tracking-tight bg-transparent focus:outline-none placeholder:text-neutral-300"
+          />
+        </div>
+        <div className="max-w-3xl mx-auto px-10 pb-10">
           <BlockNoteEditor key={note?.id} ref={editorRef} content={note?.content} onChange={handleChange} />
         </div>
       </div>
