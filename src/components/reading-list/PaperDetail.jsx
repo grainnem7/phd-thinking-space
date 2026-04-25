@@ -1,10 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, ExternalLink, Star, Trash2, Copy, Check, FileText, Download, Upload, X, BookOpen } from 'lucide-react';
 import TabEditor from './TabEditor';
 import PdfViewer from './PdfViewer';
 import { generateInTextCitation, CITATION_STYLES } from '../../utils/paperMetadata';
 import { useStorage } from '../../hooks/useStorage';
 import { useAuth } from '../../hooks/useAuth';
+import { useFirestore } from '../../hooks/useFirestore';
 import { useConfirm } from '../common/ConfirmDialog';
 
 const STATUS_OPTIONS = [
@@ -273,6 +274,7 @@ function ReferenceSection({ paper }) {
 
 export default function PaperDetail({ paper, collections, onBack, onUpdate, onDelete }) {
   const confirm = useConfirm();
+  const { sections } = useFirestore();
   const [activeTabId, setActiveTabId] = useState(paper.tabs?.[0]?.id || 'notes');
   const [editingTabId, setEditingTabId] = useState(null);
   const [editingTabName, setEditingTabName] = useState('');
@@ -418,6 +420,20 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
   };
 
   const tabs = paper.tabs || [{ id: 'notes', name: 'Notes' }];
+
+  // Find notes whose content mentions this paper. Looks for the paper's
+  // title (case-insensitive substring) in the JSON-stringified BlockNote
+  // content. Title-only is conservative — it'll miss DOI-only mentions and
+  // hit on substring overlaps with longer titles, but it's cheap and works
+  // without indexing.
+  const mentioningNotes = useMemo(() => {
+    const title = (paper.title || '').toLowerCase().trim();
+    if (!title || title.length < 4) return [];
+    return sections.filter((s) => {
+      if (s.type !== 'note' || !s.content) return false;
+      return s.content.toLowerCase().includes(title);
+    });
+  }, [sections, paper.title]);
 
   return (
     <div className="flex-1 bg-white min-h-0 flex flex-col">
@@ -569,6 +585,26 @@ export default function PaperDetail({ paper, collections, onBack, onUpdate, onDe
 
             {/* Reference Section */}
             <ReferenceSection paper={paper} />
+
+            {/* Mentioned in N notes */}
+            {mentioningNotes.length > 0 && (
+              <section className="mt-8 pt-8 border-t border-black/5">
+                <label className="block text-xs uppercase tracking-widest text-black/50 mb-3">
+                  Mentioned in {mentioningNotes.length} {mentioningNotes.length === 1 ? 'note' : 'notes'}
+                </label>
+                <ul className="space-y-1">
+                  {mentioningNotes.slice(0, 10).map((note) => (
+                    <li key={note.id} className="flex items-center gap-2 text-sm text-black/60">
+                      <FileText size={14} className="text-black/30 shrink-0" />
+                      <span className="truncate">{note.name || 'Untitled'}</span>
+                    </li>
+                  ))}
+                </ul>
+                {mentioningNotes.length > 10 && (
+                  <p className="text-xs text-black/40 mt-2">+{mentioningNotes.length - 10} more</p>
+                )}
+              </section>
+            )}
 
             {/* Divider */}
             <div className="border-t border-black/5 my-8" />

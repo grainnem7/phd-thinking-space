@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNotes } from '../../hooks/useNotes';
-import { Cloud, CloudOff, Clock, Download, FileText, Trash2, Maximize2, Minimize2 } from 'lucide-react';
+import { Cloud, CloudOff, Clock, Download, FileText, Trash2, Maximize2, Minimize2, BookOpen } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
 import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
 import { Packer } from "docx";
@@ -8,6 +8,9 @@ import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporte
 import { pdf } from "@react-pdf/renderer";
 import { useConfirm } from '../common/ConfirmDialog';
 import { useFocusMode } from '../../contexts/FocusModeContext';
+import { useReadingList } from '../../hooks/useReadingList';
+import { generateInTextCitation } from '../../utils/paperMetadata';
+import Modal from '../common/Modal';
 
 // Walk a BlockNote document tree and concatenate inline text. Returns "" for malformed input.
 function extractTextFromBlocks(blocks) {
@@ -44,13 +47,43 @@ function countWords(content) {
 export default function NoteEditor({ note, updateSection, onDelete }) {
   const confirm = useConfirm();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
+  const { papers } = useReadingList();
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [titleDraft, setTitleDraft] = useState(note?.name || '');
   const [wordStats, setWordStats] = useState(() => countWords(note?.content));
+  const [citePickerOpen, setCitePickerOpen] = useState(false);
+  const [citeQuery, setCiteQuery] = useState('');
   const wordCountTimeoutRef = useRef(null);
   const { isSaving, lastSaved, error, debouncedSave } = useNotes(note?.id, updateSection);
   const editorRef = useRef(null);
+
+  const filteredPapers = useMemo(() => {
+    if (!citeQuery.trim()) return papers;
+    const q = citeQuery.toLowerCase();
+    return papers.filter((p) =>
+      (p.title || '').toLowerCase().includes(q) ||
+      (p.authors || '').toLowerCase().includes(q) ||
+      String(p.year || '').includes(q)
+    );
+  }, [papers, citeQuery]);
+
+  const insertCitation = (paper) => {
+    const citation = generateInTextCitation(paper);
+    const editor = editorRef.current?.getEditor();
+    if (editor) {
+      try {
+        editor.insertInlineContent([{ type: 'text', text: citation, styles: {} }]);
+      } catch (e) {
+        // Fallback: copy to clipboard if direct insert fails
+        navigator.clipboard?.writeText(citation);
+      }
+    } else {
+      navigator.clipboard?.writeText(citation);
+    }
+    setCitePickerOpen(false);
+    setCiteQuery('');
+  };
 
   // Sync local title draft when navigating to a different note or when name changes externally
   useEffect(() => {
@@ -226,6 +259,14 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
               </span>
             )}
             <button
+              onClick={() => setCitePickerOpen(true)}
+              aria-label="Cite a paper"
+              title="Cite a paper"
+              className="text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1"
+            >
+              <BookOpen size={16} />
+            </button>
+            <button
               onClick={toggleFocusMode}
               aria-label="Enter focus mode"
               title="Focus mode (Ctrl+Shift+F)"
@@ -284,6 +325,48 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
           <BlockNoteEditor key={note?.id} ref={editorRef} content={note?.content} onChange={handleChange} />
         </div>
       </div>
+
+      <Modal
+        isOpen={citePickerOpen}
+        onClose={() => { setCitePickerOpen(false); setCiteQuery(''); }}
+        title="Cite a paper"
+        size="md"
+      >
+        <input
+          type="text"
+          value={citeQuery}
+          onChange={(e) => setCiteQuery(e.target.value)}
+          placeholder="Search by title, author, or year…"
+          autoFocus
+          className="w-full px-3 py-2.5 mb-4 text-base bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-300 dark:focus:border-neutral-600 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100"
+        />
+        {filteredPapers.length === 0 ? (
+          <p className="text-sm text-neutral-400 dark:text-neutral-500 py-6 text-center">
+            {papers.length === 0 ? 'No papers in your reading list yet.' : 'No papers match your search.'}
+          </p>
+        ) : (
+          <ul className="max-h-[50vh] overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800">
+            {filteredPapers.slice(0, 50).map((paper) => (
+              <li key={paper.id}>
+                <button
+                  onClick={() => insertCitation(paper)}
+                  className="w-full text-left p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg transition-colors group"
+                >
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">{paper.title || 'Untitled'}</p>
+                  {(paper.authors || paper.year) && (
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                      {paper.authors}{paper.authors && paper.year ? ` · ` : ''}{paper.year}
+                    </p>
+                  )}
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 font-mono">
+                    Insert: {generateInTextCitation(paper)}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 }
