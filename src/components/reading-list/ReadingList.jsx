@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search as SearchIcon, X, Plus, Settings, Download } from 'lucide-react';
+import { Search as SearchIcon, X, Plus, Settings, Download, CheckSquare, Trash2 } from 'lucide-react';
 import { useReadingList } from '../../hooks/useReadingList';
 import { useConfirm } from '../common/ConfirmDialog';
 import { generateBibTeX } from '../../utils/paperMetadata';
@@ -36,6 +36,8 @@ export default function ReadingList() {
   const [showCollections, setShowCollections] = useState(false);
   const [showAddPaper, setShowAddPaper] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   const handleExportBibliography = (papersToExport) => {
     if (!papersToExport.length) return;
@@ -50,6 +52,68 @@ export default function ReadingList() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  // Selection helpers
+  const toggleSelection = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const enterSelectionMode = () => {
+    setSelectionMode(true);
+    setSelectedPaperId(null);
+  };
+
+  const selectedPapers = useMemo(
+    () => papers.filter((p) => selectedIds.has(p.id)),
+    [papers, selectedIds],
+  );
+
+  const selectAllVisible = () => {
+    setSelectedIds(new Set(filteredPapers.map((p) => p.id)));
+  };
+
+  // Bulk operations
+  const handleBulkSetStatus = async (status) => {
+    for (const paper of selectedPapers) {
+      await updatePaper(paper.id, { status });
+    }
+    exitSelectionMode();
+  };
+
+  const handleBulkAddToCollection = async (collId) => {
+    for (const paper of selectedPapers) {
+      const cur = paper.collections || [];
+      if (!cur.includes(collId)) {
+        await updatePaper(paper.id, { collections: [...cur, collId] });
+      }
+    }
+    exitSelectionMode();
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedPapers.length;
+    const ok = await confirm({
+      title: `Delete ${count} ${count === 1 ? 'paper' : 'papers'}?`,
+      body: 'Attached files will also be removed from storage. This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    for (const paper of selectedPapers) {
+      await deletePaper(paper.id, paper.file);
+    }
+    exitSelectionMode();
   };
 
   const handleDeleteCollection = async (col) => {
@@ -244,6 +308,17 @@ export default function ReadingList() {
             >
               <Download size={18} />
             </button>
+
+            <button
+              onClick={() => (selectionMode ? exitSelectionMode() : enterSelectionMode())}
+              className={`p-2 rounded-lg transition-colors ${
+                selectionMode ? 'bg-neutral-200 text-neutral-900' : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
+              }`}
+              aria-label={selectionMode ? 'Exit selection mode' : 'Select multiple papers'}
+              title={selectionMode ? 'Exit selection mode' : 'Select multiple'}
+            >
+              <CheckSquare size={18} />
+            </button>
           </div>
 
           {/* Collection filter dropdown */}
@@ -329,6 +404,69 @@ export default function ReadingList() {
           </div>
         )}
 
+        {/* Bulk actions toolbar */}
+        {selectionMode && (
+          <div className="sticky top-0 z-10 mb-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap shadow-sm">
+            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+              {selectedIds.size} selected
+            </span>
+            {selectedIds.size === 0 ? (
+              <button
+                onClick={selectAllVisible}
+                className="text-sm text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
+              >
+                Select all ({filteredPapers.length})
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-sm text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
+                >
+                  Clear
+                </button>
+                <span className="text-neutral-300 dark:text-neutral-600">|</span>
+                <button
+                  onClick={() => handleExportBibliography(selectedPapers)}
+                  className="text-sm text-neutral-700 hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-neutral-100 transition-colors flex items-center gap-1"
+                >
+                  <Download size={14} /> Export .bib
+                </button>
+                <select
+                  onChange={(e) => { if (e.target.value) handleBulkSetStatus(e.target.value); e.target.value = ''; }}
+                  defaultValue=""
+                  aria-label="Set status for selected papers"
+                  className="text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-neutral-300"
+                >
+                  <option value="" disabled>Set status…</option>
+                  <option value="to-read">To read</option>
+                  <option value="reading">Reading</option>
+                  <option value="read">Read</option>
+                </select>
+                {collections.length > 0 && (
+                  <select
+                    onChange={(e) => { if (e.target.value) handleBulkAddToCollection(e.target.value); e.target.value = ''; }}
+                    defaultValue=""
+                    aria-label="Add selected papers to a collection"
+                    className="text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-neutral-300"
+                  >
+                    <option value="" disabled>Add to collection…</option>
+                    {collections.map((col) => (
+                      <option key={col.id} value={col.id}>{col.name}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  onClick={handleBulkDelete}
+                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors flex items-center gap-1 ml-auto"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Papers list */}
         <div className="space-y-4">
           {filteredPapers.map(paper => (
@@ -337,7 +475,12 @@ export default function ReadingList() {
               paper={paper}
               collections={collections}
               getCollectionName={getCollectionName}
-              onClick={() => setSelectedPaperId(paper.id)}
+              selectionMode={selectionMode}
+              isSelected={selectedIds.has(paper.id)}
+              onClick={() => {
+                if (selectionMode) toggleSelection(paper.id);
+                else setSelectedPaperId(paper.id);
+              }}
             />
           ))}
         </div>
@@ -380,16 +523,44 @@ export default function ReadingList() {
 }
 
 // Paper card component - matches the reference design
-function PaperCard({ paper, collections, getCollectionName, onClick }) {
+function PaperCard({ paper, collections, getCollectionName, onClick, selectionMode = false, isSelected = false }) {
   const status = paper.status || 'to-read';
   const statusConfig = STATUS_CONFIG[status];
 
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-neutral-100 rounded-xl p-6 cursor-pointer hover:border-neutral-200 shadow-sm hover:shadow transition-all"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+      aria-pressed={selectionMode ? isSelected : undefined}
+      className={`bg-white border rounded-xl p-6 cursor-pointer shadow-sm hover:shadow transition-all focus:outline-none focus:ring-2 focus:ring-neutral-300 ${
+        selectionMode && isSelected
+          ? 'border-neutral-900 dark:border-neutral-100 ring-2 ring-neutral-900 dark:ring-neutral-100'
+          : 'border-neutral-100 hover:border-neutral-200'
+      }`}
     >
       <div className="flex items-start gap-5">
+        {/* Selection checkbox */}
+        {selectionMode && (
+          <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+            isSelected
+              ? 'bg-neutral-900 dark:bg-neutral-100 border-neutral-900 dark:border-neutral-100'
+              : 'border-neutral-300 dark:border-neutral-600'
+          }`}>
+            {isSelected && (
+              <svg viewBox="0 0 16 16" className="w-3 h-3 text-white dark:text-neutral-900" fill="none" stroke="currentColor" strokeWidth="3">
+                <path d="M3 8l3 3 7-7" />
+              </svg>
+            )}
+          </div>
+        )}
+
         {/* Status badge */}
         <div className={`px-3 py-1.5 rounded text-xs font-bold tracking-wide ${statusConfig.color} flex-shrink-0`}>
           {statusConfig.label}
