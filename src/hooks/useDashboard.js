@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './useAuth';
+import { parseLocalDate } from '../utils/date';
 
 // Demo data for dashboard
 const DEMO_DEADLINES = [
@@ -200,6 +201,82 @@ export function useDashboard() {
 
     return () => clearTimeout(timeout);
   }, [user, isDemo]);
+
+  // Browser notifications for upcoming deadlines (24h, 1h) + schedule blocks (5min).
+  // Fires once per item per kind per session (sessionStorage flags). Requires the
+  // user to have already granted Notification permission via the Pomodoro widget
+  // or system prompt — we don't auto-prompt here to avoid being intrusive.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    const tick = () => {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      // Deadlines
+      for (const d of deadlines) {
+        if (!d?.date || !d?.title) continue;
+        const target = parseLocalDate(d.date);
+        if (!target) continue;
+        // Treat deadline as end-of-day on the target date
+        target.setHours(23, 59, 59, 999);
+        const hoursUntil = (target - now) / 3600000;
+
+        if (hoursUntil > 0 && hoursUntil <= 24) {
+          const k24 = `notif-d-${d.id}-24h`;
+          if (!sessionStorage.getItem(k24)) {
+            try {
+              new Notification('Deadline approaching', {
+                body: `${d.title} — due within 24h`,
+                tag: k24,
+              });
+            } catch { /* ignore */ }
+            sessionStorage.setItem(k24, '1');
+          }
+        }
+        if (hoursUntil > 0 && hoursUntil <= 1) {
+          const k1 = `notif-d-${d.id}-1h`;
+          if (!sessionStorage.getItem(k1)) {
+            try {
+              new Notification('Deadline in under an hour', {
+                body: d.title,
+                tag: k1,
+              });
+            } catch { /* ignore */ }
+            sessionStorage.setItem(k1, '1');
+          }
+        }
+      }
+
+      // Schedule blocks (today only, recurring daily)
+      for (const b of scheduleBlocks) {
+        if (!b?.startTime || !b?.title) continue;
+        const [h, m] = b.startTime.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) continue;
+        const blockStart = new Date(now);
+        blockStart.setHours(h, m, 0, 0);
+        const minsUntil = (blockStart - now) / 60000;
+
+        if (minsUntil > 0 && minsUntil <= 5) {
+          const key = `notif-b-${b.id}-${todayStr}`;
+          if (!sessionStorage.getItem(key)) {
+            try {
+              new Notification('Starting in 5 minutes', {
+                body: `${b.title} at ${b.startTime}`,
+                tag: key,
+              });
+            } catch { /* ignore */ }
+            sessionStorage.setItem(key, '1');
+          }
+        }
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 30000);
+    return () => clearInterval(interval);
+  }, [deadlines, scheduleBlocks]);
 
   // Save dashboard layout
   const saveLayout = useCallback(async (newLayout, newActiveWidgets) => {

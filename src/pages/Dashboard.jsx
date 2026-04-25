@@ -9,7 +9,7 @@ import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
 import ReadingList from '../components/reading-list/ReadingList';
-import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen } from 'lucide-react';
+import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [renameTarget, setRenameTarget] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -45,11 +46,22 @@ export default function Dashboard() {
         e.preventDefault();
         toggle();
       }
+      // ?: open keyboard shortcuts help (only when not typing)
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const el = document.activeElement;
+        const tag = el?.tagName;
+        const inEditable = tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable;
+        if (!inEditable) {
+          e.preventDefault();
+          setShortcutsOpen(true);
+        }
+      }
       // Escape: Close modals
       if (e.key === 'Escape') {
         setSearchOpen(false);
         setIsCreating(false);
         setItemMenuOpen(false);
+        setShortcutsOpen(false);
       }
     };
 
@@ -490,6 +502,7 @@ export default function Dashboard() {
           { id: 'reading-list', label: 'Open Reading List', icon: BookOpen, keywords: 'papers references', run: () => handleSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' }) },
           { id: 'toggle-dark', label: isDark ? 'Switch to light mode' : 'Switch to dark mode', icon: isDark ? Sun : Moon, keywords: 'theme color', run: toggleTheme },
           { id: 'toggle-focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', icon: Maximize2, keywords: 'distraction-free zen', shortcut: 'Ctrl+Shift+F', run: toggleFocusMode },
+          { id: 'shortcuts', label: 'Keyboard shortcuts', icon: Keyboard, keywords: 'help hotkeys', shortcut: '?', run: () => setShortcutsOpen(true) },
         ]}
         onNavigate={handleSelect}
       />
@@ -546,6 +559,35 @@ export default function Dashboard() {
             Delete
           </Button>
         </div>
+      </Modal>
+
+      {/* Keyboard shortcuts help */}
+      <Modal
+        isOpen={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        title="Keyboard shortcuts"
+        size="sm"
+      >
+        <ul className="space-y-3">
+          {[
+            { keys: 'Ctrl + K', label: 'Open command palette' },
+            { keys: 'Ctrl + B', label: 'Toggle sidebar' },
+            { keys: 'Ctrl + Shift + F', label: 'Toggle focus mode' },
+            { keys: '?', label: 'Show this help' },
+            { keys: 'Esc', label: 'Close modals / exit focus mode' },
+            { keys: 'Enter', label: 'Confirm forms; save inline edits' },
+          ].map((row) => (
+            <li key={row.keys} className="flex items-center justify-between gap-4">
+              <span className="text-sm text-neutral-700 dark:text-neutral-200">{row.label}</span>
+              <kbd className="text-xs px-2 py-1 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded text-neutral-600 dark:text-neutral-300 font-mono whitespace-nowrap">
+                {row.keys}
+              </kbd>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 text-xs text-neutral-400 dark:text-neutral-500">
+          On Mac, Ctrl works the same way (or use ⌘).
+        </p>
       </Modal>
     </Layout>
   );
