@@ -30,12 +30,14 @@
           theme = localStorage.getItem('theme');
           eink = localStorage.getItem('eink-mode');
         } catch (e) { /* storage unavailable: defaults */ }
-        var attrs = { scheme: 'data-scheme', accent: 'data-accent', bodyFont: 'data-body-font', headingFont: 'data-heading-font', textSize: 'data-text-size', background: 'data-background' };
-        var defaults = { scheme: 'classic', accent: 'graphite', bodyFont: 'inter', headingFont: 'serif', textSize: 'default', background: 'soft' };
+        var attrs = { scheme: 'data-scheme', bodyFont: 'data-body-font', headingFont: 'data-heading-font', textSize: 'data-text-size', background: 'data-background' };
+        var defaults = { scheme: 'classic', bodyFont: 'inter', headingFont: 'serif', textSize: 'default', background: 'soft' };
         for (var key in attrs) {
           var value = store[key];
           root.setAttribute(attrs[key], typeof value === 'string' && /^[a-z]{1,20}$/.test(value) ? value : defaults[key]);
         }
+        var schemeAccent = { classic: 'graphite', paper: 'amber', sage: 'green', slate: 'blue', midnight: 'indigo', ocean: 'teal', blush: 'rose', lavender: 'violet' };
+        root.setAttribute('data-accent', schemeAccent[root.getAttribute('data-scheme')] || 'graphite');
         if (store.bodyFont === 'literata') {
           var link = document.createElement('link');
           link.id = 'font-literata';

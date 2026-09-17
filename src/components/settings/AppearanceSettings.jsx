@@ -6,12 +6,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConfirm } from '../common/ConfirmDialog';
 import Button from '../common/Button';
 import {
-  ACCENTS,
-  BACKGROUNDS,
   BODY_FONTS,
   DEFAULT_APPEARANCE,
   HEADING_FONTS,
   SCHEMES,
+  SOFTNESS_LEVELS,
   TEXT_SIZES,
   setAppearance,
   useAppearance,
@@ -22,13 +21,6 @@ const MODES = [
   { id: 'dark', label: 'Dark', icon: Moon },
   { id: 'system', label: 'System', icon: Monitor },
 ];
-
-// Illustrative light/dark swatches for the background options (Classic greys)
-const BACKGROUND_SWATCH = {
-  crisp: { light: '#ffffff', dark: '#0a0a0a' },
-  soft: { light: '#f5f5f5', dark: '#141414' },
-  softer: { light: '#ececec', dark: '#1f1f1f' },
-};
 
 const HEADING_SAMPLE_FONT = {
   serif: "Georgia, 'Times New Roman', serif",
@@ -99,12 +91,59 @@ function SchemeHalf({ colors }) {
         <div className="h-1.5 w-3/4 rounded-full" style={{ background: colors.ink }} />
         <div className="h-1 w-full rounded-full" style={{ background: colors.muted }} />
         <div className="h-1 w-2/3 rounded-full" style={{ background: colors.muted }} />
+        <div className="h-1.5 w-1/3 rounded-full" style={{ background: colors.accent }} />
       </div>
     </div>
   );
 }
 
-// Uses the app's real classes, so it shows the current scheme, accent, fonts and size
+// A range input over the softness levels, with clickable labels under the track
+function SoftnessSlider({ value, onChange }) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const index = Math.max(0, SOFTNESS_LEVELS.findIndex((level) => level.id === value));
+  const current = SOFTNESS_LEVELS[index];
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <label htmlFor={id} className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Softness</label>
+        <span className="text-xs text-neutral-500 dark:text-neutral-400">{current.label} · {current.description}</span>
+      </div>
+      <p id={hintId} className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+        How bright the page and cards are, within your colour scheme.
+      </p>
+      <input
+        id={id}
+        type="range"
+        min={0}
+        max={SOFTNESS_LEVELS.length - 1}
+        step={1}
+        value={index}
+        onChange={(e) => onChange(SOFTNESS_LEVELS[Number(e.target.value)].id)}
+        aria-describedby={hintId}
+        aria-valuetext={`${current.label}: ${current.description}`}
+        className="mt-3 w-full cursor-pointer accent-accent"
+      />
+      <div className="mt-1 flex justify-between text-xs" aria-hidden="true">
+        {SOFTNESS_LEVELS.map((level, i) => (
+          <button
+            key={level.id}
+            type="button"
+            tabIndex={-1}
+            onClick={() => onChange(level.id)}
+            className={`${i === 0 ? 'text-left' : i === SOFTNESS_LEVELS.length - 1 ? 'text-right' : 'text-center'} ${level.id === current.id
+              ? 'text-neutral-900 dark:text-neutral-100 font-medium'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
+          >
+            {level.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Uses the app's real classes, so it shows the current scheme, softness, fonts and size
 function Preview() {
   return (
     <div
@@ -136,7 +175,7 @@ function Preview() {
 
 export default function AppearanceSettings() {
   const appearance = useAppearance();
-  const { preference, setTheme, isDark, isDarkSuppressed } = useTheme();
+  const { preference, setTheme, isDarkSuppressed } = useTheme();
   const { einkMode, setEinkMode } = useEink();
   const { isDemo } = useAuth();
   const confirm = useConfirm();
@@ -147,7 +186,7 @@ export default function AppearanceSettings() {
   const handleReset = async () => {
     const ok = await confirm({
       title: 'Reset appearance?',
-      body: 'Colour scheme, accent, fonts, text size, light/dark and e-reader mode will go back to their defaults.',
+      body: 'Colour scheme, softness, fonts, text size, light/dark and e-reader mode will go back to their defaults.',
       confirmLabel: 'Reset',
       danger: false,
     });
@@ -156,8 +195,6 @@ export default function AppearanceSettings() {
     setTheme('system');
     setEinkMode(null);
   };
-
-  const accentLabel = ACCENTS.find((a) => a.id === appearance.accent)?.label;
 
   return (
     <div className="space-y-7">
@@ -213,11 +250,11 @@ export default function AppearanceSettings() {
 
       <ChoiceGroup
         legend="Colour scheme"
-        hint="Each scheme has a light and a dark version."
+        hint="Each scheme has its own colours, in light and dark."
         value={appearance.scheme}
         options={SCHEMES}
         onChange={update('scheme')}
-        className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2"
         optionClassName={cardClass}
         renderOption={(scheme, checked) => (
           <>
@@ -232,51 +269,7 @@ export default function AppearanceSettings() {
         )}
       />
 
-      <ChoiceGroup
-        legend="Background"
-        hint="How bright the page and cards are. Soft tints them with the scheme's colour."
-        value={appearance.background}
-        options={BACKGROUNDS}
-        onChange={update('background')}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-2"
-        optionClassName={(checked) => `${cardClass(checked)} !p-3`}
-        renderOption={(option, checked) => (
-          <>
-            <span data-background={option.id} className="flex h-10 rounded-md overflow-hidden border border-neutral-200 dark:border-neutral-700" aria-hidden="true">
-              <span className="flex-1" style={{ background: BACKGROUND_SWATCH[option.id].light }} />
-              <span className="flex-1" style={{ background: BACKGROUND_SWATCH[option.id].dark }} />
-            </span>
-            <span className="block mt-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">{option.label}</span>
-            <span className="block text-xs text-neutral-500 dark:text-neutral-400">{option.description}</span>
-            <SelectedMark checked={checked} />
-          </>
-        )}
-      />
-
-      <ChoiceGroup
-        legend={<>Accent colour <span className="font-normal text-neutral-500 dark:text-neutral-400">· {accentLabel}</span></>}
-        hint="Buttons, highlights, progress and selected items."
-        value={appearance.accent}
-        options={ACCENTS.map((a) => ({ ...a, title: a.label }))}
-        onChange={update('accent')}
-        className="flex flex-wrap gap-2.5"
-        optionClassName={(checked) => `flex items-center justify-center w-9 h-9 rounded-full ${checked
-          ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900 ring-neutral-400 dark:ring-neutral-500'
-          : 'hover:scale-110 motion-reduce:hover:scale-100 transition-transform'}`}
-        renderOption={(accent, checked) => (
-          <>
-            <span
-              className="flex items-center justify-center w-9 h-9 rounded-full border border-black/10 dark:border-white/15"
-              style={{ background: isDark ? accent.dark : accent.light }}
-            >
-              {checked && (
-                <Check size={16} strokeWidth={3} aria-hidden="true" style={{ color: isDark ? '#0a0a0a' : '#ffffff' }} />
-              )}
-            </span>
-            <span className="sr-only">{accent.label}</span>
-          </>
-        )}
-      />
+      <SoftnessSlider value={appearance.background} onChange={update('background')} />
 
       <ChoiceGroup
         legend="Body font"

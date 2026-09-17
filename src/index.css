@@ -128,162 +128,608 @@ html.dark[data-scheme="midnight"] {
   --neutral-500: 107 120 148;
 }
 
+/* Ocean — sea-glass with teal */
+html[data-scheme="ocean"] {
+  --neutral-50: 244 249 249;
+  --neutral-100: 235 243 243;
+  --neutral-200: 216 229 229;
+  --neutral-300: 192 210 210;
+  --neutral-400: 143 164 165;
+  --neutral-500: 94 114 116;
+  --neutral-600: 69 87 89;
+  --neutral-700: 52 67 69;
+  --neutral-800: 33 44 46;
+  --neutral-900: 21 30 32;
+  --neutral-950: 11 18 20;
+  --neutral-white: 252 255 255;
+  --neutral-black: 4 10 12;
+  --editor-dark-bg: 21 30 32;
+}
+html.dark[data-scheme="ocean"] {
+  --neutral-400: 155 176 177;
+  --neutral-500: 108 128 130;
+}
+
+/* Blush — warm pink with rose */
+html[data-scheme="blush"] {
+  --neutral-50: 250 245 245;
+  --neutral-100: 244 236 237;
+  --neutral-200: 232 220 222;
+  --neutral-300: 214 198 201;
+  --neutral-400: 168 150 154;
+  --neutral-500: 117 99 104;
+  --neutral-600: 88 73 77;
+  --neutral-700: 68 56 60;
+  --neutral-800: 44 35 38;
+  --neutral-900: 30 23 26;
+  --neutral-950: 18 13 15;
+  --neutral-white: 255 252 252;
+  --neutral-black: 14 8 10;
+  --editor-dark-bg: 30 23 26;
+}
+html.dark[data-scheme="blush"] {
+  --neutral-400: 180 162 166;
+  --neutral-500: 131 113 118;
+}
+
+/* Lavender — soft lilac with violet */
+html[data-scheme="lavender"] {
+  --neutral-50: 247 246 251;
+  --neutral-100: 239 237 247;
+  --neutral-200: 224 221 236;
+  --neutral-300: 202 198 219;
+  --neutral-400: 156 151 176;
+  --neutral-500: 106 101 128;
+  --neutral-600: 79 75 99;
+  --neutral-700: 61 57 78;
+  --neutral-800: 39 36 52;
+  --neutral-900: 26 23 37;
+  --neutral-950: 15 13 24;
+  --neutral-white: 253 252 255;
+  --neutral-black: 8 6 16;
+  --editor-dark-bg: 26 23 37;
+}
+html.dark[data-scheme="lavender"] {
+  --neutral-400: 168 163 188;
+  --neutral-500: 120 115 142;
+}
+
 /* ========================================
-   BACKGROUND SOFTNESS
-   <html data-background="crisp|soft|softer">. Soft and Softer tint the white
-   surfaces and page towards the scheme's own colour in light mode, and lift
-   near-black to a gentler charcoal (with slightly dimmer text) in dark mode.
-   Generated from each scheme's shades above; keep the two in step.
+   SOFTNESS
+   <html data-background="crisp|soft|softer|softest">, a range within each
+   scheme. Light mode tints white surfaces and the page towards the scheme's
+   own colour (nudging grey text darker to keep contrast); dark mode lifts
+   near-black to charcoal in the scheme's hue and dims bright text slightly.
+   Crisp uses the scheme's shades unchanged.
+   Generated from the scheme shades above — regenerate if those change.
    ======================================== */
 
 html[data-scheme="classic"][data-background="soft"] {
   --neutral-50: 245 245 245;
   --neutral-100: 239 239 239;
+  --neutral-200: 229 229 229;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
   --neutral-white: 250 250 250;
 }
 html.dark[data-scheme="classic"][data-background="soft"] {
   --neutral-50: 239 239 239;
   --neutral-100: 235 235 235;
-  --neutral-800: 43 43 43;
-  --neutral-900: 29 29 29;
+  --neutral-200: 222 222 222;
+  --neutral-400: 168 168 168;
+  --neutral-500: 122 122 122;
+  --neutral-700: 66 66 66;
+  --neutral-800: 45 45 45;
+  --neutral-900: 31 31 31;
   --neutral-950: 18 18 18;
   --neutral-white: 247 247 247;
-  --editor-dark-bg: 29 29 29;
+  --editor-dark-bg: 31 31 31;
 }
 
 html[data-scheme="classic"][data-background="softer"] {
   --neutral-50: 237 237 237;
   --neutral-100: 234 234 234;
+  --neutral-200: 226 226 226;
+  --neutral-400: 155 155 155;
+  --neutral-500: 110 110 110;
   --neutral-white: 245 245 245;
 }
 html.dark[data-scheme="classic"][data-background="softer"] {
-  --neutral-50: 231 231 231;
-  --neutral-100: 229 229 229;
-  --neutral-800: 51 51 51;
-  --neutral-900: 37 37 37;
-  --neutral-950: 30 30 30;
-  --neutral-white: 242 242 242;
-  --editor-dark-bg: 37 37 37;
+  --neutral-50: 233 233 233;
+  --neutral-100: 230 230 230;
+  --neutral-200: 216 216 216;
+  --neutral-400: 173 173 173;
+  --neutral-500: 129 129 129;
+  --neutral-700: 69 69 69;
+  --neutral-800: 53 53 53;
+  --neutral-900: 41 41 41;
+  --neutral-950: 29 29 29;
+  --neutral-white: 243 243 243;
+  --editor-dark-bg: 41 41 41;
+}
+
+html[data-scheme="classic"][data-background="softest"] {
+  --neutral-50: 233 233 233;
+  --neutral-100: 231 231 231;
+  --neutral-200: 224 224 224;
+  --neutral-400: 147 147 147;
+  --neutral-500: 105 105 105;
+  --neutral-white: 241 241 241;
+}
+html.dark[data-scheme="classic"][data-background="softest"] {
+  --neutral-50: 229 229 229;
+  --neutral-100: 227 227 227;
+  --neutral-200: 209 209 209;
+  --neutral-400: 178 178 178;
+  --neutral-500: 137 137 137;
+  --neutral-700: 71 71 71;
+  --neutral-800: 60 60 60;
+  --neutral-900: 50 50 50;
+  --neutral-950: 37 37 37;
+  --neutral-white: 241 241 241;
+  --editor-dark-bg: 50 50 50;
 }
 
 html[data-scheme="paper"][data-background="soft"] {
   --neutral-50: 245 241 233;
   --neutral-100: 238 234 224;
-  --neutral-white: 249 246 239;
+  --neutral-200: 230 224 212;
+  --neutral-400: 166 157 143;
+  --neutral-500: 113 104 89;
+  --neutral-white: 250 247 241;
 }
 html.dark[data-scheme="paper"][data-background="soft"] {
   --neutral-50: 239 234 225;
   --neutral-100: 234 229 218;
-  --neutral-800: 48 42 37;
-  --neutral-900: 35 31 27;
-  --neutral-950: 26 23 19;
+  --neutral-200: 225 218 206;
+  --neutral-400: 181 172 157;
+  --neutral-500: 135 126 113;
+  --neutral-700: 68 61 53;
+  --neutral-800: 49 44 38;
+  --neutral-900: 37 33 29;
+  --neutral-950: 25 22 19;
   --neutral-white: 248 244 237;
-  --editor-dark-bg: 35 31 27;
+  --editor-dark-bg: 37 33 29;
 }
 
 html[data-scheme="paper"][data-background="softer"] {
   --neutral-50: 238 233 223;
   --neutral-100: 234 229 217;
+  --neutral-200: 227 221 209;
+  --neutral-400: 158 149 135;
+  --neutral-500: 109 100 86;
   --neutral-white: 245 241 234;
 }
 html.dark[data-scheme="paper"][data-background="softer"] {
-  --neutral-50: 232 226 216;
-  --neutral-100: 228 222 211;
-  --neutral-800: 55 49 42;
-  --neutral-900: 42 37 32;
-  --neutral-950: 36 31 27;
-  --neutral-white: 243 239 230;
-  --editor-dark-bg: 42 37 32;
+  --neutral-50: 233 228 218;
+  --neutral-100: 230 224 212;
+  --neutral-200: 219 213 200;
+  --neutral-400: 184 175 161;
+  --neutral-500: 143 134 120;
+  --neutral-700: 71 64 55;
+  --neutral-800: 58 52 45;
+  --neutral-900: 46 41 36;
+  --neutral-950: 35 31 26;
+  --neutral-white: 244 240 232;
+  --editor-dark-bg: 46 41 36;
+}
+
+html[data-scheme="paper"][data-background="softest"] {
+  --neutral-50: 234 229 218;
+  --neutral-100: 232 226 215;
+  --neutral-200: 225 218 206;
+  --neutral-400: 150 141 128;
+  --neutral-500: 105 96 82;
+  --neutral-white: 241 237 228;
+}
+html.dark[data-scheme="paper"][data-background="softest"] {
+  --neutral-50: 230 224 213;
+  --neutral-100: 227 220 209;
+  --neutral-200: 214 207 194;
+  --neutral-400: 188 179 164;
+  --neutral-500: 150 141 127;
+  --neutral-700: 74 66 57;
+  --neutral-800: 64 58 50;
+  --neutral-900: 53 48 41;
+  --neutral-950: 42 38 32;
+  --neutral-white: 241 237 228;
+  --editor-dark-bg: 53 48 41;
 }
 
 html[data-scheme="sage"][data-background="soft"] {
   --neutral-50: 240 243 237;
   --neutral-100: 232 237 229;
-  --neutral-white: 246 248 244;
+  --neutral-200: 221 228 217;
+  --neutral-400: 152 164 148;
+  --neutral-500: 102 114 99;
+  --neutral-white: 247 249 245;
 }
 html.dark[data-scheme="sage"][data-background="soft"] {
   --neutral-50: 232 236 229;
   --neutral-100: 226 232 223;
-  --neutral-800: 41 48 39;
-  --neutral-900: 29 35 28;
+  --neutral-200: 215 223 211;
+  --neutral-400: 167 177 163;
+  --neutral-500: 122 134 119;
+  --neutral-700: 60 69 58;
+  --neutral-800: 43 49 41;
+  --neutral-900: 31 37 30;
   --neutral-950: 20 25 19;
   --neutral-white: 243 246 242;
-  --editor-dark-bg: 29 35 28;
+  --editor-dark-bg: 31 37 30;
 }
 
 html[data-scheme="sage"][data-background="softer"] {
   --neutral-50: 231 236 228;
   --neutral-100: 226 232 223;
+  --neutral-200: 218 225 214;
+  --neutral-400: 144 156 141;
+  --neutral-500: 98 110 95;
   --neutral-white: 240 244 238;
 }
 html.dark[data-scheme="sage"][data-background="softer"] {
-  --neutral-50: 222 228 219;
-  --neutral-100: 218 225 215;
-  --neutral-800: 48 55 46;
-  --neutral-900: 36 42 34;
-  --neutral-950: 30 35 28;
-  --neutral-white: 237 241 235;
-  --editor-dark-bg: 36 42 34;
+  --neutral-50: 224 230 222;
+  --neutral-100: 220 227 217;
+  --neutral-200: 209 217 205;
+  --neutral-400: 170 181 166;
+  --neutral-500: 129 141 126;
+  --neutral-700: 63 72 60;
+  --neutral-800: 51 58 48;
+  --neutral-900: 39 46 38;
+  --neutral-950: 29 35 27;
+  --neutral-white: 239 242 236;
+  --editor-dark-bg: 39 46 38;
+}
+
+html[data-scheme="sage"][data-background="softest"] {
+  --neutral-50: 226 232 222;
+  --neutral-100: 224 230 220;
+  --neutral-200: 214 222 210;
+  --neutral-400: 137 148 133;
+  --neutral-500: 94 106 91;
+  --neutral-white: 235 240 233;
+}
+html.dark[data-scheme="sage"][data-background="softest"] {
+  --neutral-50: 220 226 217;
+  --neutral-100: 216 223 213;
+  --neutral-200: 204 212 200;
+  --neutral-400: 174 184 170;
+  --neutral-500: 137 148 133;
+  --neutral-700: 65 75 63;
+  --neutral-800: 57 65 54;
+  --neutral-900: 46 54 44;
+  --neutral-950: 36 42 34;
+  --neutral-white: 235 240 233;
+  --editor-dark-bg: 46 54 44;
 }
 
 html[data-scheme="slate"][data-background="soft"] {
   --neutral-50: 243 244 247;
   --neutral-100: 236 238 242;
-  --neutral-white: 248 249 251;
+  --neutral-200: 226 230 235;
+  --neutral-400: 153 162 174;
+  --neutral-500: 102 112 128;
+  --neutral-white: 249 250 251;
 }
 html.dark[data-scheme="slate"][data-background="soft"] {
   --neutral-50: 235 238 241;
   --neutral-100: 230 233 238;
-  --neutral-800: 39 46 55;
-  --neutral-900: 28 33 40;
-  --neutral-950: 19 23 29;
+  --neutral-200: 220 224 230;
+  --neutral-400: 167 176 188;
+  --neutral-500: 122 132 147;
+  --neutral-700: 58 66 78;
+  --neutral-800: 41 47 57;
+  --neutral-900: 30 34 42;
+  --neutral-950: 19 22 28;
   --neutral-white: 246 248 249;
-  --editor-dark-bg: 28 33 40;
+  --editor-dark-bg: 30 34 42;
 }
 
 html[data-scheme="slate"][data-background="softer"] {
   --neutral-50: 235 238 241;
   --neutral-100: 231 234 238;
+  --neutral-200: 223 227 233;
+  --neutral-400: 145 154 166;
+  --neutral-500: 98 108 123;
   --neutral-white: 243 245 247;
 }
 html.dark[data-scheme="slate"][data-background="softer"] {
-  --neutral-50: 227 230 235;
-  --neutral-100: 223 227 233;
-  --neutral-800: 46 53 63;
-  --neutral-900: 34 40 48;
-  --neutral-950: 28 33 41;
-  --neutral-white: 241 243 245;
-  --editor-dark-bg: 34 40 48;
+  --neutral-50: 229 232 237;
+  --neutral-100: 225 229 234;
+  --neutral-200: 213 218 225;
+  --neutral-400: 171 180 191;
+  --neutral-500: 129 139 153;
+  --neutral-700: 61 69 81;
+  --neutral-800: 49 56 66;
+  --neutral-900: 38 44 53;
+  --neutral-950: 27 32 40;
+  --neutral-white: 242 244 246;
+  --editor-dark-bg: 38 44 53;
+}
+
+html[data-scheme="slate"][data-background="softest"] {
+  --neutral-50: 230 234 238;
+  --neutral-100: 228 232 237;
+  --neutral-200: 220 224 230;
+  --neutral-400: 137 146 159;
+  --neutral-500: 94 103 119;
+  --neutral-white: 239 241 244;
+}
+html.dark[data-scheme="slate"][data-background="softest"] {
+  --neutral-50: 224 228 233;
+  --neutral-100: 221 225 231;
+  --neutral-200: 207 213 220;
+  --neutral-400: 176 184 195;
+  --neutral-500: 137 146 160;
+  --neutral-700: 63 72 84;
+  --neutral-800: 55 62 74;
+  --neutral-900: 44 51 61;
+  --neutral-950: 34 40 48;
+  --neutral-white: 239 241 244;
+  --editor-dark-bg: 44 51 61;
 }
 
 html[data-scheme="midnight"][data-background="soft"] {
   --neutral-50: 240 243 249;
   --neutral-100: 231 236 245;
-  --neutral-white: 246 248 252;
+  --neutral-200: 220 227 238;
+  --neutral-400: 142 154 176;
+  --neutral-500: 91 104 130;
+  --neutral-white: 248 249 252;
 }
 html.dark[data-scheme="midnight"][data-background="soft"] {
   --neutral-50: 231 235 243;
   --neutral-100: 224 230 240;
-  --neutral-800: 33 43 68;
-  --neutral-900: 23 31 55;
-  --neutral-950: 16 23 44;
+  --neutral-200: 214 221 233;
+  --neutral-400: 159 170 190;
+  --neutral-500: 114 127 154;
+  --neutral-700: 52 63 86;
+  --neutral-800: 35 44 70;
+  --neutral-900: 25 34 56;
+  --neutral-950: 16 23 43;
   --neutral-white: 245 247 250;
-  --editor-dark-bg: 23 31 55;
+  --editor-dark-bg: 25 34 56;
 }
 
 html[data-scheme="midnight"][data-background="softer"] {
   --neutral-50: 230 235 244;
   --neutral-100: 225 231 241;
+  --neutral-200: 216 224 235;
+  --neutral-400: 135 147 169;
+  --neutral-500: 87 100 126;
   --neutral-white: 241 244 248;
 }
 html.dark[data-scheme="midnight"][data-background="softer"] {
-  --neutral-50: 221 227 237;
-  --neutral-100: 216 223 235;
-  --neutral-800: 40 50 74;
-  --neutral-900: 28 37 63;
-  --neutral-950: 23 31 56;
-  --neutral-white: 238 241 247;
-  --editor-dark-bg: 28 37 63;
+  --neutral-50: 223 229 238;
+  --neutral-100: 218 225 236;
+  --neutral-200: 207 215 228;
+  --neutral-400: 163 174 194;
+  --neutral-500: 121 134 160;
+  --neutral-700: 54 66 89;
+  --neutral-800: 42 52 78;
+  --neutral-900: 33 42 65;
+  --neutral-950: 24 32 53;
+  --neutral-white: 239 242 247;
+  --editor-dark-bg: 33 42 65;
+}
+
+html[data-scheme="midnight"][data-background="softest"] {
+  --neutral-50: 225 231 241;
+  --neutral-100: 223 229 240;
+  --neutral-200: 213 220 233;
+  --neutral-400: 127 139 161;
+  --neutral-500: 84 97 122;
+  --neutral-white: 236 240 246;
+}
+html.dark[data-scheme="midnight"][data-background="softest"] {
+  --neutral-50: 218 224 235;
+  --neutral-100: 214 221 233;
+  --neutral-200: 201 209 223;
+  --neutral-400: 167 178 197;
+  --neutral-500: 129 141 166;
+  --neutral-700: 57 68 92;
+  --neutral-800: 48 59 84;
+  --neutral-900: 39 49 72;
+  --neutral-950: 30 39 60;
+  --neutral-white: 236 240 246;
+  --editor-dark-bg: 39 49 72;
+}
+
+html[data-scheme="ocean"][data-background="soft"] {
+  --neutral-50: 237 244 244;
+  --neutral-100: 228 238 238;
+  --neutral-200: 216 229 229;
+  --neutral-400: 143 164 165;
+  --neutral-500: 94 114 116;
+  --neutral-white: 245 250 250;
+}
+html.dark[data-scheme="ocean"][data-background="soft"] {
+  --neutral-50: 228 237 237;
+  --neutral-100: 222 233 233;
+  --neutral-200: 210 224 224;
+  --neutral-400: 159 179 180;
+  --neutral-500: 115 135 137;
+  --neutral-700: 54 69 71;
+  --neutral-800: 38 50 52;
+  --neutral-900: 27 37 39;
+  --neutral-950: 17 25 27;
+  --neutral-white: 241 247 247;
+  --editor-dark-bg: 27 37 39;
+}
+
+html[data-scheme="ocean"][data-background="softer"] {
+  --neutral-50: 227 237 237;
+  --neutral-100: 222 233 233;
+  --neutral-200: 212 226 226;
+  --neutral-400: 136 156 157;
+  --neutral-500: 90 110 112;
+  --neutral-white: 238 245 245;
+}
+html.dark[data-scheme="ocean"][data-background="softer"] {
+  --neutral-50: 221 231 231;
+  --neutral-100: 216 228 228;
+  --neutral-200: 204 218 219;
+  --neutral-400: 162 183 184;
+  --neutral-500: 122 142 144;
+  --neutral-700: 56 72 74;
+  --neutral-800: 46 59 61;
+  --neutral-900: 35 47 49;
+  --neutral-950: 25 35 37;
+  --neutral-white: 236 243 243;
+  --editor-dark-bg: 35 47 49;
+}
+
+html[data-scheme="ocean"][data-background="softest"] {
+  --neutral-50: 222 233 233;
+  --neutral-100: 219 231 231;
+  --neutral-200: 209 223 223;
+  --neutral-400: 128 149 150;
+  --neutral-500: 87 106 108;
+  --neutral-white: 232 241 241;
+}
+html.dark[data-scheme="ocean"][data-background="softest"] {
+  --neutral-50: 215 228 228;
+  --neutral-100: 211 225 225;
+  --neutral-200: 198 213 213;
+  --neutral-400: 166 186 187;
+  --neutral-500: 129 150 151;
+  --neutral-700: 59 75 77;
+  --neutral-800: 51 66 68;
+  --neutral-900: 41 54 56;
+  --neutral-950: 32 43 45;
+  --neutral-white: 232 241 241;
+  --editor-dark-bg: 41 54 56;
+}
+
+html[data-scheme="blush"][data-background="soft"] {
+  --neutral-50: 246 239 239;
+  --neutral-100: 240 230 232;
+  --neutral-200: 232 220 222;
+  --neutral-400: 168 150 154;
+  --neutral-500: 117 99 104;
+  --neutral-white: 250 246 246;
+}
+html.dark[data-scheme="blush"][data-background="soft"] {
+  --neutral-50: 239 231 232;
+  --neutral-100: 235 225 226;
+  --neutral-200: 227 214 216;
+  --neutral-400: 183 166 170;
+  --neutral-500: 138 120 125;
+  --neutral-700: 70 58 62;
+  --neutral-800: 51 41 44;
+  --neutral-900: 38 30 33;
+  --neutral-950: 26 19 22;
+  --neutral-white: 248 242 243;
+  --editor-dark-bg: 38 30 33;
+}
+
+html[data-scheme="blush"][data-background="softer"] {
+  --neutral-50: 239 230 231;
+  --neutral-100: 236 225 227;
+  --neutral-200: 229 217 219;
+  --neutral-400: 160 142 146;
+  --neutral-500: 113 95 100;
+  --neutral-white: 246 239 240;
+}
+html.dark[data-scheme="blush"][data-background="softer"] {
+  --neutral-50: 234 224 225;
+  --neutral-100: 231 219 221;
+  --neutral-200: 222 208 211;
+  --neutral-400: 187 169 173;
+  --neutral-500: 146 128 132;
+  --neutral-700: 73 60 64;
+  --neutral-800: 59 48 52;
+  --neutral-900: 47 38 41;
+  --neutral-950: 36 28 31;
+  --neutral-white: 245 238 239;
+  --editor-dark-bg: 47 38 41;
+}
+
+html[data-scheme="blush"][data-background="softest"] {
+  --neutral-50: 236 225 227;
+  --neutral-100: 234 222 224;
+  --neutral-200: 227 213 216;
+  --neutral-400: 152 135 139;
+  --neutral-500: 108 91 96;
+  --neutral-white: 242 234 236;
+}
+html.dark[data-scheme="blush"][data-background="softest"] {
+  --neutral-50: 230 219 221;
+  --neutral-100: 228 215 217;
+  --neutral-200: 216 203 205;
+  --neutral-400: 190 173 177;
+  --neutral-500: 153 135 140;
+  --neutral-700: 76 63 67;
+  --neutral-800: 66 54 58;
+  --neutral-900: 55 44 48;
+  --neutral-950: 43 35 38;
+  --neutral-white: 242 234 236;
+  --editor-dark-bg: 55 44 48;
+}
+
+html[data-scheme="lavender"][data-background="soft"] {
+  --neutral-50: 241 240 247;
+  --neutral-100: 234 231 243;
+  --neutral-200: 224 221 236;
+  --neutral-400: 156 151 176;
+  --neutral-500: 106 101 128;
+  --neutral-white: 247 246 251;
+}
+html.dark[data-scheme="lavender"][data-background="soft"] {
+  --neutral-50: 234 232 241;
+  --neutral-100: 228 225 239;
+  --neutral-200: 218 215 231;
+  --neutral-400: 171 167 191;
+  --neutral-500: 127 122 149;
+  --neutral-700: 63 59 80;
+  --neutral-800: 45 42 59;
+  --neutral-900: 33 30 45;
+  --neutral-950: 22 20 32;
+  --neutral-white: 244 243 249;
+  --editor-dark-bg: 33 30 45;
+}
+
+html[data-scheme="lavender"][data-background="softer"] {
+  --neutral-50: 233 231 242;
+  --neutral-100: 229 226 239;
+  --neutral-200: 221 218 233;
+  --neutral-400: 148 143 168;
+  --neutral-500: 102 97 124;
+  --neutral-white: 241 240 247;
+}
+html.dark[data-scheme="lavender"][data-background="softer"] {
+  --neutral-50: 227 224 237;
+  --neutral-100: 222 219 234;
+  --neutral-200: 213 209 226;
+  --neutral-400: 175 170 194;
+  --neutral-500: 134 129 156;
+  --neutral-700: 66 62 83;
+  --neutral-800: 53 50 68;
+  --neutral-900: 42 38 55;
+  --neutral-950: 31 28 43;
+  --neutral-white: 240 238 246;
+  --editor-dark-bg: 42 38 55;
+}
+
+html[data-scheme="lavender"][data-background="softest"] {
+  --neutral-50: 229 226 239;
+  --neutral-100: 226 223 238;
+  --neutral-200: 217 214 231;
+  --neutral-400: 141 136 161;
+  --neutral-500: 98 93 119;
+  --neutral-white: 237 235 245;
+}
+html.dark[data-scheme="lavender"][data-background="softest"] {
+  --neutral-50: 222 220 233;
+  --neutral-100: 219 216 232;
+  --neutral-200: 207 204 222;
+  --neutral-400: 178 174 197;
+  --neutral-500: 142 137 163;
+  --neutral-700: 68 64 86;
+  --neutral-800: 59 56 76;
+  --neutral-900: 49 45 64;
+  --neutral-950: 38 35 51;
+  --neutral-white: 237 235 245;
+  --editor-dark-bg: 49 45 64;
 }
 
 /* ========================================
