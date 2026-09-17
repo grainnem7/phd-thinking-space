@@ -113,6 +113,12 @@ function useUserCollection({ name, order, direction = 'asc', max, demoKey, demoD
   return { items: user ? items : [], loaded: !user || loaded, add, update, remove };
 }
 
+// Just the deadlines (read-only views such as the weekly review)
+export function useDeadlines() {
+  const { items, loaded } = useUserCollection({ name: 'deadlines', order: 'date', demoKey: 'demo-deadlines', demoDefaults: demoDeadlines });
+  return { deadlines: items, loaded };
+}
+
 export function useDashboard() {
   const deadlines = useUserCollection({ name: 'deadlines', order: 'date', demoKey: 'demo-deadlines', demoDefaults: demoDeadlines });
   const blocks = useUserCollection({ name: 'scheduleBlocks', order: 'startTime', demoKey: 'demo-scheduleBlocks', demoDefaults: demoScheduleBlocks });

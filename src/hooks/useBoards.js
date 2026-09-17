@@ -50,6 +50,34 @@ export function applyTaskMove(tasks, taskId, toColumnId, toIndex) {
   return changed ? next : tasks;
 }
 
+// Stamps `completedAt` (ISO string) on tasks that moved into a done column and
+// removes it from tasks that moved out of one. `before` is the task list prior
+// to the change; tasks whose column didn't change are returned untouched.
+export function stampCompletion(columns, before, after) {
+  if (after === before) return after;
+  const done = new Set(columns.filter(isDoneColumn).map((c) => c.id));
+  const previousColumn = new Map(before.map((t) => [t.id, t.columnId]));
+  const now = new Date().toISOString();
+  let changed = false;
+  const next = after.map((task) => {
+    const wasIn = previousColumn.get(task.id);
+    if (wasIn === task.columnId) return task;
+    const wasDone = wasIn !== undefined && done.has(wasIn);
+    const isDone = done.has(task.columnId);
+    if (isDone && !wasDone && !task.completedAt) {
+      changed = true;
+      return { ...task, completedAt: now };
+    }
+    if (!isDone && 'completedAt' in task) {
+      changed = true;
+      const { completedAt: _completedAt, ...rest } = task;
+      return rest;
+    }
+    return task;
+  });
+  return changed ? next : after;
+}
+
 export function useBoards(boardId) {
   const { mutateSection } = useFirestore();
 
@@ -107,7 +135,7 @@ export function useBoards(boardId) {
       const order = columnTasks(tasks, taskData.columnId)
         .reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1;
       return {
-        tasks: [...tasks, {
+        tasks: stampCompletion(columns, tasks, [...tasks, {
           id,
           title: taskData.title,
           description: taskData.description || '',
@@ -116,7 +144,7 @@ export function useBoards(boardId) {
           tags: taskData.tags || [],
           dueDate: taskData.dueDate || null,
           order,
-        }],
+        }]),
       };
     });
     return id;
@@ -133,7 +161,7 @@ export function useBoards(boardId) {
       if (task && columnId && columnId !== task.columnId && columns.some((c) => c.id === columnId)) {
         next = applyTaskMove(next, taskId, columnId, Infinity);
       }
-      return { tasks: next };
+      return { tasks: stampCompletion(columns, tasks, next) };
     });
   }, [mutateBoard]);
 
@@ -154,7 +182,7 @@ export function useBoards(boardId) {
     return mutateBoard(({ columns, tasks }) => {
       if (!columns.some((c) => c.id === toColumnId)) return {};
       const next = applyTaskMove(tasks, taskId, toColumnId, toIndex);
-      return next === tasks ? {} : { tasks: next };
+      return next === tasks ? {} : { tasks: stampCompletion(columns, tasks, next) };
     });
   }, [mutateBoard]);
 
