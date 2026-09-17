@@ -7,37 +7,11 @@ import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useReadingList } from '../../hooks/useReadingList';
 import { generateInTextCitation } from '../../utils/paperMetadata';
 import Modal from '../common/Modal';
+import { contentToText, countWords } from '../../lib/noteText';
 
-// Walk a BlockNote document tree and concatenate inline text. Returns "" for malformed input.
-function extractTextFromBlocks(blocks) {
-  if (!Array.isArray(blocks)) return '';
-  let out = '';
-  for (const block of blocks) {
-    if (Array.isArray(block?.content)) {
-      for (const inline of block.content) {
-        if (typeof inline?.text === 'string') out += inline.text + ' ';
-      }
-    } else if (typeof block?.content === 'string') {
-      out += block.content + ' ';
-    }
-    if (Array.isArray(block?.children) && block.children.length) {
-      out += extractTextFromBlocks(block.children);
-    }
-  }
-  return out;
-}
-
-function countWords(content) {
-  if (!content) return { words: 0, chars: 0 };
-  let parsed = content;
-  if (typeof content === 'string') {
-    try { parsed = JSON.parse(content); } catch { return { words: 0, chars: 0 }; }
-  }
-  const text = extractTextFromBlocks(parsed).trim();
-  return {
-    words: text ? text.split(/\s+/).length : 0,
-    chars: text.length,
-  };
+function noteStats(content) {
+  const text = contentToText(content).trim();
+  return { words: countWords(text), chars: text.length };
 }
 
 export default function NoteEditor({ note, updateSection, onDelete }) {
@@ -47,7 +21,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [titleDraft, setTitleDraft] = useState(note?.name || '');
-  const [wordStats, setWordStats] = useState(() => countWords(note?.content));
+  const [wordStats, setWordStats] = useState(() => noteStats(note?.content));
   const [citePickerOpen, setCitePickerOpen] = useState(false);
   const [citeQuery, setCiteQuery] = useState('');
   const wordCountTimeoutRef = useRef(null);
@@ -86,7 +60,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
   // Adjusting state during render avoids an extra effect-driven re-render.
   const [syncedNote, setSyncedNote] = useState({ id: note?.id, name: note?.name });
   if (syncedNote.id !== note?.id || syncedNote.name !== note?.name) {
-    if (syncedNote.id !== note?.id) setWordStats(countWords(note?.content));
+    if (syncedNote.id !== note?.id) setWordStats(noteStats(note?.content));
     setSyncedNote({ id: note?.id, name: note?.name });
     setTitleDraft(note?.name || '');
   }

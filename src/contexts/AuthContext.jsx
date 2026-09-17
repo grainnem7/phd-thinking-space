@@ -37,6 +37,8 @@ const DEMO_MIGRATION_MAP = {
   'demo-papers': 'papers',
   'demo-collections': 'paperCollections',
   'demo-calendarItems': 'calendarItems',
+  'demo-writingStats': 'writingStats',
+  'demo-templates': 'templates',
 };
 
 function readDemoArray(key) {
