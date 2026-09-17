@@ -1,94 +1,181 @@
-import { useCallback } from 'react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { useAuth } from './useAuth';
+import { useCallback, useMemo } from 'react';
+import { useFirestore } from './useFirestore';
+
+// Every board operation is an updater of the latest stored board (see
+// SectionsProvider.mutateSection), so edits from other tabs/devices made since
+// this screen last rendered are never overwritten by a stale copy.
+
+const newId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0);
+
+// Same rule the calendar and dashboard use to treat a task as finished
+export function isDoneColumn(column) {
+  const name = column?.name?.toLowerCase() || '';
+  return name.includes('done') || name.includes('complete');
+}
+
+// Tasks of one column in display order (stable for equal `order` values)
+export function columnTasks(tasks, columnId) {
+  return tasks.filter((t) => t.columnId === columnId).sort(byOrder);
+}
+
+// Moves a task to `toIndex` within `toColumnId` (arrayMove semantics: the index
+// is the task's final position in that column) and renumbers `order` 0..n-1 in
+// both the source and destination columns. Returns the input when nothing moves.
+export function applyTaskMove(tasks, taskId, toColumnId, toIndex) {
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) return tasks;
+
+  const dest = columnTasks(tasks, toColumnId).filter((t) => t.id !== taskId);
+  const index = Math.max(0, Math.min(toIndex ?? dest.length, dest.length));
+  dest.splice(index, 0, task);
+
+  const orders = new Map(dest.map((t, i) => [t.id, i]));
+  if (task.columnId !== toColumnId) {
+    columnTasks(tasks, task.columnId)
+      .filter((t) => t.id !== taskId)
+      .forEach((t, i) => orders.set(t.id, i));
+  }
+
+  let changed = false;
+  const next = tasks.map((t) => {
+    if (!orders.has(t.id)) return t;
+    const order = orders.get(t.id);
+    const columnId = t.id === taskId ? toColumnId : t.columnId;
+    if (t.order === order && t.columnId === columnId) return t;
+    changed = true;
+    return { ...t, columnId, order };
+  });
+  return changed ? next : tasks;
+}
 
 export function useBoards(boardId) {
-  const { user } = useAuth();
+  const { mutateSection } = useFirestore();
 
-  const updateBoard = useCallback(async (updates) => {
-    if (!user || !boardId) return;
-
-    const boardRef = doc(db, 'users', user.uid, 'sections', boardId);
-    await updateDoc(boardRef, {
-      ...updates,
-      updatedAt: serverTimestamp(),
-    });
-  }, [user, boardId]);
-
-  const addColumn = useCallback(async (columns, columnName) => {
-    const newColumn = {
-      id: `col-${Date.now()}`,
-      name: columnName,
-      order: columns.length,
-    };
-    await updateBoard({ columns: [...columns, newColumn] });
-    return newColumn;
-  }, [updateBoard]);
-
-  const updateColumn = useCallback(async (columns, columnId, updates) => {
-    const updatedColumns = columns.map(col =>
-      col.id === columnId ? { ...col, ...updates } : col
-    );
-    await updateBoard({ columns: updatedColumns });
-  }, [updateBoard]);
-
-  const deleteColumn = useCallback(async (columns, tasks, columnId) => {
-    const updatedColumns = columns.filter(col => col.id !== columnId);
-    const updatedTasks = tasks.filter(task => task.columnId !== columnId);
-    await updateBoard({ columns: updatedColumns, tasks: updatedTasks });
-  }, [updateBoard]);
-
-  const reorderColumns = useCallback(async (columns) => {
-    const reorderedColumns = columns.map((col, index) => ({
-      ...col,
-      order: index,
+  const mutateBoard = useCallback((updater) => {
+    if (!boardId) return Promise.resolve();
+    return mutateSection(boardId, (board) => updater({
+      columns: board.columns || [],
+      tasks: board.tasks || [],
     }));
-    await updateBoard({ columns: reorderedColumns });
-  }, [updateBoard]);
+  }, [boardId, mutateSection]);
 
-  const addTask = useCallback(async (tasks, taskData) => {
-    const newTask = {
-      id: `task-${Date.now()}`,
-      title: taskData.title,
-      description: taskData.description || '',
-      columnId: taskData.columnId,
-      priority: taskData.priority || 'medium',
-      tags: taskData.tags || [],
-      dueDate: taskData.dueDate || null,
-      order: tasks.filter(t => t.columnId === taskData.columnId).length,
-    };
-    await updateBoard({ tasks: [...tasks, newTask] });
-    return newTask;
-  }, [updateBoard]);
+  const addColumn = useCallback(async (columnName) => {
+    const id = newId('col');
+    await mutateBoard(({ columns }) => ({
+      columns: [
+        ...columns,
+        { id, name: columnName, order: columns.reduce((max, c) => Math.max(max, c.order ?? 0), -1) + 1 },
+      ],
+    }));
+    return id;
+  }, [mutateBoard]);
 
-  const updateTask = useCallback(async (tasks, taskId, updates) => {
-    const updatedTasks = tasks.map(task =>
-      task.id === taskId ? { ...task, ...updates } : task
-    );
-    await updateBoard({ tasks: updatedTasks });
-  }, [updateBoard]);
+  const updateColumn = useCallback((columnId, updates) => {
+    const { id: _id, ...changes } = updates;
+    return mutateBoard(({ columns }) => ({
+      columns: columns.map((col) => (col.id === columnId ? { ...col, ...changes } : col)),
+    }));
+  }, [mutateBoard]);
 
-  const deleteTask = useCallback(async (tasks, taskId) => {
-    const updatedTasks = tasks.filter(task => task.id !== taskId);
-    await updateBoard({ tasks: updatedTasks });
-  }, [updateBoard]);
+  const deleteColumn = useCallback((columnId) => {
+    return mutateBoard(({ columns, tasks }) => ({
+      columns: columns.filter((col) => col.id !== columnId),
+      tasks: tasks.filter((task) => task.columnId !== columnId),
+    }));
+  }, [mutateBoard]);
 
-  const moveTask = useCallback(async (tasks, taskId, newColumnId, newOrder) => {
-    const updatedTasks = tasks.map(task => {
-      if (task.id === taskId) {
-        return { ...task, columnId: newColumnId, order: newOrder };
-      }
-      return task;
+  // orderedIds: column ids in their new order; columns not listed keep their
+  // relative order after them.
+  const reorderColumns = useCallback((orderedIds) => {
+    return mutateBoard(({ columns }) => {
+      const rank = new Map(orderedIds.map((id, i) => [id, i]));
+      const sorted = [...columns].sort((a, b) => {
+        const ra = rank.has(a.id) ? rank.get(a.id) : Infinity;
+        const rb = rank.has(b.id) ? rank.get(b.id) : Infinity;
+        return ra === rb ? byOrder(a, b) : ra - rb;
+      });
+      return { columns: sorted.map((col, order) => ({ ...col, order })) };
     });
-    await updateBoard({ tasks: updatedTasks });
-  }, [updateBoard]);
+  }, [mutateBoard]);
 
-  const reorderTasks = useCallback(async (tasks) => {
-    await updateBoard({ tasks });
-  }, [updateBoard]);
+  const addTask = useCallback(async (taskData) => {
+    const id = newId('task');
+    await mutateBoard(({ columns, tasks }) => {
+      if (!columns.some((c) => c.id === taskData.columnId)) return {};
+      const order = columnTasks(tasks, taskData.columnId)
+        .reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1;
+      return {
+        tasks: [...tasks, {
+          id,
+          title: taskData.title,
+          description: taskData.description || '',
+          columnId: taskData.columnId,
+          priority: taskData.priority || 'medium',
+          tags: taskData.tags || [],
+          dueDate: taskData.dueDate || null,
+          order,
+        }],
+      };
+    });
+    return id;
+  }, [mutateBoard]);
 
-  return {
+  // Edits a task's fields. Position (order) is owned by moveTask; a columnId
+  // change moves the task to the end of that column.
+  const updateTask = useCallback((taskId, updates) => {
+    const { id: _id, order: _order, columnId, ...changes } = updates;
+    if ('dueDate' in changes) changes.dueDate = changes.dueDate || null;
+    return mutateBoard(({ columns, tasks }) => {
+      let next = tasks.map((task) => (task.id === taskId ? { ...task, ...changes } : task));
+      const task = next.find((t) => t.id === taskId);
+      if (task && columnId && columnId !== task.columnId && columns.some((c) => c.id === columnId)) {
+        next = applyTaskMove(next, taskId, columnId, Infinity);
+      }
+      return { tasks: next };
+    });
+  }, [mutateBoard]);
+
+  const deleteTask = useCallback((taskId) => {
+    return mutateBoard(({ tasks }) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return {};
+      const remaining = tasks.filter((t) => t.id !== taskId);
+      const orders = new Map(columnTasks(remaining, task.columnId).map((t, i) => [t.id, i]));
+      return {
+        tasks: remaining.map((t) => (orders.has(t.id) && t.order !== orders.get(t.id) ? { ...t, order: orders.get(t.id) } : t)),
+      };
+    });
+  }, [mutateBoard]);
+
+  // Places a task at `toIndex` in `toColumnId` (its final position there)
+  const moveTask = useCallback((taskId, toColumnId, toIndex) => {
+    return mutateBoard(({ columns, tasks }) => {
+      if (!columns.some((c) => c.id === toColumnId)) return {};
+      const next = applyTaskMove(tasks, taskId, toColumnId, toIndex);
+      return next === tasks ? {} : { tasks: next };
+    });
+  }, [mutateBoard]);
+
+  // Renumbers one column from the given task-id order (e.g. after a bulk sort);
+  // tasks not listed keep their relative order after them.
+  const reorderTasks = useCallback((columnId, orderedTaskIds) => {
+    return mutateBoard(({ tasks }) => {
+      const rank = new Map(orderedTaskIds.map((id, i) => [id, i]));
+      const inColumn = columnTasks(tasks, columnId).sort((a, b) => {
+        const ra = rank.has(a.id) ? rank.get(a.id) : Infinity;
+        const rb = rank.has(b.id) ? rank.get(b.id) : Infinity;
+        return ra === rb ? byOrder(a, b) : ra - rb;
+      });
+      const orders = new Map(inColumn.map((t, i) => [t.id, i]));
+      return {
+        tasks: tasks.map((t) => (orders.has(t.id) && t.order !== orders.get(t.id) ? { ...t, order: orders.get(t.id) } : t)),
+      };
+    });
+  }, [mutateBoard]);
+
+  return useMemo(() => ({
     addColumn,
     updateColumn,
     deleteColumn,
@@ -98,5 +185,5 @@ export function useBoards(boardId) {
     deleteTask,
     moveTask,
     reorderTasks,
-  };
+  }), [addColumn, updateColumn, deleteColumn, reorderColumns, addTask, updateTask, deleteTask, moveTask, reorderTasks]);
 }
