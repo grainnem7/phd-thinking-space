@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
-import { FileText, Kanban, Folder, BookOpen, ArrowRight, CalendarDays } from 'lucide-react';
+import { FileText, Kanban, Folder, BookOpen, ArrowRight, CalendarDays, ClipboardList, Tag, Trash2 } from 'lucide-react';
 
 const groupClass =
   'px-2 pt-2 pb-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-neutral-400 dark:[&_[cmdk-group-heading]]:text-neutral-500 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:font-medium';
@@ -11,6 +11,9 @@ const itemClass =
 const iconFor = (item) => {
   if (item.type === 'reading-list') return BookOpen;
   if (item.type === 'calendar') return CalendarDays;
+  if (item.type === 'review') return ClipboardList;
+  if (item.type === 'tags') return Tag;
+  if (item.type === 'trash') return Trash2;
   if (item.type === 'note') return FileText;
   if (item.type === 'board') return Kanban;
   if (item.type === 'folder') return Folder;

@@ -40,6 +40,9 @@ import {
   Search,
   BookMarked,
   CalendarDays,
+  ClipboardList,
+  Tag,
+  Settings,
   Home,
   RotateCcw,
   Monitor,
@@ -326,7 +329,7 @@ function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
   );
 }
 
-export default function Sidebar({ selectedId, onSelect }) {
+export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const { isOpen, isCollapsed, close, isMobile, effectiveWidth, isResizing, startResizing, toggleCollapsed } = useSidebar();
   const { logout, isDemo } = useAuth();
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
@@ -627,6 +630,20 @@ export default function Sidebar({ selectedId, onSelect }) {
               isSelected={selectedId === 'reading-list'}
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
             />
+            <QuickLink
+              icon={ClipboardList}
+              label="Weekly Review"
+              iconOnly={iconOnly}
+              isSelected={selectedId === 'review'}
+              onClick={() => onSelect({ id: 'review', type: 'review', name: 'Weekly Review' })}
+            />
+            <QuickLink
+              icon={Tag}
+              label="Tags"
+              iconOnly={iconOnly}
+              isSelected={selectedId === 'tags'}
+              onClick={() => onSelect({ id: 'tags', type: 'tags', name: 'Tags' })}
+            />
           </div>
 
           {/* Navigation Tree - collapsed shows icons only */}
@@ -705,6 +722,29 @@ export default function Sidebar({ selectedId, onSelect }) {
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Changes are stored locally only</p>
               </div>
             )}
+            <div className={iconOnly ? 'space-y-1' : 'flex items-center gap-4'}>
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className={`flex items-center ${FOOTER_TEXT_BUTTON} ${iconOnly ? 'w-full justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-sm'}`}
+                title={iconOnly ? 'Settings' : 'Appearance, backup and more'}
+                aria-label={iconOnly ? 'Settings' : undefined}
+              >
+                <Settings size={16} aria-hidden="true" />
+                {!iconOnly && <span>Settings</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelect({ id: 'trash', type: 'trash', name: 'Trash' })}
+                aria-current={selectedId === 'trash' ? 'page' : undefined}
+                className={`flex items-center ${FOOTER_TEXT_BUTTON} ${iconOnly ? 'w-full justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-sm'}`}
+                title={iconOnly ? 'Trash' : 'Recently deleted items'}
+                aria-label={iconOnly ? 'Trash' : undefined}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                {!iconOnly && <span>Trash</span>}
+              </button>
+            </div>
             {/* Dark mode toggle (+ way back to following the system setting) */}
             <div className="flex items-center gap-2">
               <button
