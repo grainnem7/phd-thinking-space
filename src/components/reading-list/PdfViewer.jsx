@@ -3,7 +3,6 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, Quote } from 'lucide-react';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
-import { useTheme } from '../../contexts/ThemeContext';
 
 // Wire up the pdfjs worker. Using the Vite ?url import gives us a hashed
 // asset URL that ships with the build, so the worker loads from the same
@@ -12,7 +11,6 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 export default function PdfViewer({ url, onClose, onAddQuote }) {
-  const { isDark } = useTheme();
   const containerRef = useRef(null);
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
@@ -20,7 +18,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selection, setSelection] = useState(null); // { text, rect, page }
-  const [quoteAdded, setQuoteAdded] = useState(false);
+  const [quoteStatus, setQuoteStatus] = useState(null); // 'added' | 'failed' | null
 
   const onDocumentLoad = useCallback(({ numPages: n }) => {
     setNumPages(n);
@@ -58,8 +56,11 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
       setSelection({
         text,
         // Position the floating button just above the selection's top edge
-        top: rect.top - containerRect.top + containerRef.current.scrollTop - 40,
-        left: rect.left - containerRect.left + Math.max(0, rect.width / 2) - 60,
+        top: Math.max(8, rect.top - containerRect.top + containerRef.current.scrollTop - 40),
+        left: Math.min(
+          Math.max(8, rect.left - containerRect.left + containerRef.current.scrollLeft + Math.max(0, rect.width / 2) - 60),
+          Math.max(8, containerRef.current.scrollWidth - 140),
+        ),
         page: pageNumber,
       });
     };
@@ -78,20 +79,26 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose, numPages]);
 
-  const handleAddQuote = () => {
+  const handleAddQuote = async () => {
     if (!selection || !onAddQuote) return;
-    onAddQuote({ text: selection.text, page: selection.page });
-    setQuoteAdded(true);
+    const { text, page } = selection;
     window.getSelection()?.removeAllRanges();
     setSelection(null);
-    setTimeout(() => setQuoteAdded(false), 2000);
+    const ok = await onAddQuote({ text, page });
+    setQuoteStatus(ok === false ? 'failed' : 'added');
+    setTimeout(() => setQuoteStatus(null), ok === false ? 4000 : 2000);
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-neutral-950/90 dark:bg-black/95 flex flex-col">
+    <div
+      className="fixed inset-0 z-40 bg-neutral-950/90 dark:bg-black/95 flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="PDF viewer"
+    >
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 px-4 py-2 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-1 sm:gap-3 px-2 sm:px-4 py-2 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+        <div className="flex items-center sm:gap-2">
           <button
             onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
             disabled={pageNumber <= 1}
@@ -100,7 +107,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
           >
             <ChevronLeft size={18} />
           </button>
-          <span className="text-sm tabular-nums text-neutral-600 dark:text-neutral-300 min-w-[80px] text-center">
+          <span className="text-sm tabular-nums text-neutral-600 dark:text-neutral-300 min-w-[56px] sm:min-w-[80px] text-center" aria-live="polite">
             {pageNumber} / {numPages || '–'}
           </span>
           <button
@@ -113,7 +120,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center sm:gap-2">
           <button
             onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
             aria-label="Zoom out"
@@ -121,7 +128,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
           >
             <ZoomOut size={18} />
           </button>
-          <span className="text-sm tabular-nums text-neutral-600 dark:text-neutral-300 min-w-[50px] text-center">
+          <span className="text-sm tabular-nums text-neutral-600 dark:text-neutral-300 min-w-[44px] sm:min-w-[50px] text-center">
             {Math.round(scale * 100)}%
           </span>
           <button
@@ -133,14 +140,16 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          {quoteAdded && (
-            <span className="text-xs text-emerald-600 dark:text-emerald-400">Quote added</span>
-          )}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span className="text-xs truncate" role="status">
+            {quoteStatus === 'added' && <span className="text-emerald-600 dark:text-emerald-400">Quote added</span>}
+            {quoteStatus === 'failed' && <span className="text-rose-600 dark:text-rose-400">Couldn’t add quote</span>}
+          </span>
           <button
             onClick={onClose}
             aria-label="Close PDF viewer"
             title="Close (Esc)"
+            autoFocus
             className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
           >
             <X size={18} />
@@ -155,19 +164,19 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
         // Disable native dark inversion of canvas content; we rely on parent bg
       >
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center text-neutral-300">
+          <div className="absolute inset-0 flex items-center justify-center text-neutral-300" role="status" aria-label="Loading PDF">
             <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-neutral-300">
+          <div className="absolute inset-0 flex items-center justify-center p-6 text-neutral-300" role="alert">
             <div className="text-center">
               <p>Could not load PDF.</p>
               <p className="text-xs mt-1 opacity-70">{error}</p>
             </div>
           </div>
         )}
-        <div className="flex justify-center py-6">
+        <div className="flex justify-center py-6 px-2 min-w-fit">
           <Document
             file={url}
             onLoadSuccess={onDocumentLoad}
@@ -180,7 +189,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
               scale={scale}
               renderTextLayer
               renderAnnotationLayer
-              className={isDark ? 'shadow-2xl' : 'shadow-2xl'}
+              className="shadow-2xl"
             />
           </Document>
         </div>

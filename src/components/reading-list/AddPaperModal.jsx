@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { X, Upload, Search, Loader2, FileText } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { X, Upload, Search, Loader2, FileText, Lock } from 'lucide-react';
 import { extractMetadataFromFile, fetchCrossRefMetadata } from '../../utils/paperMetadata';
 import { useStorage } from '../../hooks/useStorage';
 import { useAuth } from '../../hooks/useAuth';
+import Modal from '../common/Modal';
+import InlineError from './InlineError';
 
 // File size limit: 50MB
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+const LABEL = 'block text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-500 mb-2';
+const FIELD = 'w-full px-0 py-2 bg-transparent border-b border-neutral-200 dark:border-neutral-700 focus:border-neutral-400 dark:focus:border-neutral-500 outline-none text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 disabled:opacity-60';
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
@@ -13,79 +18,48 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-export default function AddPaperModal({ isOpen, onClose, onSave, collections, paper }) {
-  const { user } = useAuth();
-  const { uploadFile, uploading, uploadProgress } = useStorage();
+function initialForm(paper) {
+  return {
+    title: paper?.title || '',
+    authors: paper?.authors || '',
+    year: paper?.year || '',
+    url: paper?.url || '',
+    doi: paper?.doi || '',
+    collections: paper?.collections || [],
+    journal: paper?.journal || '',
+    publisher: paper?.publisher || '',
+    volume: paper?.volume || '',
+    issue: paper?.issue || '',
+    pages: paper?.pages || '',
+  };
+}
 
-  const [formData, setFormData] = useState({
-    title: '',
-    authors: '',
-    year: '',
-    url: '',
-    doi: '',
-    collections: [],
-    journal: '',
-    publisher: '',
-    volume: '',
-    issue: '',
-    pages: '',
-  });
+// Mount this only while open: the form starts fresh each time.
+export default function AddPaperModal({ isOpen = true, onClose, onSave, collections, paper }) {
+  const { user } = useAuth();
+  const { uploadFile, canUpload, uploading, uploadProgress } = useStorage();
+
+  const [formData, setFormData] = useState(() => initialForm(paper));
   const [pendingFile, setPendingFile] = useState(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStatus, setExtractionStatus] = useState('');
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState('');
   const [fileError, setFileError] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reset form when modal opens/closes or paper changes
-  useEffect(() => {
-    if (isOpen) {
-      if (paper) {
-        setFormData({
-          title: paper.title || '',
-          authors: paper.authors || '',
-          year: paper.year || '',
-          url: paper.url || '',
-          doi: paper.doi || '',
-          collections: paper.collections || [],
-          journal: paper.journal || '',
-          publisher: paper.publisher || '',
-          volume: paper.volume || '',
-          issue: paper.issue || '',
-          pages: paper.pages || '',
-        });
-      } else {
-        setFormData({
-          title: '',
-          authors: '',
-          year: '',
-          url: '',
-          doi: '',
-          collections: [],
-          journal: '',
-          publisher: '',
-          volume: '',
-          issue: '',
-          pages: '',
-        });
-      }
-      setPendingFile(null);
-      setExtractionStatus('');
-      setLookupError('');
-      setFileError('');
-    }
-  }, [isOpen, paper]);
+  const setField = (field) => (e) => setFormData((prev) => ({ ...prev, [field]: e.target.value }));
 
   // Handle file upload for PDF/EPUB
   const handleFileUpload = useCallback(async (e) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       setFileError('File too large. Maximum size is 50MB.');
-      e.target.value = '';
+      input.value = '';
       return;
     }
 
@@ -97,8 +71,8 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
     try {
       const metadata = await extractMetadataFromFile(file);
 
-      // Store the file for later upload
-      setPendingFile(file);
+      // Keep the file for upload on save (not possible in demo mode)
+      if (canUpload) setPendingFile(file);
 
       if (metadata) {
         setExtractionStatus('Found metadata!');
@@ -117,24 +91,25 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
           pages: metadata.pages || prev.pages,
         }));
 
-        // Clear status after a moment
         setTimeout(() => setExtractionStatus(''), 2000);
       } else {
-        setExtractionStatus('File attached. Could not extract metadata - please enter manually.');
+        setExtractionStatus(canUpload
+          ? 'File attached. Could not extract metadata - please enter manually.'
+          : 'Could not extract metadata - please enter manually.');
         setTimeout(() => setExtractionStatus(''), 3000);
       }
     } catch (error) {
       console.error('Extraction error:', error);
       // Still keep the file even if metadata extraction fails
-      setPendingFile(file);
-      setExtractionStatus('File attached. Error reading metadata.');
+      if (canUpload) setPendingFile(file);
+      setExtractionStatus(canUpload ? 'File attached. Error reading metadata.' : 'Error reading metadata.');
       setTimeout(() => setExtractionStatus(''), 3000);
     } finally {
       setIsExtracting(false);
       // Reset input so same file can be selected again
-      e.target.value = '';
+      input.value = '';
     }
-  }, []);
+  }, [canUpload]);
 
   // Handle DOI lookup
   const handleDoiLookup = async () => {
@@ -161,8 +136,8 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
       } else {
         setLookupError('DOI not found');
       }
-    } catch (e) {
-      setLookupError('Lookup failed');
+    } catch {
+      setLookupError('Lookup failed. Check the DOI and your connection.');
     } finally {
       setIsLookingUp(false);
     }
@@ -173,20 +148,21 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
     if (!formData.title.trim()) return;
 
     setIsSaving(true);
+    setSaveError('');
+
+    let fileData = null;
+    if (pendingFile && user && canUpload) {
+      try {
+        fileData = await uploadFile(pendingFile, `users/${user.uid}/papers`);
+      } catch (uploadErr) {
+        console.error('File upload error:', uploadErr);
+        setFileError('Failed to upload the file. Try again, or remove it to save without an attachment.');
+        setIsSaving(false);
+        return;
+      }
+    }
 
     try {
-      let fileData = null;
-
-      // Upload file if there's a pending file
-      if (pendingFile && user) {
-        try {
-          fileData = await uploadFile(pendingFile, `users/${user.uid}/papers`);
-        } catch (uploadErr) {
-          console.error('File upload error:', uploadErr);
-          setFileError('Failed to upload file. Paper will be saved without attachment.');
-        }
-      }
-
       await onSave({
         ...formData,
         year: formData.year ? parseInt(formData.year, 10) : null,
@@ -195,7 +171,7 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
       onClose();
     } catch (err) {
       console.error('Save error:', err);
-    } finally {
+      setSaveError("Couldn't save the paper. Check your connection and try again.");
       setIsSaving(false);
     }
   };
@@ -210,333 +186,289 @@ export default function AddPaperModal({ isOpen, onClose, onSave, collections, pa
   };
 
   const isSubmitting = isSaving || uploading;
-
-  if (!isOpen) return null;
+  const handleClose = () => {
+    if (!isSubmitting) onClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20"
-        onClick={onClose}
-      />
+    <Modal isOpen={isOpen} onClose={handleClose} title={paper ? 'Edit Paper' : 'Add Paper'} size="md">
+      <form onSubmit={handleSubmit} className="reading-list-modal space-y-5">
+        {/* File Upload Section */}
+        {!paper && (
+          <div className="pb-5 border-b border-neutral-200 dark:border-neutral-800">
+            <span className={LABEL}>Import from file</span>
 
-      {/* Modal */}
-      <div className="relative bg-white w-full max-w-lg mx-4 rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 sticky top-0 bg-white z-10">
-          <h2 className="font-serif text-xl text-black">
-            {paper ? 'Edit Paper' : 'Add Paper'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-black/30 hover:text-black/60 transition-opacity"
-            disabled={isSubmitting}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* File Upload Section */}
-          {!paper && (
-            <div className="pb-5 border-b border-black/5">
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-3">
-                Import from file
-              </label>
-
-              {pendingFile ? (
-                // Show pending file
-                <div className="flex items-center gap-3 p-3 bg-black/5 rounded-lg">
-                  <FileText size={20} className="text-black/40 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-black truncate">{pendingFile.name}</p>
-                    <p className="text-xs text-black/40">{formatFileSize(pendingFile.size)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPendingFile(null)}
-                    className="text-black/30 hover:text-black/60 transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
+            {pendingFile ? (
+              <div className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+                <FileText size={20} className="text-neutral-400 shrink-0" aria-hidden="true" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-neutral-900 dark:text-neutral-100 truncate">{pendingFile.name}</p>
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500">{formatFileSize(pendingFile.size)}</p>
                 </div>
-              ) : (
-                // Show upload button
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <div className={`flex items-center gap-2 text-sm transition-colors ${
-                    isExtracting
-                      ? 'text-black/40'
-                      : 'text-black/60 hover:text-black'
-                  }`}>
-                    {isExtracting ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Upload size={16} />
-                    )}
-                    <span>
-                      {isExtracting ? 'Extracting...' : 'Upload PDF or EPUB to auto-fill & attach'}
-                    </span>
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => { setPendingFile(null); setFileError(''); }}
+                  disabled={isSubmitting}
+                  aria-label={`Remove ${pendingFile.name}`}
+                  className="p-1 rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors disabled:opacity-40"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <label className={`inline-flex items-center gap-2 text-sm rounded focus-within:ring-2 focus-within:ring-neutral-300 dark:focus-within:ring-neutral-600 transition-colors ${
+                  isExtracting || isSubmitting
+                    ? 'text-neutral-400 cursor-default'
+                    : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100 cursor-pointer'
+                }`}>
+                  {isExtracting ? (
+                    <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Upload size={16} aria-hidden="true" />
+                  )}
+                  <span>
+                    {isExtracting
+                      ? 'Extracting...'
+                      : canUpload ? 'Upload PDF or EPUB to auto-fill & attach' : 'Auto-fill from a PDF or EPUB'}
+                  </span>
                   <input
                     type="file"
                     accept=".pdf,.epub"
                     onChange={handleFileUpload}
-                    className="hidden"
+                    className="sr-only"
                     disabled={isExtracting || isSubmitting}
                   />
                 </label>
-              )}
-
-              {extractionStatus && (
-                <p className="text-xs text-black/40 mt-2">{extractionStatus}</p>
-              )}
-              {fileError && (
-                <p className="text-xs text-red-500 mt-2">{fileError}</p>
-              )}
-            </div>
-          )}
-
-          {/* DOI with Lookup */}
-          <div>
-            <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-              DOI
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={formData.doi}
-                onChange={(e) => setFormData(prev => ({ ...prev, doi: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && formData.doi.trim() && !isLookingUp) {
-                    e.preventDefault();
-                    handleDoiLookup();
-                  }
-                }}
-                className="flex-1 px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-                placeholder="10.xxxx/..."
-                disabled={isSubmitting}
-              />
-              <button
-                type="button"
-                onClick={handleDoiLookup}
-                disabled={isLookingUp || !formData.doi.trim() || isSubmitting}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm text-black/60 hover:text-black disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
-              >
-                {isLookingUp ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Search size={14} />
+                {!canUpload && (
+                  <p className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-neutral-500 mt-2">
+                    <Lock size={12} aria-hidden="true" />
+                    Sign in to attach PDFs
+                  </p>
                 )}
-                <span>Lookup</span>
-              </button>
-            </div>
-            {lookupError && (
-              <p className="text-xs text-red-500 mt-1">{lookupError}</p>
+              </>
             )}
-          </div>
 
-          {/* Title */}
-          <div>
-            <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-              Title *
-            </label>
+            {extractionStatus && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2" role="status">{extractionStatus}</p>
+            )}
+            <InlineError message={fileError} onDismiss={() => setFileError('')} className="mt-3" />
+          </div>
+        )}
+
+        {/* DOI with Lookup */}
+        <div>
+          <label htmlFor="paper-doi" className={LABEL}>DOI</label>
+          <div className="flex items-center gap-2">
             <input
+              id="paper-doi"
               type="text"
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-              placeholder="Paper title"
-              autoFocus
-              required
+              value={formData.doi}
+              onChange={setField('doi')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && formData.doi.trim() && !isLookingUp) {
+                  e.preventDefault();
+                  handleDoiLookup();
+                }
+              }}
+              className={`flex-1 min-w-0 ${FIELD}`}
+              placeholder="10.xxxx/..."
+              disabled={isSubmitting}
+            />
+            <button
+              type="button"
+              onClick={handleDoiLookup}
+              disabled={isLookingUp || !formData.doi.trim() || isSubmitting}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:text-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLookingUp ? (
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Search size={14} aria-hidden="true" />
+              )}
+              <span>Lookup</span>
+            </button>
+          </div>
+          {lookupError && (
+            <p className="text-xs text-rose-600 dark:text-rose-400 mt-1" role="alert">{lookupError}</p>
+          )}
+        </div>
+
+        {/* Title */}
+        <div>
+          <label htmlFor="paper-title" className={LABEL}>Title *</label>
+          <input
+            id="paper-title"
+            type="text"
+            value={formData.title}
+            onChange={setField('title')}
+            className={FIELD}
+            placeholder="Paper title"
+            autoFocus
+            required
+            disabled={isSubmitting}
+          />
+        </div>
+
+        {/* Authors */}
+        <div>
+          <label htmlFor="paper-authors" className={LABEL}>Authors</label>
+          <input
+            id="paper-authors"
+            type="text"
+            value={formData.authors}
+            onChange={setField('authors')}
+            className={FIELD}
+            placeholder="Author names"
+            disabled={isSubmitting}
+          />
+        </div>
+
+        {/* Year and Journal */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="min-w-0">
+            <label htmlFor="paper-year" className={LABEL}>Year</label>
+            <input
+              id="paper-year"
+              type="number"
+              inputMode="numeric"
+              value={formData.year}
+              onChange={setField('year')}
+              className={FIELD}
+              placeholder="2024"
+              min="1900"
+              max="2100"
               disabled={isSubmitting}
             />
           </div>
-
-          {/* Authors */}
-          <div>
-            <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-              Authors
-            </label>
+          <div className="min-w-0">
+            <label htmlFor="paper-journal" className={LABEL}>Journal</label>
             <input
+              id="paper-journal"
               type="text"
-              value={formData.authors}
-              onChange={(e) => setFormData(prev => ({ ...prev, authors: e.target.value }))}
-              className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-              placeholder="Author names"
+              value={formData.journal}
+              onChange={setField('journal')}
+              className={FIELD}
+              placeholder="Journal name"
               disabled={isSubmitting}
             />
           </div>
+        </div>
 
-          {/* Year and Journal on same row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-                Year
-              </label>
+        {/* Volume, Issue, Pages */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            ['volume', 'Volume', '12'],
+            ['issue', 'Issue', '3'],
+            ['pages', 'Pages', '1-15'],
+          ].map(([field, label, placeholder]) => (
+            <div key={field} className="min-w-0">
+              <label htmlFor={`paper-${field}`} className={LABEL}>{label}</label>
               <input
-                type="number"
-                value={formData.year}
-                onChange={(e) => setFormData(prev => ({ ...prev, year: e.target.value }))}
-                className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-                placeholder="2024"
-                min="1900"
-                max="2100"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-                Journal
-              </label>
-              <input
+                id={`paper-${field}`}
                 type="text"
-                value={formData.journal}
-                onChange={(e) => setFormData(prev => ({ ...prev, journal: e.target.value }))}
-                className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-                placeholder="Journal name"
+                value={formData[field]}
+                onChange={setField(field)}
+                className={FIELD}
+                placeholder={placeholder}
                 disabled={isSubmitting}
               />
             </div>
-          </div>
+          ))}
+        </div>
 
-          {/* Volume, Issue, Pages */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-                Volume
-              </label>
-              <input
-                type="text"
-                value={formData.volume}
-                onChange={(e) => setFormData(prev => ({ ...prev, volume: e.target.value }))}
-                className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-                placeholder="12"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-                Issue
-              </label>
-              <input
-                type="text"
-                value={formData.issue}
-                onChange={(e) => setFormData(prev => ({ ...prev, issue: e.target.value }))}
-                className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-                placeholder="3"
-                disabled={isSubmitting}
-              />
-            </div>
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-                Pages
-              </label>
-              <input
-                type="text"
-                value={formData.pages}
-                onChange={(e) => setFormData(prev => ({ ...prev, pages: e.target.value }))}
-                className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-                placeholder="1-15"
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
+        {/* URL */}
+        <div>
+          <label htmlFor="paper-url" className={LABEL}>URL</label>
+          <input
+            id="paper-url"
+            type="url"
+            value={formData.url}
+            onChange={setField('url')}
+            className={FIELD}
+            placeholder="https://..."
+            disabled={isSubmitting}
+          />
+        </div>
 
-          {/* URL */}
-          <div>
-            <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-              URL
-            </label>
-            <input
-              type="url"
-              value={formData.url}
-              onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-              className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-              placeholder="https://..."
-              disabled={isSubmitting}
-            />
-          </div>
+        {/* Publisher (for books) */}
+        <div>
+          <label htmlFor="paper-publisher" className={LABEL}>Publisher</label>
+          <input
+            id="paper-publisher"
+            type="text"
+            value={formData.publisher}
+            onChange={setField('publisher')}
+            className={FIELD}
+            placeholder="Publisher name (for books)"
+            disabled={isSubmitting}
+          />
+        </div>
 
-          {/* Publisher (for books) */}
-          <div>
-            <label className="block text-xs uppercase tracking-widest text-black/50 mb-2">
-              Publisher
-            </label>
-            <input
-              type="text"
-              value={formData.publisher}
-              onChange={(e) => setFormData(prev => ({ ...prev, publisher: e.target.value }))}
-              className="w-full px-0 py-2 border-b border-black/10 focus:border-black/30 outline-none text-black placeholder:text-black/30"
-              placeholder="Publisher name (for books)"
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Collections */}
-          {collections.length > 0 && (
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-black/50 mb-3">
-                Collections
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {collections.map(col => (
+        {/* Collections */}
+        {collections.length > 0 && (
+          <div role="group" aria-labelledby="paper-collections-heading">
+            <span id="paper-collections-heading" className={`${LABEL} mb-3`}>Collections</span>
+            <div className="flex flex-wrap gap-2">
+              {collections.map(col => {
+                const active = formData.collections.includes(col.id);
+                return (
                   <button
                     key={col.id}
                     type="button"
                     onClick={() => toggleCollection(col.id)}
                     disabled={isSubmitting}
-                    className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                      formData.collections.includes(col.id)
-                        ? 'bg-black text-white'
-                        : 'bg-black/5 text-black/60 hover:bg-black/10'
-                    }`}
+                    aria-pressed={active}
+                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${active
+                      ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'}`}
                   >
                     {col.name}
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
-
-          {/* Upload Progress */}
-          {uploading && (
-            <div className="pt-2">
-              <div className="flex items-center justify-between text-xs text-black/50 mb-1">
-                <span>Uploading file...</span>
-                <span>{Math.round(uploadProgress)}%</span>
-              </div>
-              <div className="h-1 bg-black/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-black transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm text-black/40 hover:text-black transition-opacity disabled:opacity-30"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !formData.title.trim()}
-              className="px-4 py-2 text-sm bg-black text-white rounded hover:bg-black/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-              {paper ? 'Save' : 'Add Paper'}
-            </button>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+
+        {/* Upload Progress */}
+        {uploading && (
+          <div className="pt-2" role="status">
+            <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 mb-1">
+              <span>Uploading file...</span>
+              <span className="tabular-nums">{Math.round(uploadProgress)}%</span>
+            </div>
+            <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-neutral-900 dark:bg-neutral-100 transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <InlineError message={saveError} onDismiss={() => setSaveError('')} />
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 text-sm rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || !formData.title.trim()}
+            className="px-4 py-2 text-sm rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isSubmitting && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
+            {paper ? 'Save' : 'Add Paper'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

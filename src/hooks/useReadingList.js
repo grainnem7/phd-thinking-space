@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   doc,
   collection,
@@ -6,21 +6,45 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
+  where,
   orderBy,
-  serverTimestamp
+  runTransaction,
+  arrayUnion,
+  arrayRemove,
+  deleteField,
+  FieldPath,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { useAuth } from './useAuth';
 
+const PAPERS_KEY = 'demo-papers';
+const COLLECTIONS_KEY = 'demo-collections';
+const EMPTY = [];
+
+// Tabs a paper shows when it has no stored tab list (older documents)
+const FALLBACK_TABS = [{ id: 'notes', name: 'Notes' }];
+
 // Default tabs for new papers
-const defaultTabs = [
+const defaultTabs = () => [
   { id: 'notes', name: 'Notes' },
   { id: 'quotes', name: 'Quotes' },
   { id: 'questions', name: 'Questions' },
 ];
+
+// Ids are used as Firestore field-path segments (tabContent.<id>), so they are
+// restricted to [A-Za-z0-9_-]. The random suffix keeps ids created in the same
+// millisecond (bulk actions, quick double clicks) distinct.
+export function createId(prefix) {
+  const random = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 10)
+    : Math.random().toString(36).slice(2, 12);
+  return `${prefix}-${Date.now().toString(36)}-${random}`;
+}
 
 // Demo data for papers
 const DEMO_PAPERS = [
@@ -37,7 +61,7 @@ const DEMO_PAPERS = [
     starred: true,
     collections: ['demo-collection-1'],
     summary: 'Introduces the Transformer architecture, which has become the foundation for modern NLP models.',
-    tabs: defaultTabs,
+    tabs: defaultTabs(),
     tabContent: {
       notes: '# Key Takeaways\n\n- Self-attention mechanism replaces recurrence\n- Parallel processing enables faster training\n- Multi-head attention captures different aspects of relationships',
       quotes: '"We propose a new simple network architecture, the Transformer, based solely on attention mechanisms"',
@@ -57,7 +81,7 @@ const DEMO_PAPERS = [
     starred: false,
     collections: ['demo-collection-1'],
     summary: 'Introduces residual connections that enable training of very deep neural networks.',
-    tabs: defaultTabs,
+    tabs: defaultTabs(),
     tabContent: { notes: '', quotes: '', questions: '' },
     createdAt: new Date('2024-01-10').toISOString(),
   },
@@ -73,7 +97,7 @@ const DEMO_PAPERS = [
     starred: true,
     collections: ['demo-collection-2'],
     summary: '',
-    tabs: defaultTabs,
+    tabs: defaultTabs(),
     tabContent: { notes: '', quotes: '', questions: '' },
     createdAt: new Date('2024-01-05').toISOString(),
   },
@@ -84,365 +108,463 @@ const DEMO_COLLECTIONS = [
   { id: 'demo-collection-2', name: 'NLP Papers' },
 ];
 
+function readDemo(key, fallback) {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(key));
+    if (Array.isArray(saved)) return saved;
+  } catch {
+    // Missing or malformed: fall back to the sample data
+  }
+  return fallback;
+}
+
+function writeDemo(key, value) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn(`Could not save ${key}:`, e);
+  }
+}
+
+// Loads demo data, seeding sessionStorage with the samples so that signing in
+// later migrates what the visitor saw. Idempotent, so safe in a state initializer.
+function loadDemo(key, fallback) {
+  const items = readDemo(key, null);
+  if (items) return items;
+  writeDemo(key, fallback);
+  return fallback;
+}
+
+function newPaperFields(paperData) {
+  return {
+    title: paperData.title || 'Untitled',
+    authors: paperData.authors || '',
+    year: paperData.year || null,
+    url: paperData.url || '',
+    doi: paperData.doi || '',
+    // Citation metadata fields
+    journal: paperData.journal || '',
+    publisher: paperData.publisher || '',
+    volume: paperData.volume || '',
+    issue: paperData.issue || '',
+    pages: paperData.pages || '',
+    // Status and organization
+    status: paperData.status || 'to-read',
+    priority: paperData.priority || null,
+    starred: paperData.starred || false,
+    collections: paperData.collections || [],
+    summary: paperData.summary || '',
+    tabs: defaultTabs(),
+    tabContent: { notes: '', quotes: '', questions: '' },
+  };
+}
+
+function now() {
+  return new Date().toISOString();
+}
+
 export function useReadingList() {
   const { user, isDemo } = useAuth();
-  const [papers, setPapers] = useState([]);
-  const [collections, setCollections] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const uid = user?.uid ?? null;
 
-  // Helper to save demo data
-  const saveDemoPapers = useCallback((newPapers) => {
-    setPapers(newPapers);
-    sessionStorage.setItem('demo-papers', JSON.stringify(newPapers));
+  // Demo mode keeps everything in state mirrored to sessionStorage.
+  const [demoPapers, setDemoPapers] = useState(() => (isDemo ? loadDemo(PAPERS_KEY, DEMO_PAPERS) : null));
+  const [demoCollections, setDemoCollections] = useState(() => (isDemo ? loadDemo(COLLECTIONS_KEY, DEMO_COLLECTIONS) : null));
+
+  // Firestore snapshots, tagged with the uid they belong to so a stale list is
+  // never shown for a different account.
+  const [remotePapers, setRemotePapers] = useState({ uid: null, items: EMPTY, error: null });
+  const [remoteCollections, setRemoteCollections] = useState({ uid: null, items: EMPTY, error: null });
+
+  useEffect(() => {
+    if (!uid || isDemo) return undefined;
+
+    const papersQuery = query(collection(db, 'users', uid, 'papers'), orderBy('createdAt', 'desc'));
+    const unsubscribePapers = onSnapshot(
+      papersQuery,
+      (snapshot) => {
+        setRemotePapers({
+          uid,
+          items: snapshot.docs.map((d) => ({ id: d.id, ...d.data() })),
+          error: null,
+        });
+      },
+      (error) => {
+        console.error('Error subscribing to papers:', error);
+        setRemotePapers((prev) => ({ uid, items: prev.uid === uid ? prev.items : EMPTY, error }));
+      },
+    );
+
+    const collectionsQuery = query(collection(db, 'users', uid, 'paperCollections'), orderBy('name', 'asc'));
+    const unsubscribeCollections = onSnapshot(
+      collectionsQuery,
+      (snapshot) => {
+        setRemoteCollections({
+          uid,
+          items: snapshot.docs.map((d) => ({ id: d.id, ...d.data() })),
+          error: null,
+        });
+      },
+      (error) => {
+        console.error('Error subscribing to collections:', error);
+        setRemoteCollections((prev) => ({ uid, items: prev.uid === uid ? prev.items : EMPTY, error }));
+      },
+    );
+
+    return () => {
+      unsubscribePapers();
+      unsubscribeCollections();
+    };
+  }, [uid, isDemo]);
+
+  // Demo mode switched on after mount: read (without writing) until the first mutation.
+  const demoPapersFallback = useMemo(
+    () => (isDemo && !demoPapers ? readDemo(PAPERS_KEY, DEMO_PAPERS) : null),
+    [isDemo, demoPapers],
+  );
+  const demoCollectionsFallback = useMemo(
+    () => (isDemo && !demoCollections ? readDemo(COLLECTIONS_KEY, DEMO_COLLECTIONS) : null),
+    [isDemo, demoCollections],
+  );
+
+  let papers = EMPTY;
+  let collections = EMPTY;
+  let isLoading = false;
+  let error = null;
+  if (uid && isDemo) {
+    papers = demoPapers ?? demoPapersFallback;
+    collections = demoCollections ?? demoCollectionsFallback;
+  } else if (uid) {
+    papers = remotePapers.uid === uid ? remotePapers.items : EMPTY;
+    collections = remoteCollections.uid === uid ? remoteCollections.items : EMPTY;
+    isLoading = remotePapers.uid !== uid;
+    error = remotePapers.uid === uid ? remotePapers.error : null;
+  }
+
+  // Latest lists for use inside async callbacks (never read during render)
+  const latest = useRef({ papers, collections });
+  useEffect(() => {
+    latest.current = { papers, collections };
+  }, [papers, collections]);
+
+  // Functional demo updates: every mutation builds on the newest state, so a
+  // loop of mutations (bulk actions) applies all of them.
+  const mutateDemoPapers = useCallback((fn) => {
+    setDemoPapers((prev) => {
+      const next = fn(prev ?? readDemo(PAPERS_KEY, DEMO_PAPERS));
+      writeDemo(PAPERS_KEY, next);
+      return next;
+    });
   }, []);
 
-  const saveDemoCollections = useCallback((newCollections) => {
-    setCollections(newCollections);
-    sessionStorage.setItem('demo-collections', JSON.stringify(newCollections));
+  const mutateDemoCollections = useCallback((fn) => {
+    setDemoCollections((prev) => {
+      const next = fn(prev ?? readDemo(COLLECTIONS_KEY, DEMO_COLLECTIONS));
+      writeDemo(COLLECTIONS_KEY, next);
+      return next;
+    });
   }, []);
 
-  // Subscribe to papers
-  useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+  const mutateDemoPaper = useCallback((paperId, fn) => {
+    mutateDemoPapers((prev) => prev.map((p) => (
+      p.id === paperId ? { ...fn(p), updatedAt: now() } : p
+    )));
+  }, [mutateDemoPapers]);
 
-    // Demo mode: use local state
-    if (isDemo) {
-      const savedPapers = sessionStorage.getItem('demo-papers');
-      const savedCollections = sessionStorage.getItem('demo-collections');
+  const paperRef = useCallback((paperId) => doc(db, 'users', uid, 'papers', paperId), [uid]);
 
-      if (savedPapers) {
-        setPapers(JSON.parse(savedPapers));
-      } else {
-        setPapers(DEMO_PAPERS);
-        sessionStorage.setItem('demo-papers', JSON.stringify(DEMO_PAPERS));
-      }
-
-      if (savedCollections) {
-        setCollections(JSON.parse(savedCollections));
-      } else {
-        setCollections(DEMO_COLLECTIONS);
-        sessionStorage.setItem('demo-collections', JSON.stringify(DEMO_COLLECTIONS));
-      }
-
-      setIsLoading(false);
-      return;
-    }
-
-    const papersRef = collection(db, 'users', user.uid, 'papers');
-    const q = query(papersRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const papersList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setPapers(papersList);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Error subscribing to papers:', error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user, isDemo]);
-
-  // Subscribe to collections
-  useEffect(() => {
-    if (!user || isDemo) return;
-
-    const collectionsRef = collection(db, 'users', user.uid, 'paperCollections');
-    const q = query(collectionsRef, orderBy('name', 'asc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const collectionsList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setCollections(collectionsList);
-    }, (error) => {
-      console.error('Error subscribing to collections:', error);
-    });
-
-    return () => unsubscribe();
-  }, [user, isDemo]);
+  // All mutations throw on failure so the UI can show an inline error.
+  const requireUser = useCallback(() => {
+    if (!uid) throw new Error('You need to be signed in to change your reading list.');
+  }, [uid]);
 
   // Add paper with new data model
   const addPaper = useCallback(async (paperData) => {
-    if (!user) return null;
+    requireUser();
 
-    // Demo mode: local state
     if (isDemo) {
-      const newId = `demo-paper-${Date.now()}`;
-      const newPaper = {
-        id: newId,
-        title: paperData.title || 'Untitled',
-        authors: paperData.authors || '',
-        year: paperData.year || null,
-        url: paperData.url || '',
-        doi: paperData.doi || '',
-        journal: paperData.journal || '',
-        publisher: paperData.publisher || '',
-        volume: paperData.volume || '',
-        issue: paperData.issue || '',
-        pages: paperData.pages || '',
-        status: paperData.status || 'to-read',
-        priority: paperData.priority || null,
-        starred: paperData.starred || false,
-        collections: paperData.collections || [],
-        summary: paperData.summary || '',
-        tabs: defaultTabs,
-        tabContent: { notes: '', quotes: '', questions: '' },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      saveDemoPapers([newPaper, ...papers]);
+      const newId = createId('demo-paper');
+      // Demo papers never carry files: uploads are refused in demo mode.
+      const newPaper = { id: newId, ...newPaperFields(paperData), createdAt: now(), updatedAt: now() };
+      mutateDemoPapers((prev) => [newPaper, ...prev]);
       return newId;
     }
 
-    try {
-      const papersRef = collection(db, 'users', user.uid, 'papers');
-      const docRef = await addDoc(papersRef, {
-        title: paperData.title || 'Untitled',
-        authors: paperData.authors || '',
-        year: paperData.year || null,
-        url: paperData.url || '',
-        doi: paperData.doi || '',
-        // Citation metadata fields
-        journal: paperData.journal || '',
-        publisher: paperData.publisher || '',
-        volume: paperData.volume || '',
-        issue: paperData.issue || '',
-        pages: paperData.pages || '',
-        // Status and organization
-        status: paperData.status || 'to-read',
-        priority: paperData.priority || null,
-        starred: paperData.starred || false,
-        collections: paperData.collections || [],
-        summary: paperData.summary || '',
-        // Attached file (if provided)
-        ...(paperData.file && { file: paperData.file }),
-        tabs: defaultTabs,
-        tabContent: { notes: '', quotes: '', questions: '' },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      return docRef.id;
-    } catch (error) {
-      console.error('Error adding paper:', error);
-      return null;
-    }
-  }, [user, isDemo, papers, saveDemoPapers]);
+    const docRef = await addDoc(collection(db, 'users', uid, 'papers'), {
+      ...newPaperFields(paperData),
+      ...(paperData.file && { file: paperData.file }),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docRef.id;
+  }, [uid, isDemo, requireUser, mutateDemoPapers]);
 
-  // Update paper
+  // Update top-level paper fields
   const updatePaper = useCallback(async (paperId, updates) => {
-    if (!user) return;
+    requireUser();
 
-    // Demo mode: local state
     if (isDemo) {
-      const newPapers = papers.map(p =>
-        p.id === paperId
-          ? { ...p, ...updates, updatedAt: new Date().toISOString() }
-          : p
-      );
-      saveDemoPapers(newPapers);
+      mutateDemoPaper(paperId, (p) => ({ ...p, ...updates }));
       return;
     }
 
-    try {
-      const paperRef = doc(db, 'users', user.uid, 'papers', paperId);
-      await updateDoc(paperRef, {
-        ...updates,
-        updatedAt: serverTimestamp(),
-        // Set readAt when status changes to 'read'
-        ...(updates.status === 'read' ? { readAt: serverTimestamp() } : {}),
+    await updateDoc(paperRef(paperId), {
+      ...updates,
+      updatedAt: serverTimestamp(),
+      // Set readAt when status changes to 'read'
+      ...(updates.status === 'read' ? { readAt: serverTimestamp() } : {}),
+    });
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
+
+  // Add or remove one collection label without rewriting the whole array
+  const setPaperCollection = useCallback(async (paperId, collectionId, included) => {
+    requireUser();
+
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => {
+        const current = (p.collections || []).filter((c) => c !== collectionId);
+        return { ...p, collections: included ? [...current, collectionId] : current };
       });
-    } catch (error) {
-      console.error('Error updating paper:', error);
+      return;
     }
-  }, [user, isDemo, papers, saveDemoPapers]);
+
+    await updateDoc(paperRef(paperId), {
+      collections: included ? arrayUnion(collectionId) : arrayRemove(collectionId),
+      updatedAt: serverTimestamp(),
+    });
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
   // Delete paper (and associated file if exists)
   const deletePaper = useCallback(async (paperId) => {
-    if (!user) return;
+    requireUser();
 
-    // Demo mode: local state
     if (isDemo) {
-      saveDemoPapers(papers.filter(p => p.id !== paperId));
+      mutateDemoPapers((prev) => prev.filter((p) => p.id !== paperId));
       return;
     }
 
-    try {
-      const paperRef = doc(db, 'users', user.uid, 'papers', paperId);
-
-      // Get the paper to check for attached file
-      const paperSnap = await getDoc(paperRef);
-      if (paperSnap.exists()) {
-        const paperData = paperSnap.data();
-
-        // Delete the file from storage if it exists
-        if (paperData.file?.path) {
-          try {
-            const fileRef = ref(storage, paperData.file.path);
-            await deleteObject(fileRef);
-          } catch (fileError) {
-            // File might not exist, continue with paper deletion
-            console.warn('Could not delete file:', fileError);
-          }
-        }
+    const refToDelete = paperRef(paperId);
+    const paperSnap = await getDoc(refToDelete);
+    const filePath = paperSnap.exists() ? paperSnap.data().file?.path : null;
+    if (filePath) {
+      try {
+        await deleteObject(ref(storage, filePath));
+      } catch (fileError) {
+        // File might not exist, continue with paper deletion
+        console.warn('Could not delete file:', fileError);
       }
-
-      await deleteDoc(paperRef);
-    } catch (error) {
-      console.error('Error deleting paper:', error);
     }
-  }, [user, isDemo, papers, saveDemoPapers]);
+    await deleteDoc(refToDelete);
+  }, [isDemo, requireUser, mutateDemoPapers, paperRef]);
 
-  // Add collection
+  // Add collection (returns the existing id if the name is taken)
   const addCollection = useCallback(async (name) => {
-    if (!user) return null;
+    requireUser();
+    const trimmed = name.trim();
+    const sameName = (c) => c.name.toLowerCase() === trimmed.toLowerCase();
 
-    // Check if collection already exists
-    const existingCollection = collections.find(c => c.name.toLowerCase() === name.toLowerCase());
-    if (existingCollection) return existingCollection.id;
+    const existing = latest.current.collections.find(sameName);
+    if (existing) return existing.id;
 
-    // Demo mode: local state
     if (isDemo) {
-      const newId = `demo-collection-${Date.now()}`;
-      saveDemoCollections([...collections, { id: newId, name }]);
+      const newId = createId('demo-collection');
+      mutateDemoCollections((prev) => (prev.some(sameName) ? prev : [...prev, { id: newId, name: trimmed }]));
       return newId;
     }
 
-    try {
-      const collectionsRef = collection(db, 'users', user.uid, 'paperCollections');
-      const docRef = await addDoc(collectionsRef, {
-        name,
-        createdAt: serverTimestamp(),
-      });
-      return docRef.id;
-    } catch (error) {
-      console.error('Error adding collection:', error);
-      return null;
-    }
-  }, [user, isDemo, collections, saveDemoCollections]);
+    const docRef = await addDoc(collection(db, 'users', uid, 'paperCollections'), {
+      name: trimmed,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  }, [uid, isDemo, requireUser, mutateDemoCollections]);
 
   // Update collection
   const updateCollection = useCallback(async (collectionId, updates) => {
-    if (!user) return;
+    requireUser();
 
-    // Demo mode: local state
     if (isDemo) {
-      const newCollections = collections.map(c =>
-        c.id === collectionId ? { ...c, ...updates } : c
-      );
-      saveDemoCollections(newCollections);
+      mutateDemoCollections((prev) => prev.map((c) => (c.id === collectionId ? { ...c, ...updates } : c)));
       return;
     }
 
-    try {
-      const collectionRef = doc(db, 'users', user.uid, 'paperCollections', collectionId);
-      await updateDoc(collectionRef, updates);
-    } catch (error) {
-      console.error('Error updating collection:', error);
-    }
-  }, [user, isDemo, collections, saveDemoCollections]);
+    await updateDoc(doc(db, 'users', uid, 'paperCollections', collectionId), updates);
+  }, [uid, isDemo, requireUser, mutateDemoCollections]);
 
-  // Delete collection
+  // Delete collection and remove its label from every paper
   const deleteCollection = useCallback(async (collectionId) => {
-    if (!user) return;
+    requireUser();
 
-    // Demo mode: local state
     if (isDemo) {
-      saveDemoCollections(collections.filter(c => c.id !== collectionId));
-      // Remove collection from all papers
-      const updatedPapers = papers.map(p => ({
-        ...p,
-        collections: (p.collections || []).filter(c => c !== collectionId)
-      }));
-      saveDemoPapers(updatedPapers);
+      mutateDemoCollections((prev) => prev.filter((c) => c.id !== collectionId));
+      mutateDemoPapers((prev) => prev.map((p) => (
+        p.collections?.includes(collectionId)
+          ? { ...p, collections: p.collections.filter((c) => c !== collectionId) }
+          : p
+      )));
       return;
     }
 
-    try {
-      const collectionRef = doc(db, 'users', user.uid, 'paperCollections', collectionId);
-      await deleteDoc(collectionRef);
+    await deleteDoc(doc(db, 'users', uid, 'paperCollections', collectionId));
+    const labelled = await getDocs(query(
+      collection(db, 'users', uid, 'papers'),
+      where('collections', 'array-contains', collectionId),
+    ));
+    await Promise.all(labelled.docs.map((d) => updateDoc(d.ref, {
+      collections: arrayRemove(collectionId),
+      updatedAt: serverTimestamp(),
+    })));
+  }, [uid, isDemo, requireUser, mutateDemoCollections, mutateDemoPapers]);
 
-      // Remove collection from all papers that have it
-      for (const paper of papers) {
-        if (paper.collections?.includes(collectionId)) {
-          await updatePaper(paper.id, {
-            collections: paper.collections.filter(c => c !== collectionId)
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting collection:', error);
+  // ---- Tabs ---------------------------------------------------------------
+  // Tab notes are written one field at a time (tabContent.<tabId>) so edits to
+  // different tabs, from different devices, never overwrite each other. Tab
+  // list changes are computed from the latest stored document.
+
+  // Pass `tabId` (from createId('tab')) to know the id before the write settles.
+  const addTab = useCallback(async (paperId, tabName = 'New Tab', tabId = createId('tab')) => {
+    requireUser();
+    const newTab = { id: tabId, name: tabName };
+
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => ({
+        ...p,
+        tabs: [...(p.tabs || FALLBACK_TABS), newTab],
+        tabContent: { ...(p.tabContent || {}), [newTab.id]: '' },
+      }));
+      return newTab.id;
     }
-  }, [user, isDemo, papers, collections, saveDemoPapers, saveDemoCollections, updatePaper]);
 
-  // Tab management
-  const addTab = useCallback(async (paperId, tabName = 'New Tab') => {
-    if (!user) return null;
-
-    const paper = papers.find(p => p.id === paperId);
-    if (!paper) return null;
-
-    const newTabId = `tab-${Date.now()}`;
-    const newTab = { id: newTabId, name: tabName };
-
-    try {
-      await updatePaper(paperId, {
-        tabs: [...(paper.tabs || []), newTab],
-        tabContent: { ...(paper.tabContent || {}), [newTabId]: '' }
-      });
-      return newTabId;
-    } catch (error) {
-      console.error('Error adding tab:', error);
-      return null;
-    }
-  }, [user, papers, updatePaper]);
+    // Tab ids are unique, so arrayUnion appends without touching tabs added or
+    // renamed elsewhere. Papers without a stored tab list get the fallback too.
+    const paper = latest.current.papers.find((p) => p.id === paperId);
+    const tabsValue = Array.isArray(paper?.tabs) ? arrayUnion(newTab) : [...FALLBACK_TABS, newTab];
+    await updateDoc(
+      paperRef(paperId),
+      'tabs', tabsValue,
+      new FieldPath('tabContent', newTab.id), '',
+      'updatedAt', serverTimestamp(),
+    );
+    return newTab.id;
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
   const renameTab = useCallback(async (paperId, tabId, newName) => {
-    if (!user) return;
+    requireUser();
+    const rename = (tabs) => tabs.map((tab) => (tab.id === tabId ? { ...tab, name: newName } : tab));
 
-    const paper = papers.find(p => p.id === paperId);
-    if (!paper) return;
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => ({ ...p, tabs: rename(p.tabs || FALLBACK_TABS) }));
+      return;
+    }
 
-    const updatedTabs = (paper.tabs || []).map(tab =>
-      tab.id === tabId ? { ...tab, name: newName } : tab
-    );
-
-    await updatePaper(paperId, { tabs: updatedTabs });
-  }, [user, papers, updatePaper]);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(paperRef(paperId));
+      if (!snap.exists()) throw new Error('This paper no longer exists.');
+      tx.update(paperRef(paperId), {
+        tabs: rename(snap.data().tabs || FALLBACK_TABS),
+        updatedAt: serverTimestamp(),
+      });
+    });
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
   const deleteTab = useCallback(async (paperId, tabId) => {
-    if (!user) return;
+    requireUser();
 
-    const paper = papers.find(p => p.id === paperId);
-    if (!paper || (paper.tabs || []).length <= 1) return;
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => {
+        const tabs = p.tabs || FALLBACK_TABS;
+        if (tabs.length <= 1) return p;
+        const tabContent = { ...(p.tabContent || {}) };
+        delete tabContent[tabId];
+        return { ...p, tabs: tabs.filter((tab) => tab.id !== tabId), tabContent };
+      });
+      return;
+    }
 
-    const updatedTabs = (paper.tabs || []).filter(tab => tab.id !== tabId);
-    const updatedContent = { ...(paper.tabContent || {}) };
-    delete updatedContent[tabId];
-
-    await updatePaper(paperId, {
-      tabs: updatedTabs,
-      tabContent: updatedContent
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(paperRef(paperId));
+      if (!snap.exists()) return;
+      const tabs = snap.data().tabs || FALLBACK_TABS;
+      if (tabs.length <= 1) return;
+      tx.update(
+        paperRef(paperId),
+        'tabs', tabs.filter((tab) => tab.id !== tabId),
+        new FieldPath('tabContent', tabId), deleteField(),
+        'updatedAt', serverTimestamp(),
+      );
     });
-  }, [user, papers, updatePaper]);
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
   const updateTabContent = useCallback(async (paperId, tabId, content) => {
-    if (!user) return;
+    requireUser();
 
-    const paper = papers.find(p => p.id === paperId);
-    if (!paper) return;
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => ({ ...p, tabContent: { ...(p.tabContent || {}), [tabId]: content } }));
+      return;
+    }
 
-    await updatePaper(paperId, {
-      tabContent: { ...(paper.tabContent || {}), [tabId]: content }
+    await updateDoc(
+      paperRef(paperId),
+      new FieldPath('tabContent', tabId), content,
+      'updatedAt', serverTimestamp(),
+    );
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
+
+  // Appends BlockNote blocks to the tab called `tabName` (created if missing),
+  // reading the tab's latest stored content. Returns the tab id.
+  const appendToTab = useCallback(async (paperId, tabName, blocks) => {
+    requireUser();
+    const newTabId = createId('tab');
+
+    const plan = (data) => {
+      const tabs = data.tabs || FALLBACK_TABS;
+      const found = tabs.find((t) => t.name.trim().toLowerCase() === tabName.toLowerCase());
+      const tab = found || { id: newTabId, name: tabName };
+      let existing = [];
+      try {
+        const parsed = JSON.parse(data.tabContent?.[tab.id] || '[]');
+        if (Array.isArray(parsed)) existing = parsed;
+      } catch {
+        // Legacy Markdown/plain text: keep it as a paragraph above the new blocks
+        existing = [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: data.tabContent[tab.id], styles: {} }],
+          children: [],
+        }];
+      }
+      return {
+        tab,
+        tabs: found ? null : [...tabs, tab],
+        content: JSON.stringify([...existing, ...blocks]),
+      };
+    };
+
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => {
+        const next = plan(p);
+        return {
+          ...p,
+          ...(next.tabs && { tabs: next.tabs }),
+          tabContent: { ...(p.tabContent || {}), [next.tab.id]: next.content },
+        };
+      });
+      // The updater may run later, but it computes the same result from the
+      // same stored paper (an existing tab by name, or `newTabId`).
+      const stored = readDemo(PAPERS_KEY, DEMO_PAPERS).find((p) => p.id === paperId);
+      if (!stored) throw new Error('This paper no longer exists.');
+      return plan(stored).tab.id;
+    }
+
+    return runTransaction(db, async (tx) => {
+      const snap = await tx.get(paperRef(paperId));
+      if (!snap.exists()) throw new Error('This paper no longer exists.');
+      const next = plan(snap.data());
+      const fields = [new FieldPath('tabContent', next.tab.id), next.content, 'updatedAt', serverTimestamp()];
+      if (next.tabs) fields.push('tabs', next.tabs);
+      tx.update(paperRef(paperId), ...fields);
+      return next.tab.id;
     });
-  }, [user, papers, updatePaper]);
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
   // Get papers by status
   const getPapersByStatus = useCallback((status) => {
@@ -459,7 +581,7 @@ export function useReadingList() {
   // Get counts by status
   const getCounts = useCallback(() => {
     return {
-      'to-read': papers.filter(p => p.status === 'to-read').length,
+      'to-read': papers.filter(p => (p.status || 'to-read') === 'to-read').length,
       'reading': papers.filter(p => p.status === 'reading').length,
       'read': papers.filter(p => p.status === 'read').length,
       'all': papers.length,
@@ -475,8 +597,10 @@ export function useReadingList() {
     papers,
     collections,
     isLoading,
+    error,
     addPaper,
     updatePaper,
+    setPaperCollection,
     deletePaper,
     addCollection,
     updateCollection,
@@ -485,6 +609,7 @@ export function useReadingList() {
     renameTab,
     deleteTab,
     updateTabContent,
+    appendToTab,
     getPapersByStatus,
     getPapersByCollection,
     getCounts,
