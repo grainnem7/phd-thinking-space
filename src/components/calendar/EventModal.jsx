@@ -4,7 +4,7 @@ import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { CategoryPicker, ColorSwatches, CategoryManager } from './CategoryControls';
 import { timeToMinutes } from '../../utils/date';
-import { weekdayOf } from '../../lib/recurrence';
+import { weekdayOf, daysBetween, addDaysToKey } from '../../lib/recurrence';
 import RepeatFields from './RepeatFields';
 import { repeatFormFrom, recurrenceFromForm, repeatError } from './repeatForm';
 
@@ -17,6 +17,7 @@ function emptyForm(defaults) {
     type: 'event',
     title: '',
     date: d.date || '',
+    endDate: d.date || '',
     allDay: d.allDay ?? false,
     startTime: d.startTime || '09:00',
     endTime: d.endTime || '10:00',
@@ -45,6 +46,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
         type: 'event',
         title: entry.title || '',
         date: entry.date || '',
+        endDate: entry.date ? addDaysToKey(entry.date, Math.max(0, Number(entry.durationDays) || 0)) : '',
         allDay: Boolean(entry.allDay),
         startTime: entry.startTime || '09:00',
         endTime: entry.endTime || '10:00',
@@ -69,9 +71,12 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
     const { repeat } = f;
     const weekly = repeat.preset === 'weekly' || repeat.preset === 'biweekly' || repeat.preset === 'never';
     const followsDate = f.date && date && repeat.byWeekday.length === 1 && repeat.byWeekday[0] === weekdayOf(f.date);
+    // Keep the event's length when the start date moves
+    const length = f.date && f.endDate && f.endDate >= f.date ? daysBetween(f.date, f.endDate) : 0;
     return {
       ...f,
       date,
+      endDate: date ? addDaysToKey(date, length) : date,
       repeat: weekly && followsDate ? { ...repeat, byWeekday: [weekdayOf(date)] } : repeat,
     };
   });
@@ -89,11 +94,13 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
     return [...notes, ...paperMatches].filter((o) => !linked.has(`${o.type}:${o.id}`)).slice(0, 8);
   }, [linkQuery, sections, papers, form.links]);
 
-  const timeError = form.type === 'event' && !form.allDay
+  const multiDay = form.type === 'event' && Boolean(form.date && form.endDate && form.endDate > form.date);
+  const endDateError = form.type === 'event' && Boolean(form.date && form.endDate && form.endDate < form.date);
+  const timeError = form.type === 'event' && !form.allDay && !multiDay && !endDateError
     && timeToMinutes(form.endTime) !== null && timeToMinutes(form.startTime) !== null
     && timeToMinutes(form.endTime) < timeToMinutes(form.startTime);
   const repeatInvalid = form.type === 'event' && !isOverride && Boolean(repeatError(form.repeat, form.date));
-  const canSave = form.title.trim() && form.date && !timeError && !repeatInvalid;
+  const canSave = form.title.trim() && form.date && !timeError && !endDateError && !repeatInvalid;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -106,6 +113,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
           kind: 'event',
           title: form.title.trim(),
           date: form.date,
+          durationDays: multiDay ? daysBetween(form.date, form.endDate) : 0,
           allDay: form.allDay,
           startTime: form.allDay ? null : form.startTime,
           endTime: form.allDay ? null : form.endTime,
@@ -159,10 +167,38 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
           />
         </div>
 
-        <div>
-          <label htmlFor="event-date" className={LABEL_CLASS}>Date</label>
-          <input id="event-date" type="date" value={form.date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLASS} />
-        </div>
+        {form.type === 'event' ? (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="event-date" className={LABEL_CLASS}>Start date</label>
+                <input id="event-date" type="date" value={form.date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLASS} />
+              </div>
+              <div>
+                <label htmlFor="event-end-date" className={LABEL_CLASS}>End date</label>
+                <input
+                  id="event-end-date"
+                  type="date"
+                  value={form.endDate}
+                  min={form.date || undefined}
+                  onChange={(e) => set({ endDate: e.target.value })}
+                  className={INPUT_CLASS}
+                />
+              </div>
+            </div>
+            {endDateError && <p className="text-sm text-rose-600 mt-2">The end date can't be before the start date.</p>}
+            {multiDay && !endDateError && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5">
+                Runs for {daysBetween(form.date, form.endDate) + 1} days
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="event-date" className={LABEL_CLASS}>Date</label>
+            <input id="event-date" type="date" value={form.date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLASS} />
+          </div>
+        )}
 
         {form.type === 'event' && (
           <>
@@ -180,11 +216,11 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
               <div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="event-start" className={LABEL_CLASS}>Starts</label>
+                    <label htmlFor="event-start" className={LABEL_CLASS}>{multiDay ? 'Start time' : 'Starts'}</label>
                     <input id="event-start" type="time" value={form.startTime} onChange={(e) => set({ startTime: e.target.value })} className={INPUT_CLASS} />
                   </div>
                   <div>
-                    <label htmlFor="event-end" className={LABEL_CLASS}>Ends</label>
+                    <label htmlFor="event-end" className={LABEL_CLASS}>{multiDay ? 'End time (last day)' : 'Ends'}</label>
                     <input id="event-end" type="time" value={form.endTime} onChange={(e) => set({ endTime: e.target.value })} className={INPUT_CLASS} />
                   </div>
                 </div>

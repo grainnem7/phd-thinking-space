@@ -11,8 +11,9 @@ export function ChipBody({ entry }) {
   return (
     <>
       {entry.source === 'google' && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.colorHex }} />}
-      {!entry.allDay && <span className="tabular-nums opacity-70 flex-shrink-0">{entry.startTime}</span>}
-      <span className="truncate">{entry.title}</span>
+      {entry.span?.index > 0 && <span className="opacity-60 flex-shrink-0" aria-hidden="true">↳</span>}
+      {!entry.allDay && !(entry.span?.index > 0) && <span className="tabular-nums opacity-70 flex-shrink-0">{entry.startTime}</span>}
+      <span className={`truncate ${entry.span?.index > 0 ? 'opacity-80' : ''}`}>{entry.title}</span>
       {entry.seriesId && <Repeat size={10} className="flex-shrink-0 opacity-60" aria-label="Repeats" />}
     </>
   );
@@ -53,8 +54,10 @@ function GridChip({ entry, onSelectDay, onOpenEntry }) {
       {...(movable ? listeners : {})}
       onClick={onSelectDay}
       onDoubleClick={(e) => { e.stopPropagation(); onOpenEntry(entry); }}
-      title={movable ? `${entry.title} — drag to another day` : entry.title}
+      title={`${entry.title}${entry.span ? ` (day ${entry.span.index + 1} of ${entry.span.length})` : ''}${movable ? ' — drag to another day' : ''}`}
       className={`flex items-center gap-1 px-1.5 py-px rounded text-[11px] leading-4 min-w-0 pointer-events-auto touch-manipulation select-none
+        ${entry.span && entry.span.index > 0 ? 'rounded-l-none -ml-1 sm:-ml-1.5 pl-2 sm:pl-2.5' : ''}
+        ${entry.span && entry.span.index < entry.span.length - 1 ? 'rounded-r-none -mr-1 sm:-mr-1.5' : ''}
         ${movable ? 'cursor-grab' : 'cursor-pointer'} ${style.chip} ${entry.done ? 'line-through opacity-60' : ''} ${isDragging ? 'opacity-40' : ''}`}
       style={style.vars}
     >

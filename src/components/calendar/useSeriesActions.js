@@ -7,7 +7,7 @@ import {
 // Fields that belong to one stored event document rather than to its content
 const NON_CONTENT = new Set([
   'id', 'createdAt', 'updatedAt', 'recurrence', 'exdates', 'recurringEventId', 'originalDate',
-  'source', 'seriesId', 'occurrenceDate',
+  'source', 'seriesId', 'occurrenceDate', 'span', 'category',
 ]);
 
 export function contentFields(item) {

@@ -197,6 +197,7 @@ function toEntries(event, calendar, account, rangeStart, rangeEnd) {
   if (event.start?.date) {
     // All-day: end.date is exclusive
     const entries = [];
+    let days = 0;
     const cursor = parseLocalDate(event.start.date);
     let end = parseLocalDate(event.end?.date || event.start.date);
     if (end <= cursor) {
@@ -208,7 +209,16 @@ function toEntries(event, calendar, account, rangeStart, rangeEnd) {
       if (key >= rangeStart && key <= rangeEnd) {
         entries.push({ ...base, id: `${idBase}-${key}`, date: key, allDay: true });
       }
+      days++;
       cursor.setDate(cursor.getDate() + 1);
+    }
+    // Mark multi-day all-day events so they join up in the month grid
+    if (days > 1) {
+      const startKey = event.start.date;
+      entries.forEach((entry) => {
+        const index = Math.round((parseLocalDate(entry.date) - parseLocalDate(startKey)) / 86400000);
+        entry.span = { index, length: days, start: startKey, baseId: idBase };
+      });
     }
     return entries;
   }
@@ -217,15 +227,30 @@ function toEntries(event, calendar, account, rangeStart, rangeEnd) {
     const start = new Date(event.start.dateTime);
     const end = event.end?.dateTime ? new Date(event.end.dateTime) : start;
     const key = toDateKey(start);
-    return [{
-      ...base,
-      id: idBase,
-      date: key,
-      allDay: false,
-      startTime: hhmm(start),
-      // Events running past midnight show as ending at 23:59 on their start day
-      endTime: toDateKey(end) === key ? hhmm(end) : '23:59',
-    }];
+    let endKey = end > start ? toDateKey(end) : key;
+    if (endKey > key && hhmm(end) === '00:00') endKey = toDateKey(new Date(end.getTime() - 60000));
+    if (endKey === key) {
+      return [{ ...base, id: idBase, date: key, allDay: false, startTime: hhmm(start), endTime: end > start ? hhmm(end) : hhmm(start) }];
+    }
+    // Timed events over several days: start time on day one, end time on the last, all day between
+    const entries = [];
+    const days = [];
+    for (let cursor = parseLocalDate(key); toDateKey(cursor) <= endKey; cursor.setDate(cursor.getDate() + 1)) days.push(toDateKey(cursor));
+    days.forEach((day, index) => {
+      if (day < rangeStart || day > rangeEnd) return;
+      const last = index === days.length - 1;
+      const display = index === 0
+        ? { allDay: false, startTime: hhmm(start), endTime: '23:59' }
+        : last ? { allDay: false, startTime: '00:00', endTime: hhmm(end) } : { allDay: true, startTime: null, endTime: null };
+      entries.push({
+        ...base,
+        ...display,
+        id: `${idBase}-${day}`,
+        date: day,
+        span: { index, length: days.length, start: key, end: endKey, baseId: idBase },
+      });
+    });
+    return entries;
   }
   return [];
 }

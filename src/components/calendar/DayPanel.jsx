@@ -69,12 +69,17 @@ function EntryRow({ entry, isNow, onOpen, onOpenLink, onMove, onDuplicate }) {
           <span className="flex flex-wrap items-baseline gap-x-2">
             {!entry.allDay && (
               <span className="text-sm tabular-nums text-neutral-500 dark:text-neutral-400 flex-shrink-0">
-                {entry.startTime}{entry.endTime ? `–${entry.endTime}` : ''}
+                {entry.span
+                  ? (entry.span.index === 0 ? `From ${entry.startTime}` : `Until ${entry.endTime}`)
+                  : <>{entry.startTime}{entry.endTime ? `–${entry.endTime}` : ''}</>}
               </span>
             )}
             <span className={`text-base text-neutral-900 dark:text-neutral-100 min-w-0 break-words ${entry.done ? 'line-through text-neutral-400 dark:text-neutral-500' : ''}`}>
               {entry.title}
             </span>
+            {entry.span && (
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Day {entry.span.index + 1} of {entry.span.length}</span>
+            )}
             {entry.category && (
               <span className="cat-chip px-1.5 py-px text-[11px] rounded" style={style.vars}>{entry.category.name}</span>
             )}

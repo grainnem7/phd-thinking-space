@@ -16,7 +16,7 @@
 //   deleted in Google   → delete in the app (event status "cancelled")
 //   deleted in the app  → delete in Google
 
-import { addDaysToKey, nthWeekdayOf, normalizeRecurrence } from './recurrence';
+import { addDaysToKey, daysBetween, nthWeekdayOf, normalizeRecurrence } from './recurrence';
 import { toDateKey } from '../utils/date';
 
 const API = 'https://www.googleapis.com/calendar/v3';
@@ -109,10 +109,12 @@ export function fromRecurrenceLines(lines = []) {
 
 function appEventContent(item) {
   const allDay = Boolean(item.allDay || !item.startTime);
+  const extraDays = Math.max(0, Math.floor(Number(item.durationDays) || 0));
   return {
     title: item.title || '',
     notes: item.notes || '',
     date: item.date,
+    endDate: addDaysToKey(item.date, extraDays),
     allDay,
     startTime: allDay ? null : item.startTime,
     endTime: allDay ? null : (item.endTime || item.startTime),
@@ -121,27 +123,37 @@ function appEventContent(item) {
 }
 
 function deadlineContent(deadline) {
-  return { title: `${DEADLINE_PREFIX}${deadline.title || ''}`, notes: '', date: deadline.date, allDay: true, startTime: null, endTime: null, recurrence: [] };
+  return { title: `${DEADLINE_PREFIX}${deadline.title || ''}`, notes: '', date: deadline.date, endDate: deadline.date, allDay: true, startTime: null, endTime: null, recurrence: [] };
 }
 
 function googleContent(event, tz) {
   const allDay = Boolean(event.start?.date);
   let date;
+  let endDate;
   let startTime = null;
   let endTime = null;
   if (allDay) {
     date = event.start.date;
+    // Google's all-day end date is exclusive
+    const lastDay = event.end?.date ? addDaysToKey(event.end.date, -1) : date;
+    endDate = lastDay > date ? lastDay : date;
   } else {
     const start = new Date(event.start.dateTime);
     const end = event.end?.dateTime ? new Date(event.end.dateTime) : start;
     date = toDateKey(start);
     startTime = hhmm(start);
-    endTime = toDateKey(end) === date ? hhmm(end) : '23:59';
+    endDate = end > start ? toDateKey(end) : date;
+    endTime = end > start ? hhmm(end) : startTime;
+    // Ending at midnight belongs to the previous day
+    if (endDate > date && endTime === '00:00') {
+      endDate = addDaysToKey(endDate, -1);
+      endTime = '23:59';
+    }
   }
   const recurrence = (event.recurrence || []).map((line) =>
     // Google may rewrite EXDATE time zones; compare in our own zone
     line.startsWith('EXDATE;TZID=') ? `EXDATE;TZID=${tz}:${line.slice(line.indexOf(':') + 1)}` : line);
-  return { title: event.summary || '', notes: event.description || '', date, allDay, startTime, endTime, recurrence };
+  return { title: event.summary || '', notes: event.description || '', date, endDate, allDay, startTime, endTime, recurrence };
 }
 
 function toGoogleBody(content, key, tz, extraDescription = '') {
@@ -150,8 +162,8 @@ function toGoogleBody(content, key, tz, extraDescription = '') {
     description: content.notes + extraDescription,
     start: content.allDay ? { date: content.date } : { dateTime: `${content.date}T${content.startTime}:00`, timeZone: tz },
     end: content.allDay
-      ? { date: addDaysToKey(content.date, 1) }
-      : { dateTime: `${content.date}T${content.endTime}:00`, timeZone: tz },
+      ? { date: addDaysToKey(content.endDate || content.date, 1) }
+      : { dateTime: `${content.endDate || content.date}T${content.endTime}:00`, timeZone: tz },
     recurrence: content.recurrence,
     extendedProperties: { private: { tsKey: key, tsHash: hash(content) } },
   };
@@ -405,6 +417,7 @@ export async function syncGoogleAccounts(accounts, app) {
             title: google.title,
             notes: google.notes,
             date: google.date,
+            durationDays: Math.max(0, daysBetween(google.date, google.endDate)),
             allDay: google.allDay,
             startTime: google.startTime,
             endTime: google.endTime,

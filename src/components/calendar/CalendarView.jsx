@@ -13,8 +13,8 @@ import { useBoards } from '../../hooks/useBoards';
 import { useCalendarCategories } from '../../hooks/useCalendarCategories';
 import { useConfirm } from '../common/ConfirmDialog';
 import { parseLocalDate, toDateKey } from '../../utils/date';
-import { sameRecurrence } from '../../lib/recurrence';
-import { buildEntries, groupByDate, todosByDate } from './calendarEntries';
+import { sameRecurrence, addDaysToKey } from '../../lib/recurrence';
+import { buildEntries, groupByDate, todosByDate, spanBase } from './calendarEntries';
 import { useCalendarSensors, dayCollision } from './calendarDnd';
 import { useSeriesActions } from './useSeriesActions';
 import EventModal from './EventModal';
@@ -176,7 +176,10 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
     setScopeRequest(null);
   };
 
-  const moveEntry = async (entry, date) => {
+  const moveEntry = async (dayEntry, dropDate) => {
+    // Dropping day N of a multi-day event moves the whole event so that day lands there
+    const entry = spanBase(dayEntry);
+    const date = dayEntry?.span && dropDate ? addDaysToKey(dropDate, -dayEntry.span.index) : dropDate;
     if (!date || date === entry.date) return;
     let undo = null;
     if (entry.source === 'deadline') {
@@ -229,7 +232,8 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
     else if (target?.entry) moveEntry(target.entry, date);
   };
 
-  const handleDuplicate = async (entry) => {
+  const handleDuplicate = async (dayEntry) => {
+    const entry = spanBase(dayEntry);
     const id = await duplicateEvent(entry);
     if (id) showToast(`Duplicated “${entry.title}”`, () => deleteItem(id));
   };
@@ -239,7 +243,7 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
 
   const handleOpenEntry = (entry) => {
     if (entry.source === 'event' || entry.source === 'deadline') {
-      setModal({ open: true, entry, defaults: null });
+      setModal({ open: true, entry: spanBase(entry), defaults: null });
     } else if (entry.source === 'task') {
       onSelect?.({ id: entry.boardId, openTaskId: entry.taskId });
     } else if (entry.source === 'google' && entry.htmlLink) {
@@ -439,7 +443,10 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
                 onToggleTodo={(todo) => updateItem(todo.id, { completed: !todo.completed })}
                 onDeleteTodo={(todo) => deleteItem(todo.id)}
                 onMoveUnfinished={(todos) => moveItems(todos.map((t) => t.id), toDateKey(addDays(parseLocalDate(selectedDate), 1)))}
-                onMoveEntry={(entry) => setMoveTarget({ key: `entry:${entry.id}`, title: entry.title, date: entry.date, entry })}
+                onMoveEntry={(dayEntry) => {
+                  const entry = spanBase(dayEntry);
+                  setMoveTarget({ key: `entry:${entry.id}`, title: entry.title, date: entry.date, entry });
+                }}
                 onDuplicateEntry={handleDuplicate}
                 onMoveTodo={(todo) => setMoveTarget({ key: `todo:${todo.id}`, title: todo.title, date: todo.date, todo })}
               />

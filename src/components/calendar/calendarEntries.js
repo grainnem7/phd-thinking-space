@@ -34,6 +34,49 @@ export function styleFor(entry) {
   return { chip: 'cat-chip', dot: 'cat-dot', bar: 'cat-bar', vars: colorVars(entry.category?.color || entry.color) };
 }
 
+// Days after the first that an event covers (0 for single-day events)
+export function eventExtraDays(item) {
+  return Math.max(0, Math.floor(Number(item?.durationDays) || 0));
+}
+
+// One entry per day an event covers. Days after the first get ids like
+// `${id}+${n}` and a `span` describing the whole event; timed events show their
+// start time on the first day, end time on the last, and run all day between.
+function pushEventDays(entries, base, startKey, extraDays, range) {
+  if (extraDays === 0) {
+    entries.push(base);
+    return;
+  }
+  const span = {
+    index: 0,
+    length: extraDays + 1,
+    start: startKey,
+    end: addDaysToKey(startKey, extraDays),
+    baseId: base.id,
+    allDay: base.allDay,
+    startTime: base.startTime,
+    endTime: base.endTime,
+  };
+  for (let k = 0; k <= extraDays; k++) {
+    const day = addDaysToKey(startKey, k);
+    if (range && (day < range.start || day > range.end)) continue;
+    let display = {};
+    if (!base.allDay) {
+      if (k === 0) display = { startTime: base.startTime, endTime: '23:59' };
+      else if (k === extraDays) display = { startTime: '00:00', endTime: base.endTime };
+      else display = { allDay: true, startTime: null, endTime: null };
+    }
+    entries.push({ ...base, ...display, id: k === 0 ? base.id : `${base.id}+${k}`, date: day, span: { ...span, index: k } });
+  }
+}
+
+// The whole event behind one of its days (for editing, moving and duplicating)
+export function spanBase(entry) {
+  if (!entry?.span) return entry;
+  const { span, ...rest } = entry;
+  return { ...rest, id: span.baseId, date: span.start, allDay: span.allDay, startTime: span.startTime, endTime: span.endTime };
+}
+
 // Merge every dated thing in the app into one list of calendar entries.
 // Repeating events become one entry per occurrence within `range` ({ start, end }
 // date keys; defaults to 60 days back to 400 days ahead). Occurrence entries have
@@ -47,12 +90,15 @@ export function buildEntries({ items = [], deadlines = [], sections = [], google
     if (item.kind !== 'event' || !item.date) continue;
     const allDay = Boolean(item.allDay || !item.startTime);
     const category = item.categoryId ? categoryById.get(item.categoryId) || null : null;
+    const extraDays = eventExtraDays(item);
     if (!item.recurrence?.freq) {
-      entries.push({ ...item, source: 'event', allDay, category });
+      pushEventDays(entries, { ...item, source: 'event', allDay, category }, item.date, extraDays);
       continue;
     }
-    for (const date of expandOccurrences(item, start, end)) {
-      entries.push({ ...item, id: `${item.id}__${date}`, date, seriesId: item.id, occurrenceDate: date, source: 'event', allDay, category });
+    // Include occurrences that start before the range but run into it
+    for (const date of expandOccurrences(item, addDaysToKey(start, -extraDays), end)) {
+      const base = { ...item, id: `${item.id}__${date}`, date, seriesId: item.id, occurrenceDate: date, source: 'event', allDay, category };
+      pushEventDays(entries, base, date, extraDays, { start, end });
     }
   }
 
@@ -88,6 +134,9 @@ const SOURCE_ORDER = { deadline: 0, event: 1, google: 2, task: 3 };
 
 export function compareEntries(a, b) {
   if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+  // Multi-day events first, in start order, so they line up across days
+  if (Boolean(a.span) !== Boolean(b.span)) return a.span ? -1 : 1;
+  if (a.span && b.span && a.span.start !== b.span.start) return a.span.start < b.span.start ? -1 : 1;
   if (!a.allDay) {
     const diff = (timeToMinutes(a.startTime) ?? 0) - (timeToMinutes(b.startTime) ?? 0);
     if (diff !== 0) return diff;
