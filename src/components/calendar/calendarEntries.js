@@ -1,6 +1,13 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { timeToMinutes, toDateKey } from '../../utils/date';
 import { isDoneColumn } from '../../hooks/useBoards';
+import { expandOccurrences, addDaysToKey } from '../../lib/recurrence';
+
+// Window used to expand repeating events when a caller doesn't pass a range.
+export function defaultEntriesRange(now = new Date()) {
+  const today = toDateKey(now);
+  return { start: addDaysToKey(today, -60), end: addDaysToKey(today, 400) };
+}
 
 // Range the dashboard needs data for: this month's grid plus the next 7 days.
 export function dashboardCalendarRange(now = new Date()) {
@@ -35,12 +42,23 @@ export function styleFor(entry) {
 }
 
 // Merge every dated thing in the app into one list of calendar entries.
-export function buildEntries({ items = [], deadlines = [], sections = [], googleEvents = [] }) {
+// Repeating events become one entry per occurrence within `range` ({ start, end }
+// date keys; defaults to 60 days back to 400 days ahead). Occurrence entries have
+// ids like `${seriesId}__${date}` plus `seriesId` and `occurrenceDate`.
+export function buildEntries({ items = [], deadlines = [], sections = [], googleEvents = [], range } = {}) {
   const entries = [];
+  const { start, end } = range?.start && range?.end ? range : defaultEntriesRange();
 
   for (const item of items) {
     if (item.kind !== 'event' || !item.date) continue;
-    entries.push({ ...item, source: 'event', allDay: item.allDay || !item.startTime });
+    const allDay = Boolean(item.allDay || !item.startTime);
+    if (!item.recurrence?.freq) {
+      entries.push({ ...item, source: 'event', allDay });
+      continue;
+    }
+    for (const date of expandOccurrences(item, start, end)) {
+      entries.push({ ...item, id: `${item.id}__${date}`, date, seriesId: item.id, occurrenceDate: date, source: 'event', allDay });
+    }
   }
 
   for (const d of deadlines) {
