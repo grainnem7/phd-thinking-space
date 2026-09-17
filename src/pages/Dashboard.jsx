@@ -9,7 +9,8 @@ import NoteEditor from '../components/notes/NoteEditor';
 import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
 import ReadingList from '../components/reading-list/ReadingList';
-import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard } from 'lucide-react';
+import CalendarView from '../components/calendar/CalendarView';
+import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard, CalendarDays } from 'lucide-react';
 import Button from '../components/common/Button';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const { isDark, toggle: toggleTheme } = useTheme();
   const confirm = useConfirm();
   const [selectedItem, setSelectedItem] = useState(null);
+  // One-shot navigation details: which paper, task or calendar day to open
+  const [navParams, setNavParams] = useState({});
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -84,12 +87,14 @@ export default function Dashboard() {
   const handleSelect = useCallback((item) => {
     if (!item) {
       setSelectedItem(null);
+      setNavParams({});
       return;
     }
 
-    // Handle special navigation items (reading-list, etc.)
-    if (item.type === 'reading-list') {
+    // Handle special navigation items (reading-list, calendar)
+    if (item.type === 'reading-list' || item.type === 'calendar') {
       setSelectedItem(item);
+      setNavParams({ paperId: item.paperId, date: item.date });
       if (isMobile) {
         toggle();
       }
@@ -100,6 +105,7 @@ export default function Dashboard() {
     const fullItem = sections.find(s => s.id === item.id);
     if (fullItem) {
       setSelectedItem(fullItem);
+      setNavParams({ taskId: item.openTaskId });
       if (isMobile) {
         // Close sidebar on mobile after selection
         toggle();
@@ -272,13 +278,25 @@ export default function Dashboard() {
 
     // Reading List special view
     if (selectedItem.type === 'reading-list') {
-      return <ReadingList />;
+      return <ReadingList key={navParams.paperId || 'reading-list'} initialPaperId={navParams.paperId} />;
+    }
+
+    if (selectedItem.type === 'calendar') {
+      return (
+        <CalendarView
+          key={navParams.date || 'calendar'}
+          initialDate={navParams.date}
+          sections={sections}
+          onSelect={handleSelect}
+        />
+      );
     }
 
     if (selectedItem.type === 'board') {
       return (
         <KanbanBoard
           board={selectedItem}
+          initialTaskId={navParams.taskId}
           onRename={(b) => openRename(b)}
           onDelete={async (id) => {
             const parent = sections.find(s => s.id === selectedItem.parentId);
@@ -443,7 +461,7 @@ export default function Dashboard() {
               <Search className="w-5 h-5" />
             </Button>
             {/* Item actions menu - shown when viewing an item */}
-            {selectedItem && selectedItem.type !== 'reading-list' && (
+            {selectedItem && selectedItem.type !== 'reading-list' && selectedItem.type !== 'calendar' && (
               <div className="relative">
                 <Button
                   variant="ghost"
@@ -499,6 +517,7 @@ export default function Dashboard() {
           { id: 'add-note', label: 'New note', icon: FileText, keywords: 'create add', run: () => handleCreateItem('note') },
           { id: 'add-board', label: 'New board', icon: Kanban, keywords: 'create add tasks kanban', run: () => handleCreateItem('board') },
           { id: 'add-folder', label: 'New folder', icon: Folder, keywords: 'create add', run: () => handleCreateItem('folder') },
+          { id: 'calendar', label: 'Open Calendar', icon: CalendarDays, keywords: 'schedule events agenda todo day week month google', run: () => handleSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' }) },
           { id: 'reading-list', label: 'Open Reading List', icon: BookOpen, keywords: 'papers references', run: () => handleSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' }) },
           { id: 'toggle-dark', label: isDark ? 'Switch to light mode' : 'Switch to dark mode', icon: isDark ? Sun : Moon, keywords: 'theme color', run: toggleTheme },
           { id: 'toggle-focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', icon: Maximize2, keywords: 'distraction-free zen', shortcut: 'Ctrl+Shift+F', run: toggleFocusMode },

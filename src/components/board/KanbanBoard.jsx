@@ -20,7 +20,7 @@ import Button from '../common/Button';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import { useConfirm } from '../common/ConfirmDialog';
 
-export default function KanbanBoard({ board, onRename, onDelete }) {
+export default function KanbanBoard({ board, initialTaskId, onRename, onDelete }) {
   const confirm = useConfirm();
   const [activeTask, setActiveTask] = useState(null);
   const [activeColumn, setActiveColumn] = useState(null);
@@ -51,6 +51,16 @@ export default function KanbanBoard({ board, onRename, onDelete }) {
 
   const columns = board?.columns || [];
   const tasks = board?.tasks || [];
+
+  // Opened from the calendar: show that task straight away (once per navigation)
+  const [openedTaskId, setOpenedTaskId] = useState(null);
+  if (initialTaskId && openedTaskId !== initialTaskId) {
+    const task = tasks.find(t => t.id === initialTaskId);
+    if (task) {
+      setOpenedTaskId(initialTaskId);
+      setModalState({ isOpen: true, task, columnId: task.columnId });
+    }
+  }
 
   // Custom collision detection
   const collisionDetectionStrategy = useCallback((args) => {

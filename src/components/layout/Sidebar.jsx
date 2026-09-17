@@ -39,6 +39,7 @@ import {
   X,
   Search,
   BookMarked,
+  CalendarDays,
   Home,
   RotateCcw,
   Monitor,
@@ -438,7 +439,7 @@ export default function Sidebar({ selectedId, onSelect }) {
             <button
               onClick={() => onSelect(null)}
               className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                selectedId === null && selectedId !== 'reading-list'
+                selectedId === null
                   ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
                   : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
               }`}
@@ -446,6 +447,18 @@ export default function Sidebar({ selectedId, onSelect }) {
             >
               <Home className="w-5 h-5 flex-shrink-0" />
               {(!isCollapsed || isMobile) && <span className="text-sm">Dashboard</span>}
+            </button>
+            <button
+              onClick={() => onSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' })}
+              className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
+                selectedId === 'calendar'
+                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
+                  : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+              }`}
+              title={isCollapsed && !isMobile ? 'Calendar' : undefined}
+            >
+              <CalendarDays className="w-5 h-5 flex-shrink-0" />
+              {(!isCollapsed || isMobile) && <span className="text-sm">Calendar</span>}
             </button>
             <button
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}

@@ -13,3 +13,19 @@ export function daysUntil(dateStr) {
   if (!target) return 0;
   return differenceInCalendarDays(target, new Date());
 }
+
+// Formats a Date as a local "YYYY-MM-DD" key (the inverse of parseLocalDate).
+export function toDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// "HH:mm" -> minutes since midnight (null if malformed)
+export function timeToMinutes(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}

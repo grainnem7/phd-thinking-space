@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Command } from 'cmdk';
-import { FileText, Kanban, Folder, BookOpen, ArrowRight } from 'lucide-react';
+import { FileText, Kanban, Folder, BookOpen, ArrowRight, CalendarDays } from 'lucide-react';
 
 export default function CommandPalette({ open, onOpenChange, sections = [], actions = [], onNavigate }) {
   // Esc to close (cmdk handles arrow nav + Enter natively)
@@ -25,6 +25,7 @@ export default function CommandPalette({ open, onOpenChange, sections = [], acti
 
   const iconFor = (item) => {
     if (item.type === 'reading-list') return BookOpen;
+    if (item.type === 'calendar') return CalendarDays;
     if (item.type === 'note') return FileText;
     if (item.type === 'board') return Kanban;
     if (item.type === 'folder') return Folder;

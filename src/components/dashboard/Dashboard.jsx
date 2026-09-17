@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, ChevronRight, Trash2, Pencil, X, Check, Play, Pause, RotateCcw, Settings, Volume2, VolumeX } from 'lucide-react';
+import { Plus, ChevronRight, Trash2, Pencil, X, Check, Play, Pause, RotateCcw, Settings, Volume2, VolumeX, CalendarDays } from 'lucide-react';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useFirestore } from '../../hooks/useFirestore';
+import { useCalendar } from '../../hooks/useCalendar';
+import { useGoogleCalendar } from '../../hooks/useGoogleCalendar';
 import { format, formatDistanceToNow } from 'date-fns';
-import { daysUntil, parseLocalDate } from '../../utils/date';
+import { daysUntil, parseLocalDate, toDateKey } from '../../utils/date';
 import { useConfirm } from '../common/ConfirmDialog';
+import CalendarWidget from '../calendar/CalendarWidget';
+import { buildEntries, groupByDate, todosByDate, dashboardCalendarRange } from '../calendar/calendarEntries';
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -42,6 +46,23 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
   const boards = useMemo(() => {
     return allSections.filter(s => s.type === 'board');
   }, [allSections]);
+
+  const { items: calendarItems } = useCalendar();
+  const calendarRange = dashboardCalendarRange(currentTime);
+  const google = useGoogleCalendar(calendarRange.start, calendarRange.end);
+  const entriesByDate = useMemo(
+    () => groupByDate(buildEntries({ items: calendarItems, deadlines, sections: allSections, googleEvents: google.events })),
+    [calendarItems, deadlines, allSections, google.events],
+  );
+  const todoMap = useMemo(() => todosByDate(calendarItems), [calendarItems]);
+  const todayKey = toDateKey(currentTime);
+  const todaysTimedEvents = useMemo(
+    () => (entriesByDate.get(todayKey) || []).filter(e => !e.allDay),
+    [entriesByDate, todayKey],
+  );
+  const openCalendar = useCallback((date) => {
+    onSelect?.({ id: 'calendar', type: 'calendar', name: 'Calendar', date });
+  }, [onSelect]);
 
   const confirmDeleteDeadline = useCallback(async (id) => {
     const item = deadlines.find(d => d.id === id);
@@ -142,6 +163,8 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
             <ScheduleWidget
               currentTime={currentTime}
               blocks={scheduleBlocks}
+              events={todaysTimedEvents}
+              onOpenCalendar={() => openCalendar(todayKey)}
               onAddBlock={addScheduleBlock}
               onUpdateBlock={updateScheduleBlock}
               onDeleteBlock={confirmDeleteScheduleBlock}
@@ -157,6 +180,11 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
               onToggleTodo={toggleTodo}
               onDeleteTodo={confirmDeleteTodo}
             />
+          </div>
+
+          {/* Calendar: mini month + next 7 days */}
+          <div className="md:col-span-6 lg:col-span-12 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col">
+            <CalendarWidget entriesByDate={entriesByDate} todoMap={todoMap} onOpenCalendar={openCalendar} />
           </div>
 
           {/* Quick Capture */}
@@ -361,7 +389,7 @@ function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdateDeadline, onDe
   );
 }
 
-function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, onDeleteBlock }) {
+function ScheduleWidget({ currentTime, blocks = [], events = [], onOpenCalendar, onAddBlock, onUpdateBlock, onDeleteBlock }) {
   const [isAdding, setIsAdding] = useState(false);
   const [newBlock, setNewBlock] = useState({ title: '', startTime: '09:00', endTime: '10:00' });
   const [editingId, setEditingId] = useState(null);
@@ -373,7 +401,11 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, o
   };
 
   const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-  const sortedBlocks = [...blocks].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
+  // Daily blocks repeat every day; calendar events are today's one-offs (read-only here).
+  const sortedBlocks = [
+    ...blocks,
+    ...events.map(e => ({ ...e, isCalendar: true, endTime: e.endTime || e.startTime })),
+  ].sort((a, b) => parseTime(a.startTime) - parseTime(b.startTime));
   const currentBlock = sortedBlocks.find(b => currentMinutes >= parseTime(b.startTime) && currentMinutes < parseTime(b.endTime));
 
   const handleAdd = () => {
@@ -427,6 +459,27 @@ function ScheduleWidget({ currentTime, blocks = [], onAddBlock, onUpdateBlock, o
             {sortedBlocks.map((block) => {
               const isPast = parseTime(block.endTime) < currentMinutes;
               const isCurrent = block.id === currentBlock?.id;
+
+              if (block.isCalendar) {
+                return (
+                  <button
+                    key={block.id}
+                    type="button"
+                    onClick={onOpenCalendar}
+                    title="Open in calendar"
+                    className={`w-full text-left px-4 sm:px-6 py-3 sm:py-4 flex items-start gap-3 sm:gap-5 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors ${isPast ? 'opacity-40' : ''} ${isCurrent ? 'bg-neutral-50 dark:bg-neutral-800/40' : ''}`}
+                  >
+                    <span className={`text-base sm:text-lg tabular-nums flex-shrink-0 ${isCurrent ? 'text-neutral-900 dark:text-neutral-100 font-medium' : 'text-neutral-400'}`}>
+                      {block.startTime}
+                    </span>
+                    <span className={`flex-1 text-base sm:text-lg ${isCurrent ? 'text-neutral-900 dark:text-neutral-100 font-medium' : 'text-neutral-600 dark:text-neutral-300'}`}>{block.title}</span>
+                    <span className="flex items-center gap-2 pt-1">
+                      <CalendarDays size={14} className="text-neutral-300" aria-label="Calendar event" />
+                      {isCurrent && <span className="text-xs sm:text-sm text-rose-500 font-medium uppercase flex-shrink-0">Now</span>}
+                    </span>
+                  </button>
+                );
+              }
 
               if (editingId === block.id) {
                 return (

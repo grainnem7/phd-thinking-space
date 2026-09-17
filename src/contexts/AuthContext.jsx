@@ -130,6 +130,7 @@ export function AuthProvider({ children }) {
     'demo-todos': 'dashboardTodos',
     'demo-papers': 'papers',
     'demo-collections': 'paperCollections',
+    'demo-calendarItems': 'calendarItems',
   };
 
   const hasDemoData = () =>
