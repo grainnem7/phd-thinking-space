@@ -73,7 +73,7 @@ export default function Login() {
             onClick={handleGoogleSignIn}
             disabled={loading}
             aria-busy={loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg text-sm hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 dark:focus-visible:ring-neutral-500 dark:focus-visible:ring-offset-neutral-900"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-accent text-accent-fg rounded-lg text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 dark:focus-visible:ring-neutral-500 dark:focus-visible:ring-offset-neutral-900"
           >
             <Chrome size={16} aria-hidden="true" />
             {loading ? 'Signing in…' : 'Continue with Google'}

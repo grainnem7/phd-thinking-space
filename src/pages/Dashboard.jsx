@@ -535,7 +535,7 @@ export default function Dashboard() {
               <Search className="w-5 h-5" />
             </Button>
             {/* Item actions menu - shown when viewing an item */}
-            {selectedItem && selectedItem.type !== 'reading-list' && selectedItem.type !== 'calendar' && (
+            {selectedItem && !isSpecialView && (
               <div className="relative">
                 <Button
                   variant="ghost"

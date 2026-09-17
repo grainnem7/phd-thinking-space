@@ -39,7 +39,7 @@ function ActionCard({ icon, title, description, buttonLabel, busyLabel, busy, di
         type="button"
         onClick={onClick}
         disabled={busy || disabled}
-        className="self-end sm:self-auto flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
+        className="self-end sm:self-auto flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-lg bg-accent text-accent-fg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
       >
         {busy ? busyLabel : buttonLabel}
       </button>

@@ -87,11 +87,11 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
   }, [allSections]);
 
   const { items: calendarItems } = useCalendar();
-  const calendarRange = dashboardCalendarRange(currentTime);
-  const google = useGoogleCalendar(calendarRange.start, calendarRange.end);
+  const { start: rangeStart, end: rangeEnd } = dashboardCalendarRange(currentTime);
+  const google = useGoogleCalendar(rangeStart, rangeEnd);
   const entriesByDate = useMemo(
-    () => groupByDate(buildEntries({ items: calendarItems, deadlines, sections: allSections, googleEvents: google.events })),
-    [calendarItems, deadlines, allSections, google.events],
+    () => groupByDate(buildEntries({ items: calendarItems, deadlines, sections: allSections, googleEvents: google.events, range: { start: rangeStart, end: rangeEnd } })),
+    [calendarItems, deadlines, allSections, google.events, rangeStart, rangeEnd],
   );
   const todoMap = useMemo(() => todosByDate(calendarItems), [calendarItems]);
   const todayKey = toDateKey(currentTime);

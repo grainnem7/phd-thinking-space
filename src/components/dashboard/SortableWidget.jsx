@@ -100,7 +100,7 @@ export default function SortableWidget({
                 aria-label={s.label}
                 className={`w-7 py-1 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600 ${
                   size === s.id
-                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                    ? 'bg-accent text-accent-fg'
                     : 'bg-white text-neutral-500 hover:text-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'
                 }`}
               >

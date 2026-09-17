@@ -335,7 +335,7 @@ const DayPanel = forwardRef(function DayPanel({
               {quickAddInvalid && <p className="text-sm text-rose-600">End time must be after the start time.</p>}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setQuickAdd(null)} className="px-3 py-1.5 text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">Cancel</button>
-                <button type="submit" disabled={!quickAdd.title.trim() || quickAddInvalid} className="px-3 py-1.5 text-sm bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg disabled:opacity-40">Add</button>
+                <button type="submit" disabled={!quickAdd.title.trim() || quickAddInvalid} className="px-3 py-1.5 text-sm bg-accent text-accent-fg hover:bg-accent-hover rounded-lg disabled:opacity-40">Add</button>
               </div>
             </form>
           )}

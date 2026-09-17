@@ -73,7 +73,7 @@ export default function CalendarWidget({ entriesByDate, todoMap, onOpenCalendar 
                   className="relative mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm tabular-nums hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   <span className={isToday
-                    ? 'w-7 h-7 flex items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium'
+                    ? 'w-7 h-7 flex items-center justify-center rounded-full bg-accent text-accent-fg font-medium'
                     : inMonth ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-300 dark:text-neutral-600'}
                   >
                     {day.getDate()}

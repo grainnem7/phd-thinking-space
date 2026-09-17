@@ -94,7 +94,7 @@ export default function MonthDayCell({
       />
       <div className="relative flex-1 p-1 sm:p-1.5 flex flex-col items-stretch pointer-events-none" aria-hidden="true">
         <span className={`self-center sm:self-start w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-xs sm:text-sm tabular-nums
-          ${isToday ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium' : inMonth ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-300 dark:text-neutral-600'}`}
+          ${isToday ? 'bg-accent text-accent-fg font-medium' : inMonth ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-300 dark:text-neutral-600'}`}
         >
           {day.getDate()}
         </span>

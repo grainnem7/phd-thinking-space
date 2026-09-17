@@ -301,7 +301,7 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
             <button
               type="button"
               onClick={() => openNew(selectedDate)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg hover:bg-neutral-800 dark:hover:bg-white transition-colors"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm bg-accent text-accent-fg rounded-lg hover:bg-accent-hover transition-colors"
             >
               <Plus size={16} /> New
             </button>

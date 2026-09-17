@@ -178,7 +178,7 @@ const KEYBOARD_CODES = {
 
 // Shared class fragments
 const ROW_BASE = 'rounded-lg cursor-pointer transition-colors touch-manipulation focus-visible:-outline-offset-2';
-const ROW_SELECTED = 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium';
+const ROW_SELECTED = 'bg-accent-soft text-accent-ink font-medium';
 const ROW_IDLE = 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/60 active:bg-neutral-100 dark:active:bg-neutral-800';
 const FOOTER_TEXT_BUTTON = 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors';
 const INPUT_CLASS = 'w-full px-3 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-500 transition-colors placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100';
