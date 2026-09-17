@@ -7,6 +7,7 @@ import { useConfirm } from '../common/ConfirmDialog';
 import Button from '../common/Button';
 import {
   ACCENTS,
+  BACKGROUNDS,
   BODY_FONTS,
   DEFAULT_APPEARANCE,
   HEADING_FONTS,
@@ -21,6 +22,13 @@ const MODES = [
   { id: 'dark', label: 'Dark', icon: Moon },
   { id: 'system', label: 'System', icon: Monitor },
 ];
+
+// Illustrative light/dark swatches for the background options (Classic greys)
+const BACKGROUND_SWATCH = {
+  crisp: { light: '#ffffff', dark: '#0a0a0a' },
+  soft: { light: '#f5f5f5', dark: '#141414' },
+  softer: { light: '#ececec', dark: '#1f1f1f' },
+};
 
 const HEADING_SAMPLE_FONT = {
   serif: "Georgia, 'Times New Roman', serif",
@@ -219,6 +227,27 @@ export default function AppearanceSettings() {
             </div>
             <span className="block mt-2 px-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100">{scheme.label}</span>
             <span className="block px-0.5 text-xs text-neutral-500 dark:text-neutral-400">{scheme.description}</span>
+            <SelectedMark checked={checked} />
+          </>
+        )}
+      />
+
+      <ChoiceGroup
+        legend="Background"
+        hint="How bright the page and cards are. Soft tints them with the scheme's colour."
+        value={appearance.background}
+        options={BACKGROUNDS}
+        onChange={update('background')}
+        className="grid grid-cols-1 sm:grid-cols-3 gap-2"
+        optionClassName={(checked) => `${cardClass(checked)} !p-3`}
+        renderOption={(option, checked) => (
+          <>
+            <span data-background={option.id} className="flex h-10 rounded-md overflow-hidden border border-neutral-200 dark:border-neutral-700" aria-hidden="true">
+              <span className="flex-1" style={{ background: BACKGROUND_SWATCH[option.id].light }} />
+              <span className="flex-1" style={{ background: BACKGROUND_SWATCH[option.id].dark }} />
+            </span>
+            <span className="block mt-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">{option.label}</span>
+            <span className="block text-xs text-neutral-500 dark:text-neutral-400">{option.description}</span>
             <SelectedMark checked={checked} />
           </>
         )}

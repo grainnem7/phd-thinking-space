@@ -78,12 +78,19 @@ export const TEXT_SIZES = [
   { id: 'large', label: 'Large', px: 17.5 },
 ];
 
+export const BACKGROUNDS = [
+  { id: 'crisp', label: 'Crisp', description: 'Pure white and deep black' },
+  { id: 'soft', label: 'Soft', description: 'Gently tinted, easier on the eyes' },
+  { id: 'softer', label: 'Softer', description: 'Warmer paper tones and charcoal' },
+];
+
 export const DEFAULT_APPEARANCE = Object.freeze({
   scheme: 'classic',
   accent: 'graphite',
   bodyFont: 'inter',
   headingFont: 'serif',
   textSize: 'default',
+  background: 'soft',
 });
 
 const OPTIONS = {
@@ -92,6 +99,7 @@ const OPTIONS = {
   bodyFont: BODY_FONTS,
   headingFont: HEADING_FONTS,
   textSize: TEXT_SIZES,
+  background: BACKGROUNDS,
 };
 
 const ATTRIBUTES = {
@@ -100,6 +108,7 @@ const ATTRIBUTES = {
   bodyFont: 'data-body-font',
   headingFont: 'data-heading-font',
   textSize: 'data-text-size',
+  background: 'data-background',
 };
 
 const LITERATA_LINK_ID = 'font-literata';

@@ -129,6 +129,164 @@ html.dark[data-scheme="midnight"] {
 }
 
 /* ========================================
+   BACKGROUND SOFTNESS
+   <html data-background="crisp|soft|softer">. Soft and Softer tint the white
+   surfaces and page towards the scheme's own colour in light mode, and lift
+   near-black to a gentler charcoal (with slightly dimmer text) in dark mode.
+   Generated from each scheme's shades above; keep the two in step.
+   ======================================== */
+
+html[data-scheme="classic"][data-background="soft"] {
+  --neutral-50: 245 245 245;
+  --neutral-100: 239 239 239;
+  --neutral-white: 250 250 250;
+}
+html.dark[data-scheme="classic"][data-background="soft"] {
+  --neutral-50: 239 239 239;
+  --neutral-100: 235 235 235;
+  --neutral-800: 43 43 43;
+  --neutral-900: 29 29 29;
+  --neutral-950: 18 18 18;
+  --neutral-white: 247 247 247;
+  --editor-dark-bg: 29 29 29;
+}
+
+html[data-scheme="classic"][data-background="softer"] {
+  --neutral-50: 237 237 237;
+  --neutral-100: 234 234 234;
+  --neutral-white: 245 245 245;
+}
+html.dark[data-scheme="classic"][data-background="softer"] {
+  --neutral-50: 231 231 231;
+  --neutral-100: 229 229 229;
+  --neutral-800: 51 51 51;
+  --neutral-900: 37 37 37;
+  --neutral-950: 30 30 30;
+  --neutral-white: 242 242 242;
+  --editor-dark-bg: 37 37 37;
+}
+
+html[data-scheme="paper"][data-background="soft"] {
+  --neutral-50: 245 241 233;
+  --neutral-100: 238 234 224;
+  --neutral-white: 249 246 239;
+}
+html.dark[data-scheme="paper"][data-background="soft"] {
+  --neutral-50: 239 234 225;
+  --neutral-100: 234 229 218;
+  --neutral-800: 48 42 37;
+  --neutral-900: 35 31 27;
+  --neutral-950: 26 23 19;
+  --neutral-white: 248 244 237;
+  --editor-dark-bg: 35 31 27;
+}
+
+html[data-scheme="paper"][data-background="softer"] {
+  --neutral-50: 238 233 223;
+  --neutral-100: 234 229 217;
+  --neutral-white: 245 241 234;
+}
+html.dark[data-scheme="paper"][data-background="softer"] {
+  --neutral-50: 232 226 216;
+  --neutral-100: 228 222 211;
+  --neutral-800: 55 49 42;
+  --neutral-900: 42 37 32;
+  --neutral-950: 36 31 27;
+  --neutral-white: 243 239 230;
+  --editor-dark-bg: 42 37 32;
+}
+
+html[data-scheme="sage"][data-background="soft"] {
+  --neutral-50: 240 243 237;
+  --neutral-100: 232 237 229;
+  --neutral-white: 246 248 244;
+}
+html.dark[data-scheme="sage"][data-background="soft"] {
+  --neutral-50: 232 236 229;
+  --neutral-100: 226 232 223;
+  --neutral-800: 41 48 39;
+  --neutral-900: 29 35 28;
+  --neutral-950: 20 25 19;
+  --neutral-white: 243 246 242;
+  --editor-dark-bg: 29 35 28;
+}
+
+html[data-scheme="sage"][data-background="softer"] {
+  --neutral-50: 231 236 228;
+  --neutral-100: 226 232 223;
+  --neutral-white: 240 244 238;
+}
+html.dark[data-scheme="sage"][data-background="softer"] {
+  --neutral-50: 222 228 219;
+  --neutral-100: 218 225 215;
+  --neutral-800: 48 55 46;
+  --neutral-900: 36 42 34;
+  --neutral-950: 30 35 28;
+  --neutral-white: 237 241 235;
+  --editor-dark-bg: 36 42 34;
+}
+
+html[data-scheme="slate"][data-background="soft"] {
+  --neutral-50: 243 244 247;
+  --neutral-100: 236 238 242;
+  --neutral-white: 248 249 251;
+}
+html.dark[data-scheme="slate"][data-background="soft"] {
+  --neutral-50: 235 238 241;
+  --neutral-100: 230 233 238;
+  --neutral-800: 39 46 55;
+  --neutral-900: 28 33 40;
+  --neutral-950: 19 23 29;
+  --neutral-white: 246 248 249;
+  --editor-dark-bg: 28 33 40;
+}
+
+html[data-scheme="slate"][data-background="softer"] {
+  --neutral-50: 235 238 241;
+  --neutral-100: 231 234 238;
+  --neutral-white: 243 245 247;
+}
+html.dark[data-scheme="slate"][data-background="softer"] {
+  --neutral-50: 227 230 235;
+  --neutral-100: 223 227 233;
+  --neutral-800: 46 53 63;
+  --neutral-900: 34 40 48;
+  --neutral-950: 28 33 41;
+  --neutral-white: 241 243 245;
+  --editor-dark-bg: 34 40 48;
+}
+
+html[data-scheme="midnight"][data-background="soft"] {
+  --neutral-50: 240 243 249;
+  --neutral-100: 231 236 245;
+  --neutral-white: 246 248 252;
+}
+html.dark[data-scheme="midnight"][data-background="soft"] {
+  --neutral-50: 231 235 243;
+  --neutral-100: 224 230 240;
+  --neutral-800: 33 43 68;
+  --neutral-900: 23 31 55;
+  --neutral-950: 16 23 44;
+  --neutral-white: 245 247 250;
+  --editor-dark-bg: 23 31 55;
+}
+
+html[data-scheme="midnight"][data-background="softer"] {
+  --neutral-50: 230 235 244;
+  --neutral-100: 225 231 241;
+  --neutral-white: 241 244 248;
+}
+html.dark[data-scheme="midnight"][data-background="softer"] {
+  --neutral-50: 221 227 237;
+  --neutral-100: 216 223 235;
+  --neutral-800: 40 50 74;
+  --neutral-900: 28 37 63;
+  --neutral-950: 23 31 56;
+  --neutral-white: 238 241 247;
+  --editor-dark-bg: 28 37 63;
+}
+
+/* ========================================
    ACCENT COLOUR
    Scale: --accent-50 … --accent-950 (bg-accent-100, text-accent-700, …)
    Semantic tokens adapt to light/dark on their own:
