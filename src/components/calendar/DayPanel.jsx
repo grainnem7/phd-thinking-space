@@ -57,7 +57,7 @@ function EntryRow({ entry, isNow, onOpen, onOpenLink, onMove, onDuplicate }) {
   return (
     <li
       ref={setNodeRef}
-      className={`rounded-lg border-l-[3px] ${style.bar} ${isNow ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'} ${isDragging ? 'opacity-40' : ''}`}
+      className={`rounded-lg border-l-[3px] ${style.bar} ${style.row || (isNow ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50')} ${isDragging ? 'opacity-40' : ''}`}
       style={entry.source === 'google' ? { borderLeftColor: entry.colorHex } : style.vars}
     >
       <div className="flex items-start">

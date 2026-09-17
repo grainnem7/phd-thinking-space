@@ -1,6 +1,6 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { format } from 'date-fns';
-import { CheckSquare, Repeat, Check } from 'lucide-react';
+import { CheckSquare, Repeat, Check, Flag } from 'lucide-react';
 import { styleFor } from './calendarEntries';
 import { canMoveEntry, dayDropId } from './calendarDnd';
 
@@ -11,6 +11,7 @@ export function ChipBody({ entry }) {
   return (
     <>
       {entry.source === 'google' && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.colorHex }} />}
+      {entry.source === 'deadline' && <Flag size={10} strokeWidth={2.5} className="flex-shrink-0" aria-label="Deadline" />}
       {entry.span?.index > 0 && <span className="opacity-60 flex-shrink-0" aria-hidden="true">↳</span>}
       {!entry.allDay && !(entry.span?.index > 0) && <span className="tabular-nums opacity-70 flex-shrink-0">{entry.startTime}</span>}
       <span className={`truncate ${entry.span?.index > 0 ? 'opacity-80' : ''}`}>{entry.title}</span>

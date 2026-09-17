@@ -78,7 +78,13 @@ export default function CalendarWidget({ entriesByDate, todoMap, onOpenCalendar 
                   >
                     {day.getDate()}
                   </span>
-                  {count > 0 && !isToday && <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-neutral-400 dark:bg-neutral-500" />}
+                  {count > 0 && !isToday && (
+                    <span
+                      className={`absolute bottom-0.5 w-1 h-1 rounded-full ${(entriesByDate.get(key) || []).some((e) => e.source === 'deadline')
+                        ? 'bg-red-600 dark:bg-red-500'
+                        : 'bg-neutral-400 dark:bg-neutral-500'}`}
+                    />
+                  )}
                 </button>
               );
             })}
