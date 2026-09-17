@@ -1,5 +1,6 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { timeToMinutes, toDateKey } from '../../utils/date';
+import { isDoneColumn } from '../../hooks/useBoards';
 
 // Range the dashboard needs data for: this month's grid plus the next 7 days.
 export function dashboardCalendarRange(now = new Date()) {
@@ -31,11 +32,6 @@ export function styleFor(entry) {
   if (entry.source === 'task') return TASK_STYLE;
   if (entry.source === 'google') return GOOGLE_STYLE;
   return EVENT_COLORS[entry.color] || EVENT_COLORS.sky;
-}
-
-function isDoneColumn(column) {
-  const name = column?.name?.toLowerCase() || '';
-  return name.includes('done') || name.includes('complete');
 }
 
 // Merge every dated thing in the app into one list of calendar entries.
