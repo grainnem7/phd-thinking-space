@@ -8,10 +8,17 @@ import {
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  // signInWithPopup fails with auth/auth-domain-config-required if this is
+  // empty (e.g. a missing CI secret), so fall back to the project's default
+  // auth domain, which Firebase always provisions.
+  authDomain:
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+    (projectId && `${projectId}.firebaseapp.com`),
+  projectId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
