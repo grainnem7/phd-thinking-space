@@ -257,7 +257,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
 
         <div className="flex items-center gap-2 pt-2">
           {isEditing && onDelete && (
-            <Button type="button" variant="ghost" onClick={onDelete} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40">
+            <Button type="button" variant="ghost" onClick={onDelete} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40">
               <Trash2 size={16} /> Delete
             </Button>
           )}

@@ -460,7 +460,7 @@ export default function Dashboard() {
         actions={
           <>
             {!isMobile && !isOpen && (
-              <Button variant="ghost" size="icon" onClick={toggle}>
+              <Button variant="ghost" size="icon" onClick={toggle} aria-label="Open sidebar" title="Open sidebar (Ctrl+B)">
                 <Menu className="w-5 h-5" />
               </Button>
             )}
@@ -469,6 +469,7 @@ export default function Dashboard() {
               size="icon"
               onClick={() => setSearchOpen(true)}
               title="Search (Ctrl+K)"
+              aria-label="Search"
             >
               <Search className="w-5 h-5" />
             </Button>
