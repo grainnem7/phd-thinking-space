@@ -363,6 +363,7 @@ export default function Dashboard() {
           note={selectedItem}
           sections={sections}
           updateSection={updateSection}
+          onOpenNote={(id) => handleSelect({ id })}
           onDelete={async (id) => {
             setSelectedItem(selectedItem.parentId ? { id: selectedItem.parentId } : null);
             await deleteSection(id);
