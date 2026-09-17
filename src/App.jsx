@@ -5,6 +5,7 @@ import { EinkProvider } from './contexts/EinkContext';
 import { FocusModeProvider } from './contexts/FocusModeContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ConfirmProvider } from './components/common/ConfirmDialog';
+import { SectionsProvider } from './contexts/SectionsContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
@@ -51,11 +52,13 @@ function AppRoutes() {
         path="/"
         element={
           <PrivateRoute>
-            <SidebarProvider>
-              <FocusModeProvider>
-                <Dashboard />
-              </FocusModeProvider>
-            </SidebarProvider>
+            <SectionsProvider>
+              <SidebarProvider>
+                <FocusModeProvider>
+                  <Dashboard />
+                </FocusModeProvider>
+              </SidebarProvider>
+            </SectionsProvider>
           </PrivateRoute>
         }
       />

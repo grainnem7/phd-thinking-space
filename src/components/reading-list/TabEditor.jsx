@@ -2,32 +2,18 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
-
-function parseContent(content) {
-  if (!content) return undefined;
-
-  // Try to parse as JSON (BlockNote format)
-  try {
-    const parsed = JSON.parse(content);
-    // Verify it's an array (BlockNote document format)
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
-  } catch (e) {
-    // Not JSON, ignore
-  }
-
-  // Return undefined to let BlockNote create a fresh document
-  return undefined;
-}
+import { useTheme } from '../../contexts/ThemeContext';
+import { parseContent, useLegacyContent } from '../editors/editorContent';
 
 export default function TabEditor({ content, onChange }) {
   const timeoutRef = useRef(null);
   const initialContent = parseContent(content);
 
+  const { isDark } = useTheme();
   const editor = useCreateBlockNote({
     initialContent,
   });
+  useLegacyContent(editor, content);
 
   // Debounced save
   const handleChange = useCallback(() => {
@@ -53,7 +39,7 @@ export default function TabEditor({ content, onChange }) {
       <BlockNoteView
         editor={editor}
         onChange={handleChange}
-        theme="light"
+        theme={isDark ? 'dark' : 'light'}
       />
     </div>
   );

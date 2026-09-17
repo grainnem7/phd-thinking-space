@@ -12,27 +12,29 @@ import ReadingList from '../components/reading-list/ReadingList';
 import CalendarView from '../components/calendar/CalendarView';
 import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard, CalendarDays } from 'lucide-react';
 import Button from '../components/common/Button';
-import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
 import CommandPalette from '../components/common/CommandPalette';
 import { useTheme } from '../contexts/ThemeContext';
+import { defaultBoardColumns } from '../lib/defaults';
 
 export default function Dashboard() {
-  const { sections, loading, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
+  const { sections, loading, error: sectionsError, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
   const { toggle, isOpen, isMobile } = useSidebar();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const { isDark, toggle: toggleTheme } = useTheme();
   const confirm = useConfirm();
-  const [selectedItem, setSelectedItem] = useState(null);
+  // What's open: a section id, or a special view (reading list / calendar).
+  // The section itself is always read from live data so it never goes stale.
+  const [selection, setSelectedItem] = useState(null);
+  const isSpecialView = selection?.type === 'reading-list' || selection?.type === 'calendar';
+  const selectedItem = !selection ? null : isSpecialView ? selection : (sections.find(s => s.id === selection.id) || null);
   // One-shot navigation details: which paper, task or calendar day to open
   const [navParams, setNavParams] = useState({});
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
@@ -101,27 +103,13 @@ export default function Dashboard() {
       return;
     }
 
-    // Find the full item data from sections
-    const fullItem = sections.find(s => s.id === item.id);
-    if (fullItem) {
-      setSelectedItem(fullItem);
-      setNavParams({ taskId: item.openTaskId });
-      if (isMobile) {
-        // Close sidebar on mobile after selection
-        toggle();
-      }
+    setSelectedItem({ id: item.id });
+    setNavParams({ taskId: item.openTaskId });
+    if (isMobile) {
+      // Close sidebar on mobile after selection
+      toggle();
     }
-  }, [sections, isMobile, toggle]);
-
-  // Update selected item when sections change
-  useEffect(() => {
-    if (selectedItem) {
-      const updated = sections.find(s => s.id === selectedItem.id);
-      if (updated) {
-        setSelectedItem(updated);
-      }
-    }
-  }, [sections, selectedItem?.id]);
+  }, [isMobile, toggle]);
 
   const getBreadcrumbs = () => {
     if (!selectedItem) return [{ label: 'Home' }];
@@ -154,14 +142,11 @@ export default function Dashboard() {
     return crumbs;
   };
 
-  const filteredSections = searchQuery
-    ? sections.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
-
   const handleCreateItem = async (type) => {
-    const parentId = selectedItem?.id || null;
+    // New items go inside the open folder, next to the open note/board, or at the top level
+    const isFolder = selectedItem && !isSpecialView
+      && (selectedItem.type === 'folder' || (!selectedItem.type && sections.some(s => s.parentId === selectedItem.id)));
+    const parentId = isFolder ? selectedItem.id : (!isSpecialView && selectedItem?.parentId) || null;
     const siblings = sections.filter(s => s.parentId === parentId);
     const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order || 0)) : -1;
 
@@ -171,11 +156,7 @@ export default function Dashboard() {
       parentId,
       order: maxOrder + 1,
       ...(type === 'board' && {
-        columns: [
-          { id: 'todo', name: 'To Do', order: 0 },
-          { id: 'in-progress', name: 'In Progress', order: 1 },
-          { id: 'done', name: 'Done', order: 2 },
-        ],
+        columns: defaultBoardColumns(),
         tasks: [],
       }),
     };
@@ -218,21 +199,26 @@ export default function Dashboard() {
     }
   };
 
-  const handleDelete = () => {
-    if (selectedItem) {
-      setDeleteModalOpen(true);
-      setItemMenuOpen(false);
-    }
+  const confirmDeleteSection = async (item) => {
+    const childCount = sections.filter(s => s.parentId === item.id).length;
+    return confirm({
+      title: `Delete "${item.name}"?`,
+      body: childCount > 0
+        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
   };
 
-  const handleDeleteConfirm = async () => {
-    if (selectedItem) {
-      // Navigate to parent or home before deleting
-      const parent = sections.find(s => s.id === selectedItem.parentId);
-      setSelectedItem(parent || null);
-      await deleteSection(selectedItem.id);
-      setDeleteModalOpen(false);
-    }
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    setItemMenuOpen(false);
+    const item = selectedItem;
+    if (!(await confirmDeleteSection(item))) return;
+    // Navigate to parent or home before deleting
+    setSelectedItem(item.parentId ? { id: item.parentId } : null);
+    await deleteSection(item.id);
   };
 
   const handleChildRename = (e, child) => {
@@ -242,20 +228,12 @@ export default function Dashboard() {
 
   const handleChildDelete = async (e, child) => {
     e.stopPropagation();
-    const childCount = sections.filter(s => s.parentId === child.id).length;
-    const ok = await confirm({
-      title: `Delete "${child.name}"?`,
-      body: childCount > 0
-        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
-        : 'This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
-    });
+    const ok = await confirmDeleteSection(child);
     if (ok) {
       // If we deleted the currently-selected item, navigate to its parent
       if (selectedItem && (selectedItem.id === child.id || sections.some(s => s.id === selectedItem.id && s.parentId === child.id))) {
         const parent = sections.find(s => s.id === child.parentId);
-        setSelectedItem(parent || null);
+        setSelectedItem(parent ? { id: parent.id } : null);
       }
       await deleteSection(child.id);
     }
@@ -268,6 +246,27 @@ export default function Dashboard() {
           <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
         </div>
       );
+    }
+
+    if (sectionsError) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-6 bg-[#fafafa] dark:bg-neutral-950">
+          <div role="alert" className="max-w-sm text-center">
+            <p className="font-serif text-xl text-neutral-900 dark:text-neutral-100 mb-2">Couldn't load your workspace</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-5">
+              {sectionsError.code === 'permission-denied'
+                ? 'Your account does not have permission to read this data.'
+                : 'Check your connection and try again.'}
+            </p>
+            <Button onClick={() => window.location.reload()}>Try again</Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (selection && !selectedItem) {
+      // The open item was deleted (possibly on another device)
+      return <WidgetDashboard notes={sections.filter(s => s.type === 'note')} sections={sections} onSelect={handleSelect} />;
     }
 
     if (!selectedItem) {
@@ -299,8 +298,7 @@ export default function Dashboard() {
           initialTaskId={navParams.taskId}
           onRename={(b) => openRename(b)}
           onDelete={async (id) => {
-            const parent = sections.find(s => s.id === selectedItem.parentId);
-            setSelectedItem(parent || null);
+            setSelectedItem(selectedItem.parentId ? { id: selectedItem.parentId } : null);
             await deleteSection(id);
           }}
         />
@@ -318,8 +316,7 @@ export default function Dashboard() {
           sections={sections}
           updateSection={updateSection}
           onDelete={async (id) => {
-            const parent = sections.find(s => s.id === selectedItem.parentId);
-            setSelectedItem(parent || null);
+            setSelectedItem(selectedItem.parentId ? { id: selectedItem.parentId } : null);
             await deleteSection(id);
           }}
         />
@@ -511,7 +508,7 @@ export default function Dashboard() {
       {/* Command Palette */}
       <CommandPalette
         open={searchOpen}
-        onOpenChange={(v) => { setSearchOpen(v); if (!v) setSearchQuery(''); }}
+        onOpenChange={setSearchOpen}
         sections={sections}
         actions={[
           { id: 'add-note', label: 'New note', icon: FileText, keywords: 'create add', run: () => handleCreateItem('note') },
@@ -556,26 +553,6 @@ export default function Dashboard() {
           </Button>
           <Button onClick={handleRenameSubmit}>
             Save
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Delete Item"
-        size="sm"
-      >
-        <p className="text-neutral-600">
-          Are you sure you want to delete "{selectedItem?.name}"? This action cannot be undone.
-        </p>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDeleteConfirm}>
-            Delete
           </Button>
         </div>
       </Modal>
