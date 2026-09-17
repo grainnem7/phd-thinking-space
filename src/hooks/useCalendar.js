@@ -3,11 +3,15 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, order
 import { db } from '../lib/firebase';
 import { useAuth } from './useAuth';
 import { toDateKey } from '../utils/date';
+import { weekdayOf } from '../lib/recurrence';
 
 // Calendar items live in users/{uid}/calendarItems. Two kinds share the collection:
-//   event: { kind: 'event', title, date: 'YYYY-MM-DD', allDay, startTime, endTime, color, notes, links }
+//   event: { kind: 'event', title, date: 'YYYY-MM-DD', allDay, startTime, endTime, color, notes, links,
+//            recurrence?, exdates?, recurringEventId?, originalDate? }  (see src/lib/recurrence.js)
 //   todo:  { kind: 'todo',  title, date: 'YYYY-MM-DD', completed, order }
 // links: [{ type: 'note' | 'paper', id, name }]
+// A repeating event is one document with `recurrence` and `exdates` (skipped dates); an
+// occurrence edited on its own is a separate event with `recurringEventId` + `originalDate`.
 
 const DEMO_KEY = 'demo-calendarItems';
 
@@ -27,7 +31,10 @@ function demoItems() {
     return toDateKey(d);
   };
   return [
-    { id: 'demo-cal-1', kind: 'event', title: 'Supervision meeting', date: day(1), allDay: false, startTime: '10:00', endTime: '11:00', color: 'violet', notes: 'Bring chapter 3 outline', links: [] },
+    {
+      id: 'demo-cal-1', kind: 'event', title: 'Supervision meeting', date: day(1), allDay: false, startTime: '10:00', endTime: '11:00', color: 'violet', notes: 'Bring chapter 3 outline', links: [],
+      recurrence: { freq: 'weekly', interval: 1, byWeekday: [weekdayOf(day(1))] }, exdates: [],
+    },
     { id: 'demo-cal-2', kind: 'event', title: 'Writing retreat', date: day(4), allDay: true, color: 'emerald', notes: '', links: [] },
     { id: 'demo-cal-3', kind: 'event', title: 'Reading group', date: day(0), allDay: false, startTime: '15:00', endTime: '16:00', color: 'sky', notes: '', links: [] },
     { id: 'demo-cal-4', kind: 'todo', title: 'Draft methods section intro', date: day(0), completed: false, order: 0 },
@@ -63,18 +70,22 @@ export function useCalendar() {
     });
   }, []);
 
+  // Resolves to the new item's id (null if it could not be saved).
   const addItem = useCallback(async (item) => {
-    if (!user) return;
+    if (!user) return null;
     const data = { ...item, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
 
     if (isDemo) {
-      updateDemo((prev) => [...prev, { id: `demo-cal-${Date.now()}`, ...data }]);
-      return;
+      const id = `demo-cal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      updateDemo((prev) => [...prev, { id, ...data }]);
+      return id;
     }
     try {
-      await addDoc(collection(db, 'users', user.uid, 'calendarItems'), data);
+      const ref = await addDoc(collection(db, 'users', user.uid, 'calendarItems'), data);
+      return ref.id;
     } catch (error) {
       console.error('Error adding calendar item:', error);
+      return null;
     }
   }, [user, isDemo, updateDemo]);
 

@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileText, BookOpen, X, Trash2 } from 'lucide-react';
+import { FileText, BookOpen, X, Trash2, Repeat } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import { EVENT_COLORS } from './calendarEntries';
 import { timeToMinutes } from '../../utils/date';
+import { weekdayOf } from '../../lib/recurrence';
+import RepeatFields from './RepeatFields';
+import { repeatFormFrom, recurrenceFromForm, repeatError } from './repeatForm';
 
 export const INPUT_CLASS = 'w-full px-3 py-2.5 text-base bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-300 dark:focus:border-neutral-600 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100';
 const LABEL_CLASS = 'block text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mb-1.5';
@@ -20,6 +23,7 @@ function emptyForm(defaults) {
     color: 'sky',
     notes: '',
     links: [],
+    repeat: repeatFormFrom(null, d.date),
   };
 }
 
@@ -45,6 +49,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
         color: entry.color || 'sky',
         notes: entry.notes || '',
         links: entry.links || [],
+        repeat: repeatFormFrom(entry.recurrence, entry.date),
       });
     } else {
       setForm(emptyForm(defaults));
@@ -54,6 +59,19 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
   }, [isOpen, entry?.id]);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const isOverride = Boolean(entry?.recurringEventId);
+
+  // Moving the start date of a single-weekday weekly rule moves its weekday too
+  const setDate = (date) => setForm((f) => {
+    const { repeat } = f;
+    const weekly = repeat.preset === 'weekly' || repeat.preset === 'biweekly' || repeat.preset === 'never';
+    const followsDate = f.date && date && repeat.byWeekday.length === 1 && repeat.byWeekday[0] === weekdayOf(f.date);
+    return {
+      ...f,
+      date,
+      repeat: weekly && followsDate ? { ...repeat, byWeekday: [weekdayOf(date)] } : repeat,
+    };
+  });
 
   const linkOptions = useMemo(() => {
     const q = linkQuery.trim().toLowerCase();
@@ -71,7 +89,8 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
   const timeError = form.type === 'event' && !form.allDay
     && timeToMinutes(form.endTime) !== null && timeToMinutes(form.startTime) !== null
     && timeToMinutes(form.endTime) < timeToMinutes(form.startTime);
-  const canSave = form.title.trim() && form.date && !timeError;
+  const repeatInvalid = form.type === 'event' && !isOverride && Boolean(repeatError(form.repeat, form.date));
+  const canSave = form.title.trim() && form.date && !timeError && !repeatInvalid;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -90,6 +109,8 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
           color: form.color,
           notes: form.notes.trim(),
           links: form.links,
+          // Edited single occurrences never repeat themselves
+          ...(isOverride ? {} : { recurrence: recurrenceFromForm(form.repeat, form.date) }),
         },
       });
     }
@@ -135,7 +156,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
 
         <div>
           <label htmlFor="event-date" className={LABEL_CLASS}>Date</label>
-          <input id="event-date" type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className={INPUT_CLASS} />
+          <input id="event-date" type="date" value={form.date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLASS} />
         </div>
 
         {form.type === 'event' && (
@@ -164,6 +185,14 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
                 </div>
                 {timeError && <p className="text-sm text-rose-600 mt-2">End time must be after the start time.</p>}
               </div>
+            )}
+
+            {isOverride ? (
+              <p className="flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+                <Repeat size={14} aria-hidden="true" /> Changed occurrence of a repeating event
+              </p>
+            ) : (
+              <RepeatFields value={form.repeat} onChange={(repeat) => set({ repeat })} dateKey={form.date} />
             )}
 
             <div>

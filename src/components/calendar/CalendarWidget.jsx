@@ -1,5 +1,5 @@
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addDays } from 'date-fns';
-import { ChevronRight, Plus, CheckSquare } from 'lucide-react';
+import { ChevronRight, Plus, CheckSquare, Repeat } from 'lucide-react';
 import { toDateKey } from '../../utils/date';
 import { styleFor } from './calendarEntries';
 
@@ -126,6 +126,7 @@ export default function CalendarWidget({ entriesByDate, todoMap, onOpenCalendar 
                               />
                               <span className="w-14 flex-shrink-0 whitespace-nowrap tabular-nums text-neutral-400">{e.allDay ? 'All day' : e.startTime}</span>
                               <span className={`truncate text-neutral-700 dark:text-neutral-300 ${e.done ? 'line-through text-neutral-400' : ''}`}>{e.title}</span>
+                              {e.seriesId && <Repeat size={12} className="flex-shrink-0 text-neutral-400" aria-label="Repeats" />}
                             </span>
                           ))}
                           {entries.length > MAX_PER_DAY && (
