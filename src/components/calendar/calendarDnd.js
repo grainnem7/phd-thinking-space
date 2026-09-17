@@ -42,7 +42,7 @@ function dayCellCoordinates(event, { context, currentCoordinates }) {
   const { over, active, droppableRects, collisionRect } = context;
   if (!collisionRect) return undefined;
 
-  const from = over?.data?.current?.date;
+  const from = centerInside(collisionRect, over && droppableRects.get(over.id)) ? over.data?.current?.date : null;
   const start = active?.data?.current?.date;
   const targetKey = from ? addDaysToKey(from, offset) : start;
   let rect = targetKey && droppableRects.get(dayDropId(targetKey));
@@ -64,8 +64,18 @@ export function useCalendarSensors() {
   );
 }
 
-// Pointer position when there is one (mouse/touch); nearest cell for keyboard drags.
+function centerInside(rect, container) {
+  if (!rect || !container) return false;
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  return x >= container.left && x <= container.left + container.width && y >= container.top && y <= container.top + container.height;
+}
+
+// Pointer position when there is one (mouse/touch). Keyboard drags only count as over
+// a day once the item sits on that cell, so dropping straight after pick-up does nothing.
 export function dayCollision(args) {
   if (args.pointerCoordinates) return pointerWithin(args);
-  return closestCenter(args);
+  return closestCenter(args)
+    .filter(({ id }) => centerInside(args.collisionRect, args.droppableRects.get(id)))
+    .slice(0, 1);
 }
