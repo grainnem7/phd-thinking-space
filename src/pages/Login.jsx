@@ -63,21 +63,23 @@ export default function Login() {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-600 dark:text-neutral-300">
+            <div role="alert" className="mb-4 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900 rounded-lg">
               {error}
             </div>
           )}
 
           <button
+            type="button"
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg text-sm hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50"
+            aria-busy={loading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg text-sm hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 dark:focus-visible:ring-neutral-500 dark:focus-visible:ring-offset-neutral-900"
           >
-            <Chrome size={16} />
-            Continue with Google
+            <Chrome size={16} aria-hidden="true" />
+            {loading ? 'Signing in…' : 'Continue with Google'}
           </button>
 
-          <div className="relative my-6">
+          <div className="relative my-6" aria-hidden="true">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-neutral-100 dark:border-neutral-800" />
             </div>
@@ -87,11 +89,12 @@ export default function Login() {
           </div>
 
           <button
+            type="button"
             onClick={handleDemoMode}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-2 dark:focus-visible:ring-neutral-600 dark:focus-visible:ring-offset-neutral-900"
           >
-            <Play size={16} />
+            <Play size={16} aria-hidden="true" />
             Try Demo
           </button>
 
