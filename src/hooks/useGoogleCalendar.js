@@ -1,40 +1,150 @@
-import { useState, useEffect, useCallback } from 'react';
-import { GoogleAuthProvider, reauthenticateWithPopup } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { getApps, initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth';
+import app from '../lib/firebase';
 import { useAuth } from './useAuth';
 import { parseLocalDate, toDateKey } from '../utils/date';
 
-// Read-only Google Calendar sync.
+// Read-only Google Calendar sync for one or more Google accounts.
 //
-// Access tokens come from re-authenticating the signed-in Google user with the
-// calendar.readonly scope. Google access tokens last one hour and Firebase does
-// not refresh them, so the token is kept in sessionStorage with its expiry and
-// the user is asked to reconnect once it lapses. A localStorage flag remembers
-// that they opted in, so we can show "Reconnect" instead of "Connect".
+// Each account is connected through a separate, in-memory Firebase Auth
+// instance, so choosing another Google account in the popup never affects the
+// user's sign-in to the app. The popup returns a Google access token with the
+// calendar.readonly scope. Those tokens last one hour and can't be refreshed
+// from the browser, so they're kept in sessionStorage with their expiry and the
+// account shows "Reconnect" once it lapses.
+//
+// The list of connected accounts (and which of their calendars are hidden) is
+// remembered per device in localStorage.
 
 const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
-const TOKEN_KEY = 'gcal-token';
-const CONNECTED_KEY = 'gcal-connected';
 const API = 'https://www.googleapis.com/calendar/v3';
+const ACCOUNTS_KEY = 'gcal-accounts';
+const TOKENS_KEY = 'gcal-tokens';
+const TOKEN_LIFETIME_MS = 55 * 60 * 1000;
 
-function readToken() {
+// ---------------------------------------------------------------------------
+// Shared account store
+// ---------------------------------------------------------------------------
+
+function readJson(storage, key, fallback) {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(TOKEN_KEY));
-    if (saved?.accessToken && saved.expiresAt > Date.now()) return saved;
-  } catch { /* ignore */ }
-  return null;
+    const value = JSON.parse(storage.getItem(key));
+    return value ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function wasConnected() {
-  try { return localStorage.getItem(CONNECTED_KEY) === '1'; } catch { return false; }
+function writeJson(storage, key, value) {
+  try { storage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
 }
+
+function loadState() {
+  if (typeof window === 'undefined') return { accounts: [], tokens: {} };
+  const accounts = readJson(localStorage, ACCOUNTS_KEY, []);
+  const tokens = readJson(sessionStorage, TOKENS_KEY, {});
+  // Clear the single-account keys used before multi-account support
+  try {
+    localStorage.removeItem('gcal-connected');
+    sessionStorage.removeItem('gcal-token');
+  } catch { /* ignore */ }
+  return { accounts: Array.isArray(accounts) ? accounts : [], tokens: tokens && typeof tokens === 'object' ? tokens : {} };
+}
+
+let state = loadState();
+const listeners = new Set();
+
+function setState(patch) {
+  state = { ...state, ...patch };
+  writeJson(localStorage, ACCOUNTS_KEY, state.accounts);
+  writeJson(sessionStorage, TOKENS_KEY, state.tokens);
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+const getSnapshot = () => state;
+
+function validToken(email) {
+  const token = state.tokens[email];
+  return token?.accessToken && token.expiresAt > Date.now() ? token.accessToken : null;
+}
+
+function calendarAuth() {
+  const name = 'google-calendar';
+  const existing = getApps().find((a) => a.name === name);
+  return getAuth(existing || initializeApp(app.options, name));
+}
+
+async function connectAccount(loginHint) {
+  const auth = calendarAuth();
+  await setPersistence(auth, inMemoryPersistence);
+  const provider = new GoogleAuthProvider();
+  provider.addScope(SCOPE);
+  // New accounts: let the user pick; reconnecting: go straight to that account
+  provider.setCustomParameters(loginHint ? { login_hint: loginHint } : { prompt: 'select_account' });
+
+  const result = await signInWithPopup(auth, provider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const email = result.user.email;
+  const name = result.user.displayName || email;
+  const photoURL = result.user.photoURL || null;
+  await signOut(auth).catch(() => {});
+  if (!credential?.accessToken || !email) throw new Error('Google did not return calendar access.');
+
+  const existing = state.accounts.find((a) => a.email === email);
+  const accounts = existing
+    ? state.accounts.map((a) => (a.email === email ? { ...a, name, photoURL } : a))
+    : [...state.accounts, { email, name, photoURL, hiddenCalendars: [] }];
+  setState({
+    accounts,
+    tokens: { ...state.tokens, [email]: { accessToken: credential.accessToken, expiresAt: Date.now() + TOKEN_LIFETIME_MS } },
+  });
+  return email;
+}
+
+function removeAccount(email) {
+  const token = state.tokens[email]?.accessToken;
+  if (token) {
+    fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: 'POST' }).catch(() => {});
+  }
+  const tokens = { ...state.tokens };
+  delete tokens[email];
+  setState({ accounts: state.accounts.filter((a) => a.email !== email), tokens });
+}
+
+function expireToken(email) {
+  const tokens = { ...state.tokens };
+  delete tokens[email];
+  setState({ tokens });
+}
+
+function setCalendarHidden(email, calendarId, hidden) {
+  setState({
+    accounts: state.accounts.map((a) => {
+      if (a.email !== email) return a;
+      const set = new Set(a.hiddenCalendars || []);
+      if (hidden) set.add(calendarId);
+      else set.delete(calendarId);
+      return { ...a, hiddenCalendars: [...set] };
+    }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Google API helpers
+// ---------------------------------------------------------------------------
 
 function hhmm(date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 // Expand a Google event into one entry per calendar day it covers within the range.
-function toEntries(event, calendar, rangeStart, rangeEnd) {
+function toEntries(event, calendar, account, rangeStart, rangeEnd) {
   const base = {
     source: 'google',
     googleId: event.id,
@@ -43,8 +153,10 @@ function toEntries(event, calendar, rangeStart, rangeEnd) {
     description: event.description || '',
     htmlLink: event.htmlLink,
     calendarName: calendar.summary,
+    accountEmail: account,
     colorHex: calendar.backgroundColor || '#10b981',
   };
+  const idBase = `g-${account}-${calendar.id}-${event.id}`;
 
   if (event.start?.date) {
     // All-day: end.date is exclusive
@@ -58,7 +170,7 @@ function toEntries(event, calendar, rangeStart, rangeEnd) {
     while (cursor < end) {
       const key = toDateKey(cursor);
       if (key >= rangeStart && key <= rangeEnd) {
-        entries.push({ ...base, id: `g-${calendar.id}-${event.id}-${key}`, date: key, allDay: true });
+        entries.push({ ...base, id: `${idBase}-${key}`, date: key, allDay: true });
       }
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -71,7 +183,7 @@ function toEntries(event, calendar, rangeStart, rangeEnd) {
     const key = toDateKey(start);
     return [{
       ...base,
-      id: `g-${calendar.id}-${event.id}`,
+      id: idBase,
       date: key,
       allDay: false,
       startTime: hhmm(start),
@@ -95,124 +207,139 @@ async function googleFetch(path, token) {
   return res.json();
 }
 
+function describeError(e) {
+  if (e.status === 403 && (e.reason === 'accessNotConfigured' || e.reason === 'SERVICE_DISABLED')) {
+    return 'The Google Calendar API is not enabled for this Firebase project yet.';
+  }
+  if (e.status === 403) return 'Calendar access was not granted. Reconnect and tick the calendar permission.';
+  return 'Could not load Google Calendar events.';
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
 export function useGoogleCalendar(rangeStart, rangeEnd) {
   const { user, isDemo } = useAuth();
-  const [token, setToken] = useState(readToken);
-  const [optedIn, setOptedIn] = useState(wasConnected);
+  const store = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const [events, setEvents] = useState([]);
+  const [calendarsByAccount, setCalendarsByAccount] = useState({});
+  const [errorsByAccount, setErrorsByAccount] = useState({});
   const [isFetching, setIsFetching] = useState(false);
-  const [error, setError] = useState(null);
+  const [connectError, setConnectError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
-  const status = isDemo || !user
+  const available = Boolean(user) && !isDemo;
+  const accounts = store.accounts.map((a) => ({
+    ...a,
+    connected: Boolean(store.tokens[a.email]?.accessToken && store.tokens[a.email].expiresAt > now),
+    calendars: calendarsByAccount[a.email] || [],
+    error: errorsByAccount[a.email] || null,
+  }));
+  const connectedKey = accounts.filter((a) => a.connected).map((a) => `${a.email}:${(a.hiddenCalendars || []).join(',')}`).join('|');
+
+  const status = !available
     ? 'unavailable'
-    : token
-      ? 'connected'
-      : optedIn ? 'expired' : 'disconnected';
+    : accounts.length === 0
+      ? 'disconnected'
+      : accounts.some((a) => a.connected) ? 'connected' : 'expired';
 
-  const connect = useCallback(async () => {
-    if (!auth.currentUser) return;
-    setError(null);
-    const provider = new GoogleAuthProvider();
-    provider.addScope(SCOPE);
-    if (auth.currentUser.email) provider.setCustomParameters({ login_hint: auth.currentUser.email });
+  // Re-render when the soonest token expires so accounts flip to "Reconnect"
+  useEffect(() => {
+    const expiries = Object.values(store.tokens).map((t) => t.expiresAt).filter((t) => t > Date.now());
+    if (expiries.length === 0) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(...expiries) - Date.now() + 500);
+    return () => clearTimeout(timer);
+  }, [store.tokens, now]);
+
+  const connect = useCallback(async (loginHint) => {
+    setConnectError(null);
     try {
-      const result = await reauthenticateWithPopup(auth.currentUser, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (!credential?.accessToken) throw new Error('Google did not return an access token.');
-      // Tokens last 60 minutes; treat them as expired a little early.
-      const saved = { accessToken: credential.accessToken, expiresAt: Date.now() + 55 * 60 * 1000 };
-      sessionStorage.setItem(TOKEN_KEY, JSON.stringify(saved));
-      localStorage.setItem(CONNECTED_KEY, '1');
-      setToken(saved);
-      setOptedIn(true);
+      await connectAccount(typeof loginHint === 'string' ? loginHint : undefined);
+      setNow(Date.now());
     } catch (e) {
       if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') return;
-      if (e?.code === 'auth/user-mismatch') {
-        setError('Please choose the same Google account you signed in with.');
+      if (e?.code === 'auth/popup-blocked') {
+        setConnectError('Your browser blocked the Google sign-in popup. Allow popups for this site and try again.');
         return;
       }
       console.error('Google Calendar connect failed:', e);
-      setError(e?.message || 'Could not connect to Google Calendar.');
+      setConnectError(e?.message?.replace('Firebase: ', '') || 'Could not connect to Google Calendar.');
     }
   }, []);
 
-  const disconnect = useCallback(() => {
-    if (token?.accessToken) {
-      fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token.accessToken)}`, { method: 'POST' }).catch(() => {});
-    }
-    sessionStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(CONNECTED_KEY);
-    setToken(null);
-    setOptedIn(false);
-    setEvents([]);
-    setError(null);
-  }, [token]);
-
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  // Expire the token in place when its time is up
   useEffect(() => {
-    if (!token) return;
-    const t = setTimeout(() => setToken(null), Math.max(0, token.expiresAt - Date.now()));
-    return () => clearTimeout(t);
-  }, [token]);
-
-  useEffect(() => {
-    if (status !== 'connected' || !rangeStart || !rangeEnd) {
-      setEvents([]);
-      return;
-    }
+    const active = available ? state.accounts.filter((a) => validToken(a.email)) : [];
+    if (active.length === 0 || !rangeStart || !rangeEnd) return;
 
     let cancelled = false;
     const load = async () => {
       setIsFetching(true);
-      setError(null);
-      try {
-        const timeMin = parseLocalDate(rangeStart).toISOString();
-        const endDate = parseLocalDate(rangeEnd);
-        endDate.setDate(endDate.getDate() + 1);
-        const timeMax = endDate.toISOString();
+      const timeMin = parseLocalDate(rangeStart).toISOString();
+      const endDate = parseLocalDate(rangeEnd);
+      endDate.setDate(endDate.getDate() + 1);
+      const timeMax = endDate.toISOString();
 
-        const calendarList = await googleFetch('/users/me/calendarList?minAccessRole=reader', token.accessToken);
-        const calendars = (calendarList.items || []).filter((c) => c.selected || c.primary);
+      const results = await Promise.all(active.map(async (account) => {
+        const token = validToken(account.email);
+        try {
+          const list = await googleFetch('/users/me/calendarList?minAccessRole=reader', token);
+          const calendars = (list.items || []).map((c) => ({
+            id: c.id,
+            name: c.summaryOverride || c.summary,
+            color: c.backgroundColor || '#10b981',
+            primary: Boolean(c.primary),
+          }));
+          const hidden = new Set(account.hiddenCalendars || []);
+          const visible = (list.items || []).filter((c) => !hidden.has(c.id));
 
-        const perCalendar = await Promise.all(calendars.map(async (calendar) => {
-          const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
-          try {
-            const data = await googleFetch(`/calendars/${encodeURIComponent(calendar.id)}/events?${params}`, token.accessToken);
-            return (data.items || [])
-              .filter((e) => e.status !== 'cancelled')
-              .flatMap((e) => toEntries(e, calendar, rangeStart, rangeEnd));
-          } catch (e) {
-            if (e.status === 401) throw e;
-            console.warn(`Skipping calendar ${calendar.summary}:`, e);
-            return [];
-          }
-        }));
-
-        if (!cancelled) setEvents(perCalendar.flat());
-      } catch (e) {
-        if (cancelled) return;
-        if (e.status === 401) {
-          sessionStorage.removeItem(TOKEN_KEY);
-          setToken(null);
-        } else if (e.status === 403 && (e.reason === 'accessNotConfigured' || e.reason === 'SERVICE_DISABLED')) {
-          setError('The Google Calendar API is not enabled for this Firebase project yet.');
-        } else if (e.status === 403) {
-          setError('Calendar access was not granted. Reconnect and tick the calendar permission.');
-        } else {
-          setError('Could not load Google Calendar events.');
+          const perCalendar = await Promise.all(visible.map(async (calendar) => {
+            const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
+            try {
+              const data = await googleFetch(`/calendars/${encodeURIComponent(calendar.id)}/events?${params}`, token);
+              return (data.items || [])
+                .filter((e) => e.status !== 'cancelled')
+                .flatMap((e) => toEntries(e, calendar, account.email, rangeStart, rangeEnd));
+            } catch (e) {
+              if (e.status === 401) throw e;
+              console.warn(`Skipping calendar ${calendar.summary}:`, e);
+              return [];
+            }
+          }));
+          return { email: account.email, calendars, events: perCalendar.flat(), error: null };
+        } catch (e) {
+          if (e.status === 401) expireToken(account.email);
+          else console.error(`Google Calendar fetch failed for ${account.email}:`, e);
+          return { email: account.email, calendars: [], events: [], error: e.status === 401 ? null : describeError(e) };
         }
-        console.error('Google Calendar fetch failed:', e);
-      } finally {
-        if (!cancelled) setIsFetching(false);
-      }
+      }));
+
+      if (cancelled) return;
+      setEvents(results.flatMap((r) => r.events));
+      setCalendarsByAccount((prev) => ({ ...prev, ...Object.fromEntries(results.filter((r) => r.calendars.length).map((r) => [r.email, r.calendars])) }));
+      setErrorsByAccount(Object.fromEntries(results.map((r) => [r.email, r.error])));
+      setIsFetching(false);
     };
 
     load();
     return () => { cancelled = true; };
-  }, [status, token, rangeStart, rangeEnd, refreshKey]);
+  }, [available, connectedKey, rangeStart, rangeEnd, refreshKey]);
 
-  return { status, events, isFetching, error, connect, disconnect, refresh };
+  const errors = [...new Set(accounts.map((a) => a.error).filter(Boolean))];
+
+  return {
+    status,
+    accounts,
+    events: available && connectedKey ? events : [],
+    isFetching,
+    error: connectError || errors[0] || null,
+    connect,
+    reconnect: (email) => connect(email),
+    removeAccount,
+    setCalendarHidden,
+    refresh,
+  };
 }
