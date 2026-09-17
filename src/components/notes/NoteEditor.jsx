@@ -69,7 +69,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     debouncedSave(newContent);
     if (wordCountTimeoutRef.current) clearTimeout(wordCountTimeoutRef.current);
     wordCountTimeoutRef.current = setTimeout(() => {
-      setWordStats(countWords(newContent));
+      setWordStats(noteStats(newContent));
     }, 500);
   }, [debouncedSave]);
 
