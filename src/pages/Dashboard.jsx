@@ -1,15 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useFirestore } from '../hooks/useFirestore';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useFocusMode } from '../contexts/FocusModeContext';
 import { useConfirm } from '../components/common/ConfirmDialog';
 import Layout from '../components/layout/Layout';
 import Header from '../components/layout/Header';
-import NoteEditor from '../components/notes/NoteEditor';
-import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
-import ReadingList from '../components/reading-list/ReadingList';
-import CalendarView from '../components/calendar/CalendarView';
+
+// Heavier views load on first use to keep the initial download small
+const NoteEditor = lazy(() => import('../components/notes/NoteEditor'));
+const KanbanBoard = lazy(() => import('../components/board/KanbanBoard'));
+const ReadingList = lazy(() => import('../components/reading-list/ReadingList'));
+const CalendarView = lazy(() => import('../components/calendar/CalendarView'));
+
+function ViewSpinner() {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-[var(--bg-page)]" role="status" aria-label="Loading">
+      <div className="w-6 h-6 border-2 border-neutral-300 dark:border-neutral-700 border-t-neutral-600 dark:border-t-neutral-300 rounded-full animate-spin" />
+    </div>
+  );
+}
 import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard, CalendarDays } from 'lucide-react';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -19,7 +29,7 @@ import { defaultBoardColumns } from '../lib/defaults';
 
 export default function Dashboard() {
   const { sections, loading, error: sectionsError, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
-  const { toggle, isOpen, isMobile } = useSidebar();
+  const { toggle, close: closeSidebar, isOpen, isMobile } = useSidebar();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const { isDark, toggle: toggleTheme } = useTheme();
   const confirm = useConfirm();
@@ -90,6 +100,7 @@ export default function Dashboard() {
     if (!item) {
       setSelectedItem(null);
       setNavParams({});
+      if (isMobile) closeSidebar();
       return;
     }
 
@@ -97,19 +108,15 @@ export default function Dashboard() {
     if (item.type === 'reading-list' || item.type === 'calendar') {
       setSelectedItem(item);
       setNavParams({ paperId: item.paperId, date: item.date });
-      if (isMobile) {
-        toggle();
-      }
+      if (isMobile) closeSidebar();
       return;
     }
 
     setSelectedItem({ id: item.id });
     setNavParams({ taskId: item.openTaskId });
-    if (isMobile) {
-      // Close sidebar on mobile after selection
-      toggle();
-    }
-  }, [isMobile, toggle]);
+    // Close the drawer on mobile after choosing something
+    if (isMobile) closeSidebar();
+  }, [isMobile, closeSidebar]);
 
   const getBreadcrumbs = () => {
     if (!selectedItem) return [{ label: 'Home' }];
@@ -530,7 +537,9 @@ export default function Dashboard() {
         }
       />
       )}
-      {renderContent()}
+      <Suspense fallback={<ViewSpinner />}>
+        {renderContent()}
+      </Suspense>
 
       {/* Command Palette */}
       <CommandPalette

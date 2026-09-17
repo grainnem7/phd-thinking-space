@@ -2,10 +2,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNotes } from '../../hooks/useNotes';
 import { Trash2, Maximize2, BookOpen } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
-import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
-import { Packer } from "docx";
-import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
-import { pdf } from "@react-pdf/renderer";
 import { useConfirm } from '../common/ConfirmDialog';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useReadingList } from '../../hooks/useReadingList';
@@ -143,6 +139,11 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
         return;
       }
 
+      // Exporters are large, so they're only downloaded when used
+      const [{ DOCXExporter, docxDefaultSchemaMappings }, { Packer }] = await Promise.all([
+        import('@blocknote/xl-docx-exporter'),
+        import('docx'),
+      ]);
       const exporter = new DOCXExporter(editor.schema, docxDefaultSchemaMappings);
       const docxDocument = await exporter.toDocxJsDocument(editor.document);
 
@@ -191,6 +192,10 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
         return;
       }
 
+      const [{ PDFExporter, pdfDefaultSchemaMappings }, { pdf }] = await Promise.all([
+        import('@blocknote/xl-pdf-exporter'),
+        import('@react-pdf/renderer'),
+      ]);
       const exporter = new PDFExporter(editor.schema, pdfDefaultSchemaMappings);
       const pdfDocument = await exporter.toReactPDFDocument(editor.document);
 

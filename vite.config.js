@@ -28,7 +28,7 @@ export default defineConfig({
         // Fonts bundled by the PDF/Word exporters and the PDF.js worker are only
         // needed on demand, so they're cached the first time they're used
         // instead of being downloaded up front with the app.
-        globIgnores: ['**/Inter_*', '**/GeistMono-*', '**/pdf.worker*'],
+        globIgnores: ['**/Inter_*', '**/GeistMono-*', '**/pdf.worker*', '**/react-pdf.browser-*'],
         runtimeCaching: [
           {
             urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
