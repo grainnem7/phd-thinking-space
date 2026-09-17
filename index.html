@@ -17,6 +17,39 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Apply appearance before first paint (no flash of the wrong theme).
+      // Mirrors src/lib/appearance.js, ThemeContext ('theme') and EinkContext ('eink-mode').
+      (function () {
+        var root = document.documentElement;
+        var store = {};
+        var theme = null;
+        var eink = null;
+        try {
+          store = JSON.parse(localStorage.getItem('appearance')) || {};
+          theme = localStorage.getItem('theme');
+          eink = localStorage.getItem('eink-mode');
+        } catch (e) { /* storage unavailable: defaults */ }
+        var attrs = { scheme: 'data-scheme', accent: 'data-accent', bodyFont: 'data-body-font', headingFont: 'data-heading-font', textSize: 'data-text-size' };
+        var defaults = { scheme: 'classic', accent: 'graphite', bodyFont: 'inter', headingFont: 'serif', textSize: 'default' };
+        for (var key in attrs) {
+          var value = store[key];
+          root.setAttribute(attrs[key], typeof value === 'string' && /^[a-z]{1,20}$/.test(value) ? value : defaults[key]);
+        }
+        if (store.bodyFont === 'literata') {
+          var link = document.createElement('link');
+          link.id = 'font-literata';
+          link.rel = 'stylesheet';
+          link.href = 'https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600;7..72,700&display=swap';
+          document.head.appendChild(link);
+        }
+        var matches = function (query) { return !!(window.matchMedia && window.matchMedia(query).matches); };
+        var einkOn = eink === 'true' || (eink !== 'false' && matches('(monochrome)'));
+        var dark = !einkOn && (theme === 'dark' || (theme !== 'light' && matches('(prefers-color-scheme: dark)')));
+        root.classList.toggle('eink', einkOn);
+        root.classList.toggle('dark', dark);
+      })();
+    </script>
     <title>Thinking Space</title>
   </head>
   <body>

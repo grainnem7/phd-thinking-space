@@ -10,55 +10,303 @@
   box-sizing: border-box;
 }
 
+/* ========================================
+   COLOUR SCHEMES
+   Tailwind's neutral-*, white and black read these RGB channels (see
+   tailwind.config.js), so every bg-white / text-neutral-500 / border-neutral-200
+   in the app follows the scheme. <html data-scheme="..."> picks the scheme;
+   html.dark adds per-scheme tweaks that keep secondary text readable
+   (WCAG AA for body text) on dark surfaces. Set before first paint by the
+   inline script in index.html and kept in sync by src/lib/appearance.js.
+   ======================================== */
+
+/* Classic — the original neutral grey (Tailwind neutral) */
+:root,
+html[data-scheme="classic"] {
+  --neutral-white: 255 255 255;
+  --neutral-black: 0 0 0;
+  --neutral-50: 250 250 250;
+  --neutral-100: 245 245 245;
+  --neutral-200: 229 229 229;
+  --neutral-300: 212 212 212;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
+  --neutral-600: 82 82 82;
+  --neutral-700: 64 64 64;
+  --neutral-800: 38 38 38;
+  --neutral-900: 23 23 23;
+  --neutral-950: 10 10 10;
+  /* BlockNote's own dark editor surface in Classic */
+  --editor-dark-bg: 31 31 31;
+}
+
+/* Paper — warm cream and stone, like a good notebook */
+html[data-scheme="paper"] {
+  --neutral-white: 255 253 248;
+  --neutral-black: 18 14 10;
+  --neutral-50: 250 247 240;
+  --neutral-100: 243 239 230;
+  --neutral-200: 230 224 212;
+  --neutral-300: 213 205 191;
+  --neutral-400: 166 157 143;
+  --neutral-500: 113 104 89;
+  --neutral-600: 85 77 66;
+  --neutral-700: 66 59 51;
+  --neutral-800: 43 38 33;
+  --neutral-900: 30 27 23;
+  --neutral-950: 18 16 13;
+  --editor-dark-bg: 30 27 23;
+}
+html.dark[data-scheme="paper"] {
+  --neutral-400: 177 168 153;
+  --neutral-500: 128 119 106;
+}
+
+/* Sage — soft green-grey */
+html[data-scheme="sage"] {
+  --neutral-white: 253 254 252;
+  --neutral-black: 8 12 8;
+  --neutral-50: 246 248 244;
+  --neutral-100: 238 242 236;
+  --neutral-200: 221 228 217;
+  --neutral-300: 198 208 194;
+  --neutral-400: 152 164 148;
+  --neutral-500: 102 114 99;
+  --neutral-600: 76 86 73;
+  --neutral-700: 58 67 56;
+  --neutral-800: 37 43 35;
+  --neutral-900: 24 29 23;
+  --neutral-950: 13 17 12;
+  --editor-dark-bg: 24 29 23;
+}
+html.dark[data-scheme="sage"] {
+  --neutral-400: 163 174 159;
+  --neutral-500: 115 127 112;
+}
+
+/* Slate — cool blue-grey */
+html[data-scheme="slate"] {
+  --neutral-white: 255 255 255;
+  --neutral-black: 6 8 12;
+  --neutral-50: 248 249 251;
+  --neutral-100: 241 243 246;
+  --neutral-200: 226 230 235;
+  --neutral-300: 205 211 219;
+  --neutral-400: 153 162 174;
+  --neutral-500: 102 112 128;
+  --neutral-600: 74 83 97;
+  --neutral-700: 56 64 76;
+  --neutral-800: 35 41 50;
+  --neutral-900: 23 27 34;
+  --neutral-950: 12 15 20;
+  --editor-dark-bg: 23 27 34;
+}
+html.dark[data-scheme="slate"] {
+  --neutral-400: 163 172 184;
+  --neutral-500: 115 125 140;
+}
+
+/* Midnight — crisp and cool in light, deep navy in dark */
+html[data-scheme="midnight"] {
+  --neutral-white: 255 255 255;
+  --neutral-black: 4 8 20;
+  --neutral-50: 246 248 252;
+  --neutral-100: 237 241 248;
+  --neutral-200: 220 227 238;
+  --neutral-300: 195 205 221;
+  --neutral-400: 142 154 176;
+  --neutral-500: 91 104 130;
+  --neutral-600: 67 79 103;
+  --neutral-700: 50 61 84;
+  --neutral-800: 29 38 64;
+  --neutral-900: 19 27 49;
+  --neutral-950: 10 16 36;
+  --editor-dark-bg: 19 27 49;
+}
+html.dark[data-scheme="midnight"] {
+  --neutral-400: 155 166 187;
+  --neutral-500: 107 120 148;
+}
+
+/* ========================================
+   ACCENT COLOUR
+   Scale: --accent-50 … --accent-950 (bg-accent-100, text-accent-700, …)
+   Semantic tokens adapt to light/dark on their own:
+     --accent-solid / --accent-solid-hover / --accent-on-solid  → bg-accent, hover:bg-accent-hover, text-accent-fg
+     --accent-ink   → text-accent-ink (accent text/icons on normal surfaces)
+     --accent-soft  → bg-accent-soft (selected / active item tint)
+     --accent-ring  → ring-accent-ring (focus rings)
+   ======================================== */
+
+/* Graphite (default) follows the scheme's own near-black / near-white */
+:root,
+html[data-accent="graphite"] {
+  --accent-50: var(--neutral-50);
+  --accent-100: var(--neutral-100);
+  --accent-200: var(--neutral-200);
+  --accent-300: var(--neutral-300);
+  --accent-400: var(--neutral-400);
+  --accent-500: var(--neutral-500);
+  --accent-600: var(--neutral-600);
+  --accent-700: var(--neutral-700);
+  --accent-800: var(--neutral-800);
+  --accent-900: var(--neutral-900);
+  --accent-950: var(--neutral-950);
+}
+html[data-accent="indigo"] { --accent-50: 238 242 255; --accent-100: 224 231 255; --accent-200: 199 210 254; --accent-300: 165 180 252; --accent-400: 129 140 248; --accent-500: 99 102 241; --accent-600: 79 70 229; --accent-700: 67 56 202; --accent-800: 55 48 163; --accent-900: 49 46 129; --accent-950: 30 27 75; }
+html[data-accent="blue"] { --accent-50: 239 246 255; --accent-100: 219 234 254; --accent-200: 191 219 254; --accent-300: 147 197 253; --accent-400: 96 165 250; --accent-500: 59 130 246; --accent-600: 37 99 235; --accent-700: 29 78 216; --accent-800: 30 64 175; --accent-900: 30 58 138; --accent-950: 23 37 84; }
+html[data-accent="teal"] { --accent-50: 240 253 250; --accent-100: 204 251 241; --accent-200: 153 246 228; --accent-300: 94 234 212; --accent-400: 45 212 191; --accent-500: 20 184 166; --accent-600: 13 148 136; --accent-700: 15 118 110; --accent-800: 17 94 89; --accent-900: 19 78 74; --accent-950: 4 47 46; }
+html[data-accent="green"] { --accent-50: 240 253 244; --accent-100: 220 252 231; --accent-200: 187 247 208; --accent-300: 134 239 172; --accent-400: 74 222 128; --accent-500: 34 197 94; --accent-600: 22 163 74; --accent-700: 21 128 61; --accent-800: 22 101 52; --accent-900: 20 83 45; --accent-950: 5 46 22; }
+html[data-accent="amber"] { --accent-50: 255 251 235; --accent-100: 254 243 199; --accent-200: 253 230 138; --accent-300: 252 211 77; --accent-400: 251 191 36; --accent-500: 245 158 11; --accent-600: 217 119 6; --accent-700: 180 83 9; --accent-800: 146 64 14; --accent-900: 120 53 15; --accent-950: 69 26 3; }
+html[data-accent="rose"] { --accent-50: 255 241 242; --accent-100: 255 228 230; --accent-200: 254 205 211; --accent-300: 253 164 175; --accent-400: 251 113 133; --accent-500: 244 63 94; --accent-600: 225 29 72; --accent-700: 190 18 60; --accent-800: 159 18 57; --accent-900: 136 19 55; --accent-950: 76 5 25; }
+html[data-accent="violet"] { --accent-50: 245 243 255; --accent-100: 237 233 254; --accent-200: 221 214 254; --accent-300: 196 181 253; --accent-400: 167 139 250; --accent-500: 139 92 246; --accent-600: 124 58 237; --accent-700: 109 40 217; --accent-800: 91 33 182; --accent-900: 76 29 149; --accent-950: 46 16 101; }
+
+/* Semantic tokens — light (white text on a 600 fill passes AA for these hues) */
+:root {
+  --accent-solid: var(--accent-600);
+  --accent-solid-hover: var(--accent-700);
+  --accent-on-solid: var(--neutral-white);
+  --accent-ink: var(--accent-700);
+  --accent-ring: var(--accent-500);
+  --accent-soft: var(--accent-500);
+  --accent-soft-alpha: 0.1;
+}
+/* Teal, green and amber need a darker fill / text to keep AA contrast */
+html:not(.dark)[data-accent="teal"],
+html:not(.dark)[data-accent="green"],
+html:not(.dark)[data-accent="amber"] {
+  --accent-solid: var(--accent-700);
+  --accent-solid-hover: var(--accent-800);
+  --accent-ink: var(--accent-800);
+}
+/* Semantic tokens — dark: light fills with deep text */
+html.dark {
+  --accent-solid: var(--accent-400);
+  --accent-solid-hover: var(--accent-300);
+  --accent-on-solid: var(--accent-950);
+  --accent-ink: var(--accent-400);
+  --accent-ring: var(--accent-400);
+  --accent-soft: var(--accent-400);
+  --accent-soft-alpha: 0.16;
+}
+/* Graphite matches the original near-black buttons (inverted in dark) */
+html:not(.dark):not([data-accent]),
+html:not(.dark)[data-accent="graphite"] {
+  --accent-solid: var(--neutral-900);
+  --accent-solid-hover: var(--neutral-800);
+  --accent-on-solid: var(--neutral-white);
+  --accent-ink: var(--neutral-900);
+  --accent-ring: var(--neutral-600);
+  --accent-soft: var(--neutral-900);
+  --accent-soft-alpha: 0.05;
+}
+html.dark:not([data-accent]),
+html.dark[data-accent="graphite"] {
+  --accent-solid: var(--neutral-100);
+  --accent-solid-hover: var(--neutral-200);
+  --accent-on-solid: var(--neutral-900);
+  --accent-ink: var(--neutral-100);
+  --accent-ring: var(--neutral-300);
+  --accent-soft: var(--neutral-100);
+  --accent-soft-alpha: 0.1;
+}
+
+/* ========================================
+   FONTS & TEXT SIZE
+   ======================================== */
+
+:root {
+  --font-inter: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-system: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-literata: 'Literata', Georgia, 'Times New Roman', serif;
+  --font-georgia: 'Georgia', 'Times New Roman', serif;
+
+  --font-body: var(--font-inter);
+  /* Sans used for headings when "Sans" is chosen (never the serif body font) */
+  --font-ui-sans: var(--font-inter);
+  --font-heading: var(--font-georgia);
+}
+html[data-body-font="system"] {
+  --font-body: var(--font-system);
+  --font-ui-sans: var(--font-system);
+}
+html[data-body-font="literata"] {
+  --font-body: var(--font-literata);
+}
+html[data-heading-font="sans"] {
+  --font-heading: var(--font-ui-sans);
+}
+
+/* The UI is rem-based, so the root size scales everything.
+   Percentages respect the browser's own default font size. */
+html[data-text-size="small"] {
+  font-size: 93.75%; /* 15px */
+}
+html[data-text-size="large"] {
+  font-size: 109.375%; /* 17.5px */
+}
+
+/* ========================================
+   PAGE TOKENS
+   ======================================== */
+
 :root {
   /* Backgrounds */
-  --bg-page: #fafafa;
-  --bg-card: #ffffff;
-  --bg-hover: #f5f5f5;
-  --bg-active: #f5f5f5;
+  --bg-page: rgb(var(--neutral-50));
+  --bg-card: rgb(var(--neutral-white));
+  --bg-hover: rgb(var(--neutral-100));
+  --bg-active: rgb(var(--neutral-100));
+  --surface: rgb(var(--neutral-white));
 
   /* Borders */
-  --border-default: #e5e5e5;
-  --border-subtle: #f5f5f5;
+  --border-default: rgb(var(--neutral-200));
+  --border-subtle: rgb(var(--neutral-100));
 
   /* Text */
-  --text-primary: #171717;
-  --text-secondary: #525252;
-  --text-tertiary: #a3a3a3;
-  --text-muted: #d4d4d4;
+  --text-primary: rgb(var(--neutral-900));
+  --text-secondary: rgb(var(--neutral-600));
+  --text-tertiary: rgb(var(--neutral-400));
+  --text-muted: rgb(var(--neutral-300));
 
   /* Accent (use sparingly) */
   --accent-urgent: #d97706;
   --accent-now: #f43f5e;
-  --accent-hover: #525252;
+  --accent-hover: rgb(var(--neutral-600));
 }
 
 html.dark {
-  --bg-page: #0a0a0a;
-  --bg-card: #171717;
-  --bg-hover: #262626;
-  --bg-active: #262626;
+  --bg-page: rgb(var(--neutral-950));
+  --bg-card: rgb(var(--neutral-900));
+  --bg-hover: rgb(var(--neutral-800));
+  --bg-active: rgb(var(--neutral-800));
+  --surface: rgb(var(--neutral-900));
 
-  --border-default: #262626;
-  --border-subtle: #1f1f1f;
+  --border-default: rgb(var(--neutral-800));
+  --border-subtle: color-mix(in srgb, rgb(var(--neutral-800)) 50%, rgb(var(--neutral-900)));
 
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --text-tertiary: #737373;
-  --text-muted: #525252;
+  --text-primary: rgb(var(--neutral-100));
+  --text-secondary: rgb(var(--neutral-400));
+  --text-tertiary: rgb(var(--neutral-500));
+  --text-muted: rgb(var(--neutral-600));
 
-  --accent-hover: #d4d4d4;
+  --accent-hover: rgb(var(--neutral-300));
 
   color-scheme: dark;
 }
 
-/* Serif font for display text */
+/* Legacy hard-coded page background (bg-[#fafafa]) follows the scheme too;
+   the dark: variants next to it are more specific and still win. */
+.bg-\[\#fafafa\] {
+  background-color: var(--bg-page);
+}
+
+/* Serif font for display text (heading font setting) */
 .font-serif {
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: var(--font-heading);
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-page);
@@ -76,7 +324,7 @@ body {
 
 /* Large display numbers - use with font-serif */
 .display-number {
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: var(--font-heading);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -89,14 +337,24 @@ button, a, input {
 
 /* Visible focus indicator for keyboard users only — preserves the existing
    focus:outline-none + focus:border-X patterns when clicking with a mouse,
-   but always shows a ring when navigating via Tab. */
+   but always shows a ring when navigating via Tab. Uses the accent ring
+   (graphite: the original #525252 / #d4d4d4). */
 *:focus-visible {
-  outline: 2px solid #525252;
+  outline: 2px solid rgb(var(--accent-ring));
   outline-offset: 2px;
   border-radius: 4px;
 }
-html.dark *:focus-visible {
-  outline-color: #d4d4d4;
+
+/* Accent-coloured text selection and native controls (checkboxes, ranges,
+   progress). Graphite keeps the browser defaults, as before. */
+html[data-accent]:not([data-accent="graphite"]) {
+  accent-color: rgb(var(--accent-solid));
+}
+html[data-accent]:not([data-accent="graphite"]) ::selection {
+  background-color: rgb(var(--accent-500) / 0.28);
+}
+html.dark[data-accent]:not([data-accent="graphite"]) ::selection {
+  background-color: rgb(var(--accent-400) / 0.35);
 }
 
 /* Honor prefers-reduced-motion for users who opt out of animations.
@@ -124,20 +382,48 @@ html.dark *:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
+  background: rgb(var(--neutral-300));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a3a3a3;
+  background: rgb(var(--neutral-400));
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: rgb(var(--neutral-700));
 }
 
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #525252;
+  background: rgb(var(--neutral-600));
+}
+
+/* ========================================
+   BLOCKNOTE EDITOR
+   Follows the scheme surfaces, body font, text size and accent.
+   Prefixed with html to outrank BlockNote's stylesheet, which loads later.
+   ======================================== */
+
+html .bn-container {
+  --bn-font-family: var(--font-body);
+  --bn-colors-editor-background: rgb(var(--neutral-white));
+  --bn-colors-menu-background: rgb(var(--neutral-white));
+}
+html .bn-container[data-color-scheme="dark"] {
+  --bn-colors-editor-background: rgb(var(--editor-dark-bg));
+  --bn-colors-menu-background: rgb(var(--editor-dark-bg));
+}
+html .bn-default-styles {
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+html .bn-editor a {
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--accent-ring) / 0.6);
+  text-underline-offset: 2px;
+}
+html[data-accent]:not([data-accent="graphite"]) .bn-editor a {
+  color: rgb(var(--accent-ink));
 }
 
 @layer base {
@@ -154,8 +440,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 32%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 90%;
@@ -210,8 +494,57 @@ html.eink.dark {
   --text-muted: #404040;
 
   --accent-hover: #000000;
+  --surface: #ffffff;
 
   color-scheme: light;
+}
+
+/* E-ink ignores the colour scheme and accent: pure greys, black accent.
+   The repeated class outranks every scheme/accent selector above
+   (at most html.dark[data-…] / html:not(.dark)[data-…]). */
+html.eink.eink.eink {
+  --neutral-white: 255 255 255;
+  --neutral-black: 0 0 0;
+  --neutral-50: 250 250 250;
+  --neutral-100: 245 245 245;
+  --neutral-200: 229 229 229;
+  --neutral-300: 212 212 212;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
+  --neutral-600: 82 82 82;
+  --neutral-700: 64 64 64;
+  --neutral-800: 38 38 38;
+  --neutral-900: 23 23 23;
+  --neutral-950: 10 10 10;
+  --editor-dark-bg: 255 255 255;
+
+  --accent-50: 250 250 250;
+  --accent-100: 245 245 245;
+  --accent-200: 229 229 229;
+  --accent-300: 212 212 212;
+  --accent-400: 163 163 163;
+  --accent-500: 64 64 64;
+  --accent-600: 23 23 23;
+  --accent-700: 0 0 0;
+  --accent-800: 0 0 0;
+  --accent-900: 0 0 0;
+  --accent-950: 0 0 0;
+  --accent-solid: 0 0 0;
+  --accent-solid-hover: 26 26 26;
+  --accent-on-solid: 255 255 255;
+  --accent-ink: 0 0 0;
+  --accent-ring: 0 0 0;
+  --accent-soft: 0 0 0;
+  --accent-soft-alpha: 0.08;
+
+  accent-color: #000000;
+}
+html.eink.eink.eink.eink ::selection {
+  background-color: #c8c8c8;
+  color: #000000;
+}
+html.eink.eink.eink.eink .bn-editor a {
+  color: #000000;
 }
 
 html.eink body {
