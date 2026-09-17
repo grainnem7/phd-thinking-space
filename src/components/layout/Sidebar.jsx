@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -49,6 +51,8 @@ import {
   Sun,
   Moon,
   UserPlus,
+  FolderInput,
+  CornerLeftUp,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -60,6 +64,8 @@ import { defaultBoardColumns } from '../../lib/defaults';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import MoveToModal from '../sections/MoveToModal';
+import { canMoveSection, subtreeIds } from '../../lib/sectionTree';
 
 const iconMap = {
   'code': Code,
@@ -89,8 +95,14 @@ function sortableGroupOf(entry) {
   return entry?.data?.current?.sortable?.containerId;
 }
 
-// Only let items collide with their siblings, so a drag never "lands" in a
-// different folder (moving between folders isn't supported by reordering).
+// Droppable ids for "drop inside this folder" and "move to the top level"
+const INTO_PREFIX = 'into:';
+const ROOT_ZONE = 'root-zone';
+// How long a dragged item must hover a collapsed folder before it opens
+const HOVER_EXPAND_MS = 600;
+
+// Reordering: only let items collide with their siblings, so a reorder never
+// "lands" in a different folder. Moving into folders uses the drop targets below.
 function siblingCollisionDetection(args) {
   const group = sortableGroupOf(args.active);
   return closestCenter({
@@ -109,6 +121,52 @@ function siblingKeyboardCoordinates(event, args) {
     get: (id) => all.get(id),
   };
   return sortableKeyboardCoordinates(event, { ...args, context: { ...context, droppableContainers: scoped } });
+}
+
+// Pointer drags: the middle of a folder row (or the top-level zone) moves the
+// item inside; the row's top and bottom edges still reorder among siblings.
+function createCollisionDetection(sections) {
+  return (args) => {
+    const { active, pointerCoordinates, droppableContainers, droppableRects } = args;
+    if (pointerCoordinates) {
+      const { x, y } = pointerCoordinates;
+      const activeItem = sections.find((s) => s.id === active.id);
+      const activeParentId = activeItem?.parentId ?? null;
+      for (const container of droppableContainers) {
+        const data = container.data.current;
+        if (data?.kind !== 'into' && data?.kind !== 'root') continue;
+        const rect = droppableRects.get(container.id);
+        if (!rect || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+        if (data.kind === 'root') {
+          if (activeParentId !== null) return [{ id: container.id, data: { droppableContainer: container, value: 0 } }];
+          continue;
+        }
+        const edge = rect.height * 0.25;
+        const inMiddle = y > rect.top + edge && y < rect.bottom - edge;
+        if (inMiddle && data.folderId !== activeParentId && canMoveSection(sections, active.id, data.folderId)) {
+          return [{ id: container.id, data: { droppableContainer: container, value: 0 } }];
+        }
+      }
+    }
+    return siblingCollisionDetection(args);
+  };
+}
+
+function RootDropZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: ROOT_ZONE, data: { kind: 'root' } });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center gap-2 mt-2 px-3 py-2.5 text-sm rounded-lg border border-dashed transition-colors ${
+        isOver
+          ? 'border-neutral-500 bg-neutral-100 text-neutral-900 dark:border-neutral-400 dark:bg-neutral-800 dark:text-neutral-100'
+          : 'border-neutral-300 text-neutral-400 dark:border-neutral-700 dark:text-neutral-500'
+      }`}
+    >
+      <CornerLeftUp size={15} aria-hidden="true" />
+      Move to top level
+    </div>
+  );
 }
 
 const KEYBOARD_CODES = {
@@ -174,19 +232,33 @@ function TreeItem({
   const isExpanded = isSearching ? visibleChildren.length > 0 : expandedIds.has(item.id);
   const isSelected = selectedId === item.id;
   const name = item.name || 'Untitled';
+  // Items can be dropped inside real folders (and older untyped items with children)
+  const acceptsDrops = item.type === 'folder' || (!item.type && hasChildren);
+  const { setNodeRef: setDropRef, isOver: isDropTarget } = useDroppable({
+    id: `${INTO_PREFIX}${item.id}`,
+    data: { kind: 'into', folderId: item.id },
+    disabled: isSearching || !acceptsDrops,
+  });
 
   return (
     <SortableItem id={item.id} disabled={isSearching}>
       {({ activatorRef, attributes, listeners, isDragging }) => (
         <>
           <div
-            ref={activatorRef}
+            ref={(node) => {
+              activatorRef(node);
+              setDropRef(node);
+            }}
             {...attributes}
             {...listeners}
             role="button"
             tabIndex={0}
             aria-current={isSelected ? 'page' : undefined}
-            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 mb-0.5 ${ROW_BASE} ${isSelected ? ROW_SELECTED : ROW_IDLE}`}
+            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 mb-0.5 ${ROW_BASE} ${
+              isDropTarget
+                ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 ring-2 ring-inset ring-neutral-400 dark:ring-neutral-500'
+                : isSelected ? ROW_SELECTED : ROW_IDLE
+            }`}
             style={{ paddingLeft: `${level * 12 + 8}px` }}
             onClick={() => onSelect(item)}
             onKeyDown={(e) => {
@@ -272,8 +344,11 @@ function TreeItem({
                     <DropdownItem onClick={() => { onContextMenu('duplicate', item); close(); }}>
                       <Copy className="w-4 h-4" /> Duplicate
                     </DropdownItem>
+                    <DropdownItem onClick={() => { close(); onContextMenu('move', item); }}>
+                      <FolderInput className="w-4 h-4" /> Move to…
+                    </DropdownItem>
                     <DropdownItem danger onClick={() => { onContextMenu('delete', item); close(); }}>
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 className="w-4 h-4" /> Move to Trash
                     </DropdownItem>
                   </>
                 )}
@@ -332,7 +407,7 @@ function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
 export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const { isOpen, isCollapsed, close, isMobile, effectiveWidth, isResizing, startResizing, toggleCollapsed } = useSidebar();
   const { logout, isDemo } = useAuth();
-  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
+  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, moveSection, resetToDefaults } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const { focusMode } = useFocusMode();
   const { theme, preference: themePreference, setTheme, toggle: toggleTheme, isDarkSuppressed } = useTheme();
@@ -342,6 +417,11 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [modalState, setModalState] = useState({ type: null, item: null });
   const [newItemName, setNewItemName] = useState('');
+  const [moveItem, setMoveItem] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const hoverExpand = useRef({ id: null, timer: null });
+
+  useEffect(() => () => clearTimeout(hoverExpand.current.timer), []);
 
   const iconOnly = isCollapsed && !isMobile;
   const isVisible = isOpen && !focusMode;
@@ -427,6 +507,9 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
       case 'delete':
         setModalState({ type: 'delete', item });
         break;
+      case 'move':
+        setMoveItem(item);
+        break;
       case 'add-note':
         setNewItemName('');
         setModalState({ type: 'add-child', itemType: 'note', parentItem: item });
@@ -485,9 +568,75 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
     closeModal();
   };
 
-  // Reorder within a sibling group (same parentId) only
+  const collisionDetection = useMemo(() => createCollisionDetection(sections), [sections]);
+
+  // Screen reader announcements with item names instead of internal ids
+  const dragAccessibility = useMemo(() => {
+    const nameOf = (id) => sections.find((s) => s.id === id)?.name || 'Untitled';
+    const describeOver = (over) => {
+      const overId = String(over.id);
+      if (overId === ROOT_ZONE) return 'the top level';
+      if (overId.startsWith(INTO_PREFIX)) return `inside folder ${nameOf(overId.slice(INTO_PREFIX.length))}`;
+      return `the position of ${nameOf(over.id)}`;
+    };
+    return {
+      announcements: {
+        onDragStart: ({ active }) => `Picked up ${nameOf(active.id)}.`,
+        onDragOver: ({ active, over }) => (over
+          ? `${nameOf(active.id)} is over ${describeOver(over)}.`
+          : `${nameOf(active.id)} is not over a drop target.`),
+        onDragEnd: ({ active, over }) => (over
+          ? `${nameOf(active.id)} was dropped at ${describeOver(over)}.`
+          : `${nameOf(active.id)} was dropped.`),
+        onDragCancel: ({ active }) => `Dragging was cancelled. ${nameOf(active.id)} was not moved.`,
+      },
+    };
+  }, [sections]);
+
+  const clearHoverExpand = () => {
+    clearTimeout(hoverExpand.current.timer);
+    hoverExpand.current = { id: null, timer: null };
+  };
+
+  // Hovering a collapsed folder while dragging opens it after a moment
+  const handleDragOver = ({ over }) => {
+    const overId = over ? String(over.id) : '';
+    const folderId = overId.startsWith(INTO_PREFIX) ? overId.slice(INTO_PREFIX.length) : null;
+    if (hoverExpand.current.id === folderId) return;
+    clearHoverExpand();
+    if (!folderId || expandedIds.has(folderId)) return;
+    hoverExpand.current = {
+      id: folderId,
+      timer: setTimeout(() => {
+        setExpandedIds((prev) => new Set([...prev, folderId]));
+      }, HOVER_EXPAND_MS),
+    };
+  };
+
+  const handleDragCancel = () => {
+    clearHoverExpand();
+    setDraggingId(null);
+  };
+
+  // Drop inside a folder / on the top-level zone moves; otherwise reorder
+  // within the sibling group (same parentId)
   const handleDragEnd = ({ active, over }) => {
+    clearHoverExpand();
+    setDraggingId(null);
     if (!over || active.id === over.id) return;
+
+    const overId = String(over.id);
+    if (overId === ROOT_ZONE) {
+      moveSection(active.id, null);
+      return;
+    }
+    if (overId.startsWith(INTO_PREFIX)) {
+      const folderId = overId.slice(INTO_PREFIX.length);
+      moveSection(active.id, folderId);
+      setExpandedIds((prev) => new Set([...prev, folderId]));
+      return;
+    }
+
     const activeItem = sections.find((s) => s.id === active.id);
     const overItem = sections.find((s) => s.id === over.id);
     if (!activeItem || !overItem) return;
@@ -666,8 +815,14 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
               // Expanded view - full tree
               <DndContext
                 sensors={sensors}
-                collisionDetection={siblingCollisionDetection}
+                collisionDetection={collisionDetection}
+                accessibility={dragAccessibility}
+                // Folders opened mid-drag and the top-level zone need measuring too
+                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                onDragStart={({ active }) => setDraggingId(active.id)}
+                onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
               >
                 <SortableContext
                   id={groupIdFor(null)}
@@ -688,6 +843,7 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
                     />
                   ))}
                 </SortableContext>
+                {draggingId && (sections.find((s) => s.id === draggingId)?.parentId ?? null) !== null && <RootDropZone />}
                 {searchVisibleIds && visibleRootSections.length === 0 && (
                   <p className="px-3 py-4 text-sm text-neutral-400 dark:text-neutral-500" role="status">
                     No matches for “{searchQuery.trim()}”
@@ -883,29 +1039,24 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
       <Modal
         isOpen={modalState.type === 'delete'}
         onClose={closeModal}
-        title="Delete Item"
+        title="Move to Trash"
         size="sm"
       >
         {(() => {
           const target = modalState.item;
           if (!target) return null;
-          // Recursively count descendants
-          const countDescendants = (id) => {
-            const children = childrenByParent.get(id) ?? [];
-            return children.reduce((acc, c) => acc + 1 + countDescendants(c.id), 0);
-          };
-          const descendantCount = countDescendants(target.id);
+          const descendantCount = subtreeIds(sections, target.id).length - 1;
           return (
             <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              Delete "{target.name}"?
+              Move "{target.name}" to Trash?
               {descendantCount > 0 && (
                 <>
-                  {' '}This will also delete{' '}
+                  {' '}The{' '}
                   <strong className="font-medium text-neutral-900 dark:text-neutral-100">{descendantCount} {descendantCount === 1 ? 'item' : 'items'}</strong>
-                  {' '}inside it (notes, boards, sub-folders).
+                  {' '}inside it (notes, boards, sub-folders) will move too.
                 </>
               )}
-              {' '}This cannot be undone.
+              {' '}You can restore {descendantCount > 0 ? 'them' : 'it'} from Trash for 30 days.
             </p>
           );
         })()}
@@ -913,8 +1064,8 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
           <Button variant="secondary" onClick={closeModal}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={handleModalSubmit}>
-            Delete
+          <Button onClick={handleModalSubmit} autoFocus>
+            Move to Trash
           </Button>
         </div>
       </Modal>
@@ -927,7 +1078,7 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
         size="sm"
       >
         <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong> ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
+          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong>, including anything in Trash ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
         </p>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={closeModal}>
@@ -942,6 +1093,8 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
           </Button>
         </div>
       </Modal>
+
+      <MoveToModal isOpen={Boolean(moveItem)} item={moveItem} onClose={() => setMoveItem(null)} />
     </>
   );
 }
