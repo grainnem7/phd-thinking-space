@@ -14,7 +14,7 @@ const STATUS_CONFIG = {
   'read': { label: 'READ', color: 'bg-emerald-900/10 text-emerald-800' },
 };
 
-export default function ReadingList() {
+export default function ReadingList({ initialPaperId = null }) {
   const {
     papers,
     collections,
@@ -28,7 +28,7 @@ export default function ReadingList() {
   } = useReadingList();
 
   const confirm = useConfirm();
-  const [selectedPaperId, setSelectedPaperId] = useState(null);
+  const [selectedPaperId, setSelectedPaperId] = useState(initialPaperId);
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeCollection, setActiveCollection] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
