@@ -1,15 +1,21 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const FocusModeContext = createContext(null);
 
+// Older builds persisted focus mode, which could reopen the app with no chrome.
+const LEGACY_STORAGE_KEY = 'note-focus-mode';
+
 export function FocusModeProvider({ children }) {
-  const [focusMode, setFocusMode] = useState(() => {
-    return localStorage.getItem('note-focus-mode') === 'true';
-  });
+  // Deliberately not persisted: every reload starts with the normal layout.
+  const [focusMode, setFocusMode] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('note-focus-mode', String(focusMode));
-  }, [focusMode]);
+    try {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const toggle = useCallback(() => setFocusMode((v) => !v), []);
   const exit = useCallback(() => setFocusMode(false), []);
@@ -34,8 +40,10 @@ export function FocusModeProvider({ children }) {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
+  const value = useMemo(() => ({ focusMode, setFocusMode, toggle, exit }), [focusMode, toggle, exit]);
+
   return (
-    <FocusModeContext.Provider value={{ focusMode, setFocusMode, toggle, exit }}>
+    <FocusModeContext.Provider value={value}>
       {children}
     </FocusModeContext.Provider>
   );

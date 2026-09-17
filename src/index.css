@@ -132,52 +132,12 @@ html.dark *:focus-visible {
   background: #a3a3a3;
 }
 
-/* React Grid Layout - minimal styling */
-.react-grid-item {
-  transition: transform 200ms ease;
-  display: flex;
-  flex-direction: column;
+html.dark ::-webkit-scrollbar-thumb {
+  background: #404040;
 }
 
-.react-grid-item > div {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.react-grid-item.react-draggable-dragging {
-  transition: none;
-  z-index: 3;
-  will-change: transform;
-}
-
-.react-grid-item > .react-resizable-handle {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-}
-
-.react-grid-item > .react-resizable-handle::after {
-  content: "";
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid #d4d4d4;
-  border-bottom: 1.5px solid #d4d4d4;
-}
-
-.react-resizable-handle-se {
-  bottom: 0;
-  right: 0;
-  cursor: se-resize;
-}
-
-.react-grid-placeholder {
-  background: #e5e5e5;
-  border-radius: 0.75rem;
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #525252;
 }
 
 @layer base {
@@ -225,13 +185,33 @@ html.eink *::after {
   transition-duration: 0s !important;
 }
 
-/* Force high contrast colors */
-html.eink {
+/* Force a light, high-contrast palette. E-ink always wins over dark mode:
+   ThemeContext drops the .dark class while e-ink is on, and the tokens are
+   reset here as well in case both classes are ever present. */
+html.eink,
+html.eink.dark {
   --eink-black: #000000;
   --eink-dark: #1a1a1a;
   --eink-gray: #404040;
   --eink-light: #e0e0e0;
   --eink-white: #ffffff;
+
+  --bg-page: #ffffff;
+  --bg-card: #ffffff;
+  --bg-hover: #ffffff;
+  --bg-active: #e0e0e0;
+
+  --border-default: #e0e0e0;
+  --border-subtle: #e0e0e0;
+
+  --text-primary: #000000;
+  --text-secondary: #1a1a1a;
+  --text-tertiary: #404040;
+  --text-muted: #404040;
+
+  --accent-hover: #000000;
+
+  color-scheme: light;
 }
 
 html.eink body {
@@ -251,7 +231,6 @@ html.eink *:not(img):not(svg) {
 }
 
 /* Increase text contrast - no subtle grays */
-html.eink .text-black\/10,
 html.eink .text-black\/20,
 html.eink .text-black\/30,
 html.eink .text-black\/40,
@@ -276,7 +255,6 @@ html.eink .border-neutral-200 {
 }
 
 /* Remove opacity effects */
-html.eink .opacity-40,
 html.eink .opacity-50,
 html.eink .opacity-60 {
   opacity: 1 !important;
@@ -307,11 +285,8 @@ html.eink a:hover {
 
 /* Remove hover backgrounds (e-ink doesn't show these well) */
 html.eink .hover\:bg-neutral-50:hover,
-html.eink .hover\:bg-neutral-100:hover,
-html.eink .hover\:bg-black\/5:hover,
-html.eink .hover\:opacity-60:hover {
+html.eink .hover\:bg-neutral-100:hover {
   background-color: transparent !important;
-  opacity: 1 !important;
 }
 
 /* Visible focus states (important for accessibility) */
@@ -365,12 +340,6 @@ html.eink .bg-neutral-50 {
   border: 1px solid var(--eink-light) !important;
 }
 
-/* Hide decorative elements */
-html.eink .decorative,
-html.eink [aria-hidden="true"]:not(svg) {
-  display: none !important;
-}
-
 /* Ensure icons are visible */
 html.eink svg {
   stroke-width: 2px !important;
@@ -383,16 +352,6 @@ html.eink .text-black\/40 svg {
   color: var(--eink-gray) !important;
 }
 
-/* Progress indicators - use patterns instead of colors */
-html.eink [role="progressbar"] {
-  border: 1px solid var(--eink-black);
-}
-
-/* Simplify the star indicator */
-html.eink .fill-current {
-  fill: var(--eink-black) !important;
-}
-
 /* BlockNote editor adjustments */
 html.eink .bn-container {
   font-size: 16px !important;
@@ -403,17 +362,7 @@ html.eink .bn-editor {
   background: var(--eink-white) !important;
 }
 
-/* Print-like styling for reading content */
-html.eink article,
-html.eink .prose,
-html.eink .reading-content {
-  max-width: 65ch;
-  font-size: 18px;
-  line-height: 1.8;
-}
-
 /* Page background */
-html.eink .bg-slate-50,
 html.eink .bg-\[\#fafafa\] {
   background-color: var(--eink-white) !important;
 }
@@ -449,11 +398,6 @@ html.eink .font-serif {
   font-weight: 500 !important;
 }
 
-/* Paper list items - visible borders */
-html.eink .reading-list-paper-row {
-  border-bottom: 1px solid var(--eink-light) !important;
-}
-
 /* Section headers uppercase text */
 html.eink .uppercase.tracking-widest {
   font-weight: 600 !important;
@@ -465,30 +409,6 @@ html.eink .opacity-40 {
   opacity: 0.7 !important;
 }
 
-/* Tab buttons in paper detail */
-html.eink .reading-list-tabs button {
-  border: 1px solid var(--eink-light) !important;
-  padding: 8px 16px !important;
-}
-
-html.eink .reading-list-tabs button[data-active="true"] {
-  border: 2px solid var(--eink-black) !important;
-  font-weight: 600 !important;
-}
-
-/* Two-column layout on paper detail - add visual separation */
-html.eink .lg\:col-span-4 {
-  border-left: 2px solid var(--eink-light) !important;
-  padding-left: 24px !important;
-}
-
-/* Status/Priority/Collection selectors */
-html.eink .reading-list-sidebar select,
-html.eink .reading-list-sidebar button {
-  border: 2px solid var(--eink-gray) !important;
-  font-weight: 500 !important;
-}
-
 /* Star icon - make it solid and visible */
 html.eink .text-black\/40 svg[fill="currentColor"] {
   color: var(--eink-black) !important;
@@ -497,33 +417,6 @@ html.eink .text-black\/40 svg[fill="currentColor"] {
 /* Search input in reading list */
 html.eink .border-b.border-black\/10 {
   border-bottom: 2px solid var(--eink-gray) !important;
-}
-
-/* Collection tags/chips */
-html.eink .rounded-full.bg-black\/5 {
-  background: transparent !important;
-  border: 1px solid var(--eink-gray) !important;
-}
-
-/* Remove hover background effects on paper rows */
-html.eink .hover\:bg-black\/\[0\.02\]:hover {
-  background: transparent !important;
-}
-
-/* Priority indicators - use text instead of color */
-html.eink [data-priority="high"]::before {
-  content: "[HIGH] " !important;
-  font-weight: 700 !important;
-}
-
-html.eink [data-priority="medium"]::before {
-  content: "[MED] " !important;
-  font-weight: 600 !important;
-}
-
-/* Modal styling for add paper */
-html.eink .reading-list-modal {
-  border: 2px solid var(--eink-black) !important;
 }
 
 /* Input fields with underline style */

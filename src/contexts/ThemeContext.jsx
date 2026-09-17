@@ -1,45 +1,78 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEinkSnapshot } from './EinkContext';
 
 const ThemeContext = createContext(null);
 
-function getSystemPreference() {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+const STORAGE_KEY = 'theme';
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+function readStoredTheme() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === 'light' || saved === 'dark' ? saved : null;
+  } catch {
+    return null;
+  }
 }
 
-function getInitialTheme() {
-  const saved = localStorage.getItem('theme');
-  if (saved === 'light' || saved === 'dark') return saved;
-  return getSystemPreference();
+function writeStoredTheme(value) {
+  try {
+    if (value === null) localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, value);
+  } catch {
+    // Storage unavailable (private mode etc.) - the choice just won't survive a reload
+  }
+}
+
+function subscribeSystemDark(callback) {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia(DARK_QUERY);
+  mq.addEventListener('change', callback);
+  return () => mq.removeEventListener('change', callback);
+}
+
+function getSystemDark() {
+  return typeof window !== 'undefined' && !!window.matchMedia?.(DARK_QUERY).matches;
 }
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(getInitialTheme);
+  // Explicit user choice ('light' | 'dark'), or null to follow the OS setting.
+  // Only written to storage when the user actually picks something.
+  const [preference, setPreference] = useState(readStoredTheme);
+  const systemDark = useSyncExternalStore(subscribeSystemDark, getSystemDark, () => false);
+  const einkMode = useEinkSnapshot();
 
-  // Apply class to <html> and persist
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  const theme = preference ?? (systemDark ? 'dark' : 'light');
+  // E-reader mode always renders the light, high-contrast palette.
+  const isDark = theme === 'dark' && !einkMode;
 
-  // Track OS preference changes only when user hasn't set an explicit choice yet
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e) => {
-      // Only follow OS if no explicit preference saved
-      if (localStorage.getItem('theme') === null) {
-        setThemeState(e.matches ? 'dark' : 'light');
-      }
-    };
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
+
+  // Accepts 'light' | 'dark', or 'system' / null to go back to following the OS.
+  const setTheme = useCallback((next) => {
+    const value = next === 'light' || next === 'dark' ? next : null;
+    writeStoredTheme(value);
+    setPreference(value);
   }, []);
 
-  const setTheme = useCallback((next) => setThemeState(next), []);
-  const toggle = useCallback(() => setThemeState((t) => (t === 'dark' ? 'light' : 'dark')), []);
+  const toggle = useCallback(() => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [setTheme, theme]);
+
+  const value = useMemo(() => ({
+    theme,
+    preference: preference ?? 'system',
+    setTheme,
+    toggle,
+    isDark,
+    // True when dark mode is chosen but suppressed by e-reader mode
+    isDarkSuppressed: theme === 'dark' && einkMode,
+  }), [theme, preference, setTheme, toggle, isDark, einkMode]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggle, isDark: theme === 'dark' }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
