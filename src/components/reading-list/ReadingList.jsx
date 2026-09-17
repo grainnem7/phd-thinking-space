@@ -170,10 +170,10 @@ export default function ReadingList({ initialPaperId = null, onOpenNote }) {
   const handleBulkDelete = async () => {
     const count = selectedPapers.length;
     const ok = await confirm({
-      title: `Delete ${count} ${count === 1 ? 'paper' : 'papers'}?`,
-      body: 'Attached files will also be removed from storage. This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
+      title: `Move ${count} ${count === 1 ? 'paper' : 'papers'} to Trash?`,
+      body: `You can restore ${count === 1 ? 'it' : 'them'} from Trash for 30 days. Attached files are kept until ${count === 1 ? 'it is' : 'they are'} deleted forever.`,
+      confirmLabel: 'Move to Trash',
+      danger: false,
     });
     if (!ok) return;
     await runBulk(

@@ -44,6 +44,7 @@ import Modal from '../components/common/Modal';
 import CommandPalette from '../components/common/CommandPalette';
 import { useTheme } from '../contexts/ThemeContext';
 import { defaultBoardColumns } from '../lib/defaults';
+import { subtreeIds } from '../lib/sectionTree';
 
 export default function Dashboard() {
   const { sections, loading, error: sectionsError, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
@@ -229,14 +230,14 @@ export default function Dashboard() {
   };
 
   const confirmDeleteSection = async (item) => {
-    const childCount = sections.filter(s => s.parentId === item.id).length;
+    const childCount = subtreeIds(sections, item.id).length - 1;
     return confirm({
-      title: `Delete "${item.name}"?`,
-      body: childCount > 0
-        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
-        : 'This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
+      title: `Move "${item.name}" to Trash?`,
+      body: `${childCount > 0
+        ? `The ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it will move to Trash too. `
+        : ''}You can restore ${childCount > 0 ? 'them' : 'it'} from Trash for 30 days.`,
+      confirmLabel: 'Move to Trash',
+      danger: false,
     });
   };
 
@@ -467,7 +468,7 @@ export default function Dashboard() {
                 }}
                 className="relative p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-left hover:border-neutral-300 dark:hover:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors cursor-pointer group"
               >
-                <div className="flex items-center gap-3 pr-16">
+                <div className="flex items-center gap-3 pr-24">
                   {child.type === 'note' && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   {child.type === 'board' && <Kanban size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   {child.type === 'folder' && <Folder size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
@@ -486,9 +487,18 @@ export default function Dashboard() {
                   </button>
                   <button
                     type="button"
+                    onClick={(e) => { e.stopPropagation(); setMoveTarget(child); }}
+                    aria-label={`Move ${child.name}`}
+                    title="Move to…"
+                    className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
+                  >
+                    <FolderInput size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={(e) => handleChildDelete(e, child)}
-                    aria-label={`Delete ${child.name}`}
-                    title="Delete"
+                    aria-label={`Move ${child.name} to Trash`}
+                    title="Move to Trash"
                     className="p-1.5 text-neutral-400 hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 dark:focus-visible:ring-rose-800"
                   >
                     <Trash2 size={14} aria-hidden="true" />
