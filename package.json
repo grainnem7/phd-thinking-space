@@ -20,7 +20,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@mantine/core": "^8.3.11",
     "@react-pdf/renderer": "^4.3.2",
-    "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "docx": "^9.5.1",
@@ -29,13 +28,9 @@
     "lucide-react": "^0.562.0",
     "pdfjs-dist": "5.4.296",
     "react": "^19.2.0",
-    "react-dnd": "^16.0.1",
-    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.2.0",
-    "react-grid-layout": "^2.2.2",
     "react-pdf": "^10.4.1",
     "react-router-dom": "^7.11.0",
-    "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {

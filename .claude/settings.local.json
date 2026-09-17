@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -v \".toISOString\\\\|getTime\\\\|Date.now\\\\|toDate\\\\|//\")",
-      "Bash(npm run *)"
-    ]
-  }
-}

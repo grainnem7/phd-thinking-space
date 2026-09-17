@@ -27,3 +27,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Firebase CLI cache
+.firebase/
+
+# Local Claude Code settings
+.claude/settings.local.json
