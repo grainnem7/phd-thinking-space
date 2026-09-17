@@ -9,6 +9,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFirestore } from '../../hooks/useFirestore';
 import { createId } from '../../hooks/useReadingList';
 import { useConfirm } from '../common/ConfirmDialog';
+import TagInput from '../tags/TagInput';
+import { useTagSuggestions } from '../../hooks/useTags';
 
 const STATUS_OPTIONS = [
   { id: 'to-read', label: 'To Read' },
@@ -313,6 +315,7 @@ export default function PaperDetail({
 }) {
   const confirm = useConfirm();
   const { sections } = useFirestore();
+  const tagSuggestions = useTagSuggestions();
   const tabs = paper.tabs?.length ? paper.tabs : FALLBACK_TABS;
 
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
@@ -521,14 +524,14 @@ export default function PaperDetail({
   const deleteControls = (compact) => (
     showDeleteConfirm ? (
       <div className={compact ? 'flex items-center gap-3' : 'space-y-3'}>
-        {!compact && <p className="text-sm text-neutral-600 dark:text-neutral-300">Delete this paper?</p>}
+        {!compact && <p className="text-sm text-neutral-600 dark:text-neutral-300">Move this paper to Trash? You can restore it from there.</p>}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onDelete}
             className="text-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 transition-colors"
           >
-            {compact ? 'Confirm delete' : 'Delete'}
+            Move to Trash
           </button>
           <button
             type="button"
@@ -544,10 +547,11 @@ export default function PaperDetail({
         type="button"
         onClick={() => setShowDeleteConfirm(true)}
         className="text-sm text-neutral-400 hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400 transition-colors flex items-center gap-1.5"
-        aria-label="Delete paper"
+        aria-label="Move paper to Trash"
+        title="Move to Trash"
       >
         <Trash2 size={14} aria-hidden="true" />
-        <span className={compact ? 'sr-only' : ''}>Delete paper</span>
+        <span className={compact ? 'sr-only' : ''}>Move to Trash</span>
       </button>
     )
   );
@@ -662,10 +666,18 @@ export default function PaperDetail({
               </h1>
 
               {(paper.authors || paper.year) && (
-                <p className="text-base sm:text-lg text-neutral-500 dark:text-neutral-400 mb-8 break-words">
+                <p className="text-base sm:text-lg text-neutral-500 dark:text-neutral-400 mb-3 break-words">
                   {paper.authors}{paper.authors && paper.year && ' · '}{paper.year}
                 </p>
               )}
+
+              <TagInput
+                tags={paper.tags}
+                onChange={(tags) => update({ tags })}
+                suggestions={tagSuggestions}
+                label="Paper tags"
+                className="mb-8"
+              />
 
               <FileSection paper={paper} onUpdate={onUpdate} onOpenViewer={() => setViewerOpen(true)} />
 

@@ -8,6 +8,8 @@ import { useReadingList } from '../../hooks/useReadingList';
 import { generateInTextCitation } from '../../utils/paperMetadata';
 import Modal from '../common/Modal';
 import { contentToText, countWords } from '../../lib/noteText';
+import TagInput from '../tags/TagInput';
+import { useTagSuggestions } from '../../hooks/useTags';
 
 function noteStats(content) {
   const text = contentToText(content).trim();
@@ -18,6 +20,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
   const confirm = useConfirm();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const { papers } = useReadingList();
+  const tagSuggestions = useTagSuggestions();
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [titleDraft, setTitleDraft] = useState(note?.name || '');
@@ -145,8 +148,8 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     if (!note || !onDelete) return;
     const ok = await confirm({
       title: `Delete "${note.name}"?`,
-      body: 'This cannot be undone.',
-      confirmLabel: 'Delete',
+      body: 'The note will move to Trash, where you can restore it.',
+      confirmLabel: 'Move to Trash',
       danger: true,
     });
     if (ok) onDelete(note.id);
@@ -298,6 +301,13 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
             placeholder="Untitled"
             aria-label="Note title"
             className="w-full font-serif text-3xl sm:text-4xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight bg-transparent focus:outline-none placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
+          />
+          <TagInput
+            tags={note.tags}
+            onChange={(tags) => updateSection?.(note.id, { tags })}
+            suggestions={tagSuggestions}
+            label="Note tags"
+            className="mt-3"
           />
         </div>
         <div className="max-w-3xl mx-auto px-5 sm:px-10 pb-10">
