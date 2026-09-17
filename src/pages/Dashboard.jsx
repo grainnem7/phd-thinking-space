@@ -277,7 +277,13 @@ export default function Dashboard() {
 
     // Reading List special view
     if (selectedItem.type === 'reading-list') {
-      return <ReadingList key={navParams.paperId || 'reading-list'} initialPaperId={navParams.paperId} />;
+      return (
+        <ReadingList
+          key={navParams.paperId || 'reading-list'}
+          initialPaperId={navParams.paperId}
+          onOpenNote={(id) => handleSelect({ id })}
+        />
+      );
     }
 
     if (selectedItem.type === 'calendar') {
