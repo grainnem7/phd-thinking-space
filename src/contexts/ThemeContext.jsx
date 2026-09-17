@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useEinkSnapshot } from './EinkContext';
+// Also loads the appearance store, which applies scheme/accent/font attributes
+import { startAppearanceSync } from '../lib/appearanceSync';
 
 const ThemeContext = createContext(null);
 
@@ -49,6 +51,11 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
+
+  // Colour scheme, accent, fonts and text size sync with the signed-in account
+  // (users/{uid}/settings/appearance). Listens to Firebase auth directly because
+  // this provider sits outside AuthProvider; demo mode has no Firebase user.
+  useEffect(() => startAppearanceSync(), []);
 
   // Accepts 'light' | 'dark', or 'system' / null to go back to following the OS.
   const setTheme = useCallback((next) => {

@@ -198,7 +198,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
         {selection && onAddQuote && (
           <button
             onClick={handleAddQuote}
-            className="absolute z-10 flex items-center gap-1.5 px-3 py-1.5 text-sm bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg shadow-lg hover:opacity-90 transition-opacity"
+            className="absolute z-10 flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent text-accent-fg rounded-lg shadow-lg hover:bg-accent-hover transition-opacity"
             style={{ top: `${selection.top}px`, left: `${selection.left}px` }}
           >
             <Quote size={14} />

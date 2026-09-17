@@ -1,5 +1,5 @@
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addDays } from 'date-fns';
-import { ChevronRight, Plus, CheckSquare } from 'lucide-react';
+import { ChevronRight, Plus, CheckSquare, Repeat } from 'lucide-react';
 import { toDateKey } from '../../utils/date';
 import { styleFor } from './calendarEntries';
 
@@ -73,7 +73,7 @@ export default function CalendarWidget({ entriesByDate, todoMap, onOpenCalendar 
                   className="relative mx-auto w-8 h-8 flex items-center justify-center rounded-full text-sm tabular-nums hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   <span className={isToday
-                    ? 'w-7 h-7 flex items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium'
+                    ? 'w-7 h-7 flex items-center justify-center rounded-full bg-accent text-accent-fg font-medium'
                     : inMonth ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-300 dark:text-neutral-600'}
                   >
                     {day.getDate()}
@@ -122,10 +122,11 @@ export default function CalendarWidget({ entriesByDate, todoMap, onOpenCalendar 
                             <span key={e.id} className="flex items-center gap-2 text-sm min-w-0">
                               <span
                                 className={`w-2 h-2 rounded-full flex-shrink-0 ${styleFor(e).dot}`}
-                                style={e.source === 'google' ? { backgroundColor: e.colorHex } : undefined}
+                                style={e.source === 'google' ? { backgroundColor: e.colorHex } : styleFor(e).vars}
                               />
                               <span className="w-14 flex-shrink-0 whitespace-nowrap tabular-nums text-neutral-400">{e.allDay ? 'All day' : e.startTime}</span>
                               <span className={`truncate text-neutral-700 dark:text-neutral-300 ${e.done ? 'line-through text-neutral-400' : ''}`}>{e.title}</span>
+                              {e.seriesId && <Repeat size={12} className="flex-shrink-0 text-neutral-400" aria-label="Repeats" />}
                             </span>
                           ))}
                           {entries.length > MAX_PER_DAY && (

@@ -182,11 +182,22 @@ export default function DeadlinesWidget({ deadlines = [], onAddDeadline, onUpdat
               return (
                 <div key={d.id} className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between group">
                   <div className="flex-1 min-w-0 mr-3">
-                    <p className="text-base sm:text-lg text-neutral-900 dark:text-neutral-100 truncate">{d.title}</p>
-                    <p className={`text-sm sm:text-base mt-1 ${info.subtitleClass}`}>{info.subtitle}</p>
+                    <p className="text-base sm:text-lg text-neutral-900 dark:text-neutral-100 line-clamp-2">{d.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className={`text-sm sm:text-base ${info.subtitleClass}`}>{info.subtitle}</p>
+                      {/* Phones: actions sit under the title so it keeps the full width */}
+                      <div className="flex items-center gap-1 sm:hidden">
+                        <button type="button" onClick={() => handleStartEdit(d)} className={iconButton} aria-label={`Edit "${d.title}"`}>
+                          <Pencil size={14} aria-hidden="true" />
+                        </button>
+                        <button type="button" onClick={() => onDeleteDeadline?.(d.id)} className={dangerIconButton} aria-label={`Delete "${d.title}"`}>
+                          <Trash2 size={14} aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className={`flex items-center gap-1 ${revealOnHover}`}>
+                    <div className={`hidden sm:flex items-center gap-1 ${revealOnHover}`}>
                       <button
                         type="button"
                         onClick={() => handleStartEdit(d)}

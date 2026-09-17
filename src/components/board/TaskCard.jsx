@@ -3,6 +3,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { Calendar, MoreHorizontal, Trash2, Pencil } from 'lucide-react';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import { daysUntil, parseLocalDate } from '../../utils/date';
+import TagChip from '../tags/TagChip';
+import { cleanTags } from '../../lib/tags';
 
 const priorityColors = {
   low: 'bg-neutral-300 dark:bg-neutral-600',
@@ -33,8 +35,9 @@ function dueInfo(dateStr, done) {
 }
 
 // Card content without drag behaviour (also used for the drag overlay)
-export function TaskCardBody({ task, done = false, actions = null }) {
+export function TaskCardBody({ task, done = false, actions = null, interactive = true }) {
   const due = dueInfo(task.dueDate, done);
+  const tags = cleanTags(task.tags);
   const priority = priorityColors[task.priority] ? task.priority : 'medium';
 
   return (
@@ -58,18 +61,15 @@ export function TaskCardBody({ task, done = false, actions = null }) {
         <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1.5 sm:mt-2 line-clamp-2">{task.description}</p>
       )}
 
-      {task.tags?.length > 0 && (
-        <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3 flex-wrap">
-          {task.tags.slice(0, 2).map((tag) => (
-            <span
-              key={tag}
-              className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-neutral-100 dark:bg-neutral-800 rounded"
-            >
-              {tag}
-            </span>
+      {tags.length > 0 && (
+        <div className="flex items-center gap-1.5 mt-2 sm:mt-3 flex-wrap">
+          {tags.slice(0, 3).map((tag) => (
+            <TagChip key={tag} tag={tag} size="xs" navigable={interactive} />
           ))}
-          {task.tags.length > 2 && (
-            <span className="text-xs text-neutral-400 dark:text-neutral-500">+{task.tags.length - 2}</span>
+          {tags.length > 3 && (
+            <span className="text-xs text-neutral-400 dark:text-neutral-500" title={tags.slice(3).map((t) => `#${t}`).join(' ')}>
+              +{tags.length - 3}
+            </span>
           )}
         </div>
       )}
@@ -93,7 +93,7 @@ const CARD_CLASS = 'group bg-neutral-50 dark:bg-neutral-800/60 border border-neu
 export function TaskCardOverlay({ task, done }) {
   return (
     <div className={`${CARD_CLASS} cursor-grabbing shadow-lg dark:shadow-black/40 border-neutral-200 dark:border-neutral-700`}>
-      <TaskCardBody task={task} done={done} />
+      <TaskCardBody task={task} done={done} interactive={false} />
     </div>
   );
 }

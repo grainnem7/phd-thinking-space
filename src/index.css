@@ -10,55 +10,907 @@
   box-sizing: border-box;
 }
 
+/* ========================================
+   COLOUR SCHEMES
+   Tailwind's neutral-*, white and black read these RGB channels (see
+   tailwind.config.js), so every bg-white / text-neutral-500 / border-neutral-200
+   in the app follows the scheme. <html data-scheme="..."> picks the scheme;
+   html.dark adds per-scheme tweaks that keep secondary text readable
+   (WCAG AA for body text) on dark surfaces. Set before first paint by the
+   inline script in index.html and kept in sync by src/lib/appearance.js.
+   ======================================== */
+
+/* Classic — the original neutral grey (Tailwind neutral) */
+:root,
+html[data-scheme="classic"] {
+  --neutral-white: 255 255 255;
+  --neutral-black: 0 0 0;
+  --neutral-50: 250 250 250;
+  --neutral-100: 245 245 245;
+  --neutral-200: 229 229 229;
+  --neutral-300: 212 212 212;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
+  --neutral-600: 82 82 82;
+  --neutral-700: 64 64 64;
+  --neutral-800: 38 38 38;
+  --neutral-900: 23 23 23;
+  --neutral-950: 10 10 10;
+  /* BlockNote's own dark editor surface in Classic */
+  --editor-dark-bg: 31 31 31;
+}
+
+/* Paper — warm cream and stone, like a good notebook */
+html[data-scheme="paper"] {
+  --neutral-white: 255 253 248;
+  --neutral-black: 18 14 10;
+  --neutral-50: 250 247 240;
+  --neutral-100: 243 239 230;
+  --neutral-200: 230 224 212;
+  --neutral-300: 213 205 191;
+  --neutral-400: 166 157 143;
+  --neutral-500: 113 104 89;
+  --neutral-600: 85 77 66;
+  --neutral-700: 66 59 51;
+  --neutral-800: 43 38 33;
+  --neutral-900: 30 27 23;
+  --neutral-950: 18 16 13;
+  --editor-dark-bg: 30 27 23;
+}
+html.dark[data-scheme="paper"] {
+  --neutral-400: 177 168 153;
+  --neutral-500: 128 119 106;
+}
+
+/* Sage — soft green-grey */
+html[data-scheme="sage"] {
+  --neutral-white: 253 254 252;
+  --neutral-black: 8 12 8;
+  --neutral-50: 246 248 244;
+  --neutral-100: 238 242 236;
+  --neutral-200: 221 228 217;
+  --neutral-300: 198 208 194;
+  --neutral-400: 152 164 148;
+  --neutral-500: 102 114 99;
+  --neutral-600: 76 86 73;
+  --neutral-700: 58 67 56;
+  --neutral-800: 37 43 35;
+  --neutral-900: 24 29 23;
+  --neutral-950: 13 17 12;
+  --editor-dark-bg: 24 29 23;
+}
+html.dark[data-scheme="sage"] {
+  --neutral-400: 163 174 159;
+  --neutral-500: 115 127 112;
+}
+
+/* Slate — cool blue-grey */
+html[data-scheme="slate"] {
+  --neutral-white: 255 255 255;
+  --neutral-black: 6 8 12;
+  --neutral-50: 248 249 251;
+  --neutral-100: 241 243 246;
+  --neutral-200: 226 230 235;
+  --neutral-300: 205 211 219;
+  --neutral-400: 153 162 174;
+  --neutral-500: 102 112 128;
+  --neutral-600: 74 83 97;
+  --neutral-700: 56 64 76;
+  --neutral-800: 35 41 50;
+  --neutral-900: 23 27 34;
+  --neutral-950: 12 15 20;
+  --editor-dark-bg: 23 27 34;
+}
+html.dark[data-scheme="slate"] {
+  --neutral-400: 163 172 184;
+  --neutral-500: 115 125 140;
+}
+
+/* Midnight — crisp and cool in light, deep navy in dark */
+html[data-scheme="midnight"] {
+  --neutral-white: 255 255 255;
+  --neutral-black: 4 8 20;
+  --neutral-50: 246 248 252;
+  --neutral-100: 237 241 248;
+  --neutral-200: 220 227 238;
+  --neutral-300: 195 205 221;
+  --neutral-400: 142 154 176;
+  --neutral-500: 91 104 130;
+  --neutral-600: 67 79 103;
+  --neutral-700: 50 61 84;
+  --neutral-800: 29 38 64;
+  --neutral-900: 19 27 49;
+  --neutral-950: 10 16 36;
+  --editor-dark-bg: 19 27 49;
+}
+html.dark[data-scheme="midnight"] {
+  --neutral-400: 155 166 187;
+  --neutral-500: 107 120 148;
+}
+
+/* Ocean — sea-glass with teal */
+html[data-scheme="ocean"] {
+  --neutral-50: 244 249 249;
+  --neutral-100: 235 243 243;
+  --neutral-200: 216 229 229;
+  --neutral-300: 192 210 210;
+  --neutral-400: 143 164 165;
+  --neutral-500: 94 114 116;
+  --neutral-600: 69 87 89;
+  --neutral-700: 52 67 69;
+  --neutral-800: 33 44 46;
+  --neutral-900: 21 30 32;
+  --neutral-950: 11 18 20;
+  --neutral-white: 252 255 255;
+  --neutral-black: 4 10 12;
+  --editor-dark-bg: 21 30 32;
+}
+html.dark[data-scheme="ocean"] {
+  --neutral-400: 155 176 177;
+  --neutral-500: 108 128 130;
+}
+
+/* Blush — warm pink with rose */
+html[data-scheme="blush"] {
+  --neutral-50: 250 245 245;
+  --neutral-100: 244 236 237;
+  --neutral-200: 232 220 222;
+  --neutral-300: 214 198 201;
+  --neutral-400: 168 150 154;
+  --neutral-500: 117 99 104;
+  --neutral-600: 88 73 77;
+  --neutral-700: 68 56 60;
+  --neutral-800: 44 35 38;
+  --neutral-900: 30 23 26;
+  --neutral-950: 18 13 15;
+  --neutral-white: 255 252 252;
+  --neutral-black: 14 8 10;
+  --editor-dark-bg: 30 23 26;
+}
+html.dark[data-scheme="blush"] {
+  --neutral-400: 180 162 166;
+  --neutral-500: 131 113 118;
+}
+
+/* Lavender — soft lilac with violet */
+html[data-scheme="lavender"] {
+  --neutral-50: 247 246 251;
+  --neutral-100: 239 237 247;
+  --neutral-200: 224 221 236;
+  --neutral-300: 202 198 219;
+  --neutral-400: 156 151 176;
+  --neutral-500: 106 101 128;
+  --neutral-600: 79 75 99;
+  --neutral-700: 61 57 78;
+  --neutral-800: 39 36 52;
+  --neutral-900: 26 23 37;
+  --neutral-950: 15 13 24;
+  --neutral-white: 253 252 255;
+  --neutral-black: 8 6 16;
+  --editor-dark-bg: 26 23 37;
+}
+html.dark[data-scheme="lavender"] {
+  --neutral-400: 168 163 188;
+  --neutral-500: 120 115 142;
+}
+
+/* ========================================
+   SOFTNESS
+   <html data-background="crisp|soft|softer|softest">, a range within each
+   scheme. Light mode tints white surfaces and the page towards the scheme's
+   own colour (nudging grey text darker to keep contrast); dark mode lifts
+   near-black to charcoal in the scheme's hue and dims bright text slightly.
+   Crisp uses the scheme's shades unchanged.
+   Generated from the scheme shades above — regenerate if those change.
+   ======================================== */
+
+html[data-scheme="classic"][data-background="soft"] {
+  --neutral-50: 245 245 245;
+  --neutral-100: 239 239 239;
+  --neutral-200: 229 229 229;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
+  --neutral-white: 250 250 250;
+}
+html.dark[data-scheme="classic"][data-background="soft"] {
+  --neutral-50: 239 239 239;
+  --neutral-100: 235 235 235;
+  --neutral-200: 222 222 222;
+  --neutral-400: 168 168 168;
+  --neutral-500: 122 122 122;
+  --neutral-700: 66 66 66;
+  --neutral-800: 45 45 45;
+  --neutral-900: 31 31 31;
+  --neutral-950: 18 18 18;
+  --neutral-white: 247 247 247;
+  --editor-dark-bg: 31 31 31;
+}
+
+html[data-scheme="classic"][data-background="softer"] {
+  --neutral-50: 237 237 237;
+  --neutral-100: 234 234 234;
+  --neutral-200: 226 226 226;
+  --neutral-400: 155 155 155;
+  --neutral-500: 110 110 110;
+  --neutral-white: 245 245 245;
+}
+html.dark[data-scheme="classic"][data-background="softer"] {
+  --neutral-50: 233 233 233;
+  --neutral-100: 230 230 230;
+  --neutral-200: 216 216 216;
+  --neutral-400: 173 173 173;
+  --neutral-500: 129 129 129;
+  --neutral-700: 69 69 69;
+  --neutral-800: 53 53 53;
+  --neutral-900: 41 41 41;
+  --neutral-950: 29 29 29;
+  --neutral-white: 243 243 243;
+  --editor-dark-bg: 41 41 41;
+}
+
+html[data-scheme="classic"][data-background="softest"] {
+  --neutral-50: 233 233 233;
+  --neutral-100: 231 231 231;
+  --neutral-200: 224 224 224;
+  --neutral-400: 147 147 147;
+  --neutral-500: 105 105 105;
+  --neutral-white: 241 241 241;
+}
+html.dark[data-scheme="classic"][data-background="softest"] {
+  --neutral-50: 229 229 229;
+  --neutral-100: 227 227 227;
+  --neutral-200: 209 209 209;
+  --neutral-400: 178 178 178;
+  --neutral-500: 137 137 137;
+  --neutral-700: 71 71 71;
+  --neutral-800: 60 60 60;
+  --neutral-900: 50 50 50;
+  --neutral-950: 37 37 37;
+  --neutral-white: 241 241 241;
+  --editor-dark-bg: 50 50 50;
+}
+
+html[data-scheme="paper"][data-background="soft"] {
+  --neutral-50: 245 241 233;
+  --neutral-100: 238 234 224;
+  --neutral-200: 230 224 212;
+  --neutral-400: 166 157 143;
+  --neutral-500: 113 104 89;
+  --neutral-white: 250 247 241;
+}
+html.dark[data-scheme="paper"][data-background="soft"] {
+  --neutral-50: 239 234 225;
+  --neutral-100: 234 229 218;
+  --neutral-200: 225 218 206;
+  --neutral-400: 181 172 157;
+  --neutral-500: 135 126 113;
+  --neutral-700: 68 61 53;
+  --neutral-800: 49 44 38;
+  --neutral-900: 37 33 29;
+  --neutral-950: 25 22 19;
+  --neutral-white: 248 244 237;
+  --editor-dark-bg: 37 33 29;
+}
+
+html[data-scheme="paper"][data-background="softer"] {
+  --neutral-50: 238 233 223;
+  --neutral-100: 234 229 217;
+  --neutral-200: 227 221 209;
+  --neutral-400: 158 149 135;
+  --neutral-500: 109 100 86;
+  --neutral-white: 245 241 234;
+}
+html.dark[data-scheme="paper"][data-background="softer"] {
+  --neutral-50: 233 228 218;
+  --neutral-100: 230 224 212;
+  --neutral-200: 219 213 200;
+  --neutral-400: 184 175 161;
+  --neutral-500: 143 134 120;
+  --neutral-700: 71 64 55;
+  --neutral-800: 58 52 45;
+  --neutral-900: 46 41 36;
+  --neutral-950: 35 31 26;
+  --neutral-white: 244 240 232;
+  --editor-dark-bg: 46 41 36;
+}
+
+html[data-scheme="paper"][data-background="softest"] {
+  --neutral-50: 234 229 218;
+  --neutral-100: 232 226 215;
+  --neutral-200: 225 218 206;
+  --neutral-400: 150 141 128;
+  --neutral-500: 105 96 82;
+  --neutral-white: 241 237 228;
+}
+html.dark[data-scheme="paper"][data-background="softest"] {
+  --neutral-50: 230 224 213;
+  --neutral-100: 227 220 209;
+  --neutral-200: 214 207 194;
+  --neutral-400: 188 179 164;
+  --neutral-500: 150 141 127;
+  --neutral-700: 74 66 57;
+  --neutral-800: 64 58 50;
+  --neutral-900: 53 48 41;
+  --neutral-950: 42 38 32;
+  --neutral-white: 241 237 228;
+  --editor-dark-bg: 53 48 41;
+}
+
+html[data-scheme="sage"][data-background="soft"] {
+  --neutral-50: 240 243 237;
+  --neutral-100: 232 237 229;
+  --neutral-200: 221 228 217;
+  --neutral-400: 152 164 148;
+  --neutral-500: 102 114 99;
+  --neutral-white: 247 249 245;
+}
+html.dark[data-scheme="sage"][data-background="soft"] {
+  --neutral-50: 232 236 229;
+  --neutral-100: 226 232 223;
+  --neutral-200: 215 223 211;
+  --neutral-400: 167 177 163;
+  --neutral-500: 122 134 119;
+  --neutral-700: 60 69 58;
+  --neutral-800: 43 49 41;
+  --neutral-900: 31 37 30;
+  --neutral-950: 20 25 19;
+  --neutral-white: 243 246 242;
+  --editor-dark-bg: 31 37 30;
+}
+
+html[data-scheme="sage"][data-background="softer"] {
+  --neutral-50: 231 236 228;
+  --neutral-100: 226 232 223;
+  --neutral-200: 218 225 214;
+  --neutral-400: 144 156 141;
+  --neutral-500: 98 110 95;
+  --neutral-white: 240 244 238;
+}
+html.dark[data-scheme="sage"][data-background="softer"] {
+  --neutral-50: 224 230 222;
+  --neutral-100: 220 227 217;
+  --neutral-200: 209 217 205;
+  --neutral-400: 170 181 166;
+  --neutral-500: 129 141 126;
+  --neutral-700: 63 72 60;
+  --neutral-800: 51 58 48;
+  --neutral-900: 39 46 38;
+  --neutral-950: 29 35 27;
+  --neutral-white: 239 242 236;
+  --editor-dark-bg: 39 46 38;
+}
+
+html[data-scheme="sage"][data-background="softest"] {
+  --neutral-50: 226 232 222;
+  --neutral-100: 224 230 220;
+  --neutral-200: 214 222 210;
+  --neutral-400: 137 148 133;
+  --neutral-500: 94 106 91;
+  --neutral-white: 235 240 233;
+}
+html.dark[data-scheme="sage"][data-background="softest"] {
+  --neutral-50: 220 226 217;
+  --neutral-100: 216 223 213;
+  --neutral-200: 204 212 200;
+  --neutral-400: 174 184 170;
+  --neutral-500: 137 148 133;
+  --neutral-700: 65 75 63;
+  --neutral-800: 57 65 54;
+  --neutral-900: 46 54 44;
+  --neutral-950: 36 42 34;
+  --neutral-white: 235 240 233;
+  --editor-dark-bg: 46 54 44;
+}
+
+html[data-scheme="slate"][data-background="soft"] {
+  --neutral-50: 243 244 247;
+  --neutral-100: 236 238 242;
+  --neutral-200: 226 230 235;
+  --neutral-400: 153 162 174;
+  --neutral-500: 102 112 128;
+  --neutral-white: 249 250 251;
+}
+html.dark[data-scheme="slate"][data-background="soft"] {
+  --neutral-50: 235 238 241;
+  --neutral-100: 230 233 238;
+  --neutral-200: 220 224 230;
+  --neutral-400: 167 176 188;
+  --neutral-500: 122 132 147;
+  --neutral-700: 58 66 78;
+  --neutral-800: 41 47 57;
+  --neutral-900: 30 34 42;
+  --neutral-950: 19 22 28;
+  --neutral-white: 246 248 249;
+  --editor-dark-bg: 30 34 42;
+}
+
+html[data-scheme="slate"][data-background="softer"] {
+  --neutral-50: 235 238 241;
+  --neutral-100: 231 234 238;
+  --neutral-200: 223 227 233;
+  --neutral-400: 145 154 166;
+  --neutral-500: 98 108 123;
+  --neutral-white: 243 245 247;
+}
+html.dark[data-scheme="slate"][data-background="softer"] {
+  --neutral-50: 229 232 237;
+  --neutral-100: 225 229 234;
+  --neutral-200: 213 218 225;
+  --neutral-400: 171 180 191;
+  --neutral-500: 129 139 153;
+  --neutral-700: 61 69 81;
+  --neutral-800: 49 56 66;
+  --neutral-900: 38 44 53;
+  --neutral-950: 27 32 40;
+  --neutral-white: 242 244 246;
+  --editor-dark-bg: 38 44 53;
+}
+
+html[data-scheme="slate"][data-background="softest"] {
+  --neutral-50: 230 234 238;
+  --neutral-100: 228 232 237;
+  --neutral-200: 220 224 230;
+  --neutral-400: 137 146 159;
+  --neutral-500: 94 103 119;
+  --neutral-white: 239 241 244;
+}
+html.dark[data-scheme="slate"][data-background="softest"] {
+  --neutral-50: 224 228 233;
+  --neutral-100: 221 225 231;
+  --neutral-200: 207 213 220;
+  --neutral-400: 176 184 195;
+  --neutral-500: 137 146 160;
+  --neutral-700: 63 72 84;
+  --neutral-800: 55 62 74;
+  --neutral-900: 44 51 61;
+  --neutral-950: 34 40 48;
+  --neutral-white: 239 241 244;
+  --editor-dark-bg: 44 51 61;
+}
+
+html[data-scheme="midnight"][data-background="soft"] {
+  --neutral-50: 240 243 249;
+  --neutral-100: 231 236 245;
+  --neutral-200: 220 227 238;
+  --neutral-400: 142 154 176;
+  --neutral-500: 91 104 130;
+  --neutral-white: 248 249 252;
+}
+html.dark[data-scheme="midnight"][data-background="soft"] {
+  --neutral-50: 231 235 243;
+  --neutral-100: 224 230 240;
+  --neutral-200: 214 221 233;
+  --neutral-400: 159 170 190;
+  --neutral-500: 114 127 154;
+  --neutral-700: 52 63 86;
+  --neutral-800: 35 44 70;
+  --neutral-900: 25 34 56;
+  --neutral-950: 16 23 43;
+  --neutral-white: 245 247 250;
+  --editor-dark-bg: 25 34 56;
+}
+
+html[data-scheme="midnight"][data-background="softer"] {
+  --neutral-50: 230 235 244;
+  --neutral-100: 225 231 241;
+  --neutral-200: 216 224 235;
+  --neutral-400: 135 147 169;
+  --neutral-500: 87 100 126;
+  --neutral-white: 241 244 248;
+}
+html.dark[data-scheme="midnight"][data-background="softer"] {
+  --neutral-50: 223 229 238;
+  --neutral-100: 218 225 236;
+  --neutral-200: 207 215 228;
+  --neutral-400: 163 174 194;
+  --neutral-500: 121 134 160;
+  --neutral-700: 54 66 89;
+  --neutral-800: 42 52 78;
+  --neutral-900: 33 42 65;
+  --neutral-950: 24 32 53;
+  --neutral-white: 239 242 247;
+  --editor-dark-bg: 33 42 65;
+}
+
+html[data-scheme="midnight"][data-background="softest"] {
+  --neutral-50: 225 231 241;
+  --neutral-100: 223 229 240;
+  --neutral-200: 213 220 233;
+  --neutral-400: 127 139 161;
+  --neutral-500: 84 97 122;
+  --neutral-white: 236 240 246;
+}
+html.dark[data-scheme="midnight"][data-background="softest"] {
+  --neutral-50: 218 224 235;
+  --neutral-100: 214 221 233;
+  --neutral-200: 201 209 223;
+  --neutral-400: 167 178 197;
+  --neutral-500: 129 141 166;
+  --neutral-700: 57 68 92;
+  --neutral-800: 48 59 84;
+  --neutral-900: 39 49 72;
+  --neutral-950: 30 39 60;
+  --neutral-white: 236 240 246;
+  --editor-dark-bg: 39 49 72;
+}
+
+html[data-scheme="ocean"][data-background="soft"] {
+  --neutral-50: 237 244 244;
+  --neutral-100: 228 238 238;
+  --neutral-200: 216 229 229;
+  --neutral-400: 143 164 165;
+  --neutral-500: 94 114 116;
+  --neutral-white: 245 250 250;
+}
+html.dark[data-scheme="ocean"][data-background="soft"] {
+  --neutral-50: 228 237 237;
+  --neutral-100: 222 233 233;
+  --neutral-200: 210 224 224;
+  --neutral-400: 159 179 180;
+  --neutral-500: 115 135 137;
+  --neutral-700: 54 69 71;
+  --neutral-800: 38 50 52;
+  --neutral-900: 27 37 39;
+  --neutral-950: 17 25 27;
+  --neutral-white: 241 247 247;
+  --editor-dark-bg: 27 37 39;
+}
+
+html[data-scheme="ocean"][data-background="softer"] {
+  --neutral-50: 227 237 237;
+  --neutral-100: 222 233 233;
+  --neutral-200: 212 226 226;
+  --neutral-400: 136 156 157;
+  --neutral-500: 90 110 112;
+  --neutral-white: 238 245 245;
+}
+html.dark[data-scheme="ocean"][data-background="softer"] {
+  --neutral-50: 221 231 231;
+  --neutral-100: 216 228 228;
+  --neutral-200: 204 218 219;
+  --neutral-400: 162 183 184;
+  --neutral-500: 122 142 144;
+  --neutral-700: 56 72 74;
+  --neutral-800: 46 59 61;
+  --neutral-900: 35 47 49;
+  --neutral-950: 25 35 37;
+  --neutral-white: 236 243 243;
+  --editor-dark-bg: 35 47 49;
+}
+
+html[data-scheme="ocean"][data-background="softest"] {
+  --neutral-50: 222 233 233;
+  --neutral-100: 219 231 231;
+  --neutral-200: 209 223 223;
+  --neutral-400: 128 149 150;
+  --neutral-500: 87 106 108;
+  --neutral-white: 232 241 241;
+}
+html.dark[data-scheme="ocean"][data-background="softest"] {
+  --neutral-50: 215 228 228;
+  --neutral-100: 211 225 225;
+  --neutral-200: 198 213 213;
+  --neutral-400: 166 186 187;
+  --neutral-500: 129 150 151;
+  --neutral-700: 59 75 77;
+  --neutral-800: 51 66 68;
+  --neutral-900: 41 54 56;
+  --neutral-950: 32 43 45;
+  --neutral-white: 232 241 241;
+  --editor-dark-bg: 41 54 56;
+}
+
+html[data-scheme="blush"][data-background="soft"] {
+  --neutral-50: 246 239 239;
+  --neutral-100: 240 230 232;
+  --neutral-200: 232 220 222;
+  --neutral-400: 168 150 154;
+  --neutral-500: 117 99 104;
+  --neutral-white: 250 246 246;
+}
+html.dark[data-scheme="blush"][data-background="soft"] {
+  --neutral-50: 239 231 232;
+  --neutral-100: 235 225 226;
+  --neutral-200: 227 214 216;
+  --neutral-400: 183 166 170;
+  --neutral-500: 138 120 125;
+  --neutral-700: 70 58 62;
+  --neutral-800: 51 41 44;
+  --neutral-900: 38 30 33;
+  --neutral-950: 26 19 22;
+  --neutral-white: 248 242 243;
+  --editor-dark-bg: 38 30 33;
+}
+
+html[data-scheme="blush"][data-background="softer"] {
+  --neutral-50: 239 230 231;
+  --neutral-100: 236 225 227;
+  --neutral-200: 229 217 219;
+  --neutral-400: 160 142 146;
+  --neutral-500: 113 95 100;
+  --neutral-white: 246 239 240;
+}
+html.dark[data-scheme="blush"][data-background="softer"] {
+  --neutral-50: 234 224 225;
+  --neutral-100: 231 219 221;
+  --neutral-200: 222 208 211;
+  --neutral-400: 187 169 173;
+  --neutral-500: 146 128 132;
+  --neutral-700: 73 60 64;
+  --neutral-800: 59 48 52;
+  --neutral-900: 47 38 41;
+  --neutral-950: 36 28 31;
+  --neutral-white: 245 238 239;
+  --editor-dark-bg: 47 38 41;
+}
+
+html[data-scheme="blush"][data-background="softest"] {
+  --neutral-50: 236 225 227;
+  --neutral-100: 234 222 224;
+  --neutral-200: 227 213 216;
+  --neutral-400: 152 135 139;
+  --neutral-500: 108 91 96;
+  --neutral-white: 242 234 236;
+}
+html.dark[data-scheme="blush"][data-background="softest"] {
+  --neutral-50: 230 219 221;
+  --neutral-100: 228 215 217;
+  --neutral-200: 216 203 205;
+  --neutral-400: 190 173 177;
+  --neutral-500: 153 135 140;
+  --neutral-700: 76 63 67;
+  --neutral-800: 66 54 58;
+  --neutral-900: 55 44 48;
+  --neutral-950: 43 35 38;
+  --neutral-white: 242 234 236;
+  --editor-dark-bg: 55 44 48;
+}
+
+html[data-scheme="lavender"][data-background="soft"] {
+  --neutral-50: 241 240 247;
+  --neutral-100: 234 231 243;
+  --neutral-200: 224 221 236;
+  --neutral-400: 156 151 176;
+  --neutral-500: 106 101 128;
+  --neutral-white: 247 246 251;
+}
+html.dark[data-scheme="lavender"][data-background="soft"] {
+  --neutral-50: 234 232 241;
+  --neutral-100: 228 225 239;
+  --neutral-200: 218 215 231;
+  --neutral-400: 171 167 191;
+  --neutral-500: 127 122 149;
+  --neutral-700: 63 59 80;
+  --neutral-800: 45 42 59;
+  --neutral-900: 33 30 45;
+  --neutral-950: 22 20 32;
+  --neutral-white: 244 243 249;
+  --editor-dark-bg: 33 30 45;
+}
+
+html[data-scheme="lavender"][data-background="softer"] {
+  --neutral-50: 233 231 242;
+  --neutral-100: 229 226 239;
+  --neutral-200: 221 218 233;
+  --neutral-400: 148 143 168;
+  --neutral-500: 102 97 124;
+  --neutral-white: 241 240 247;
+}
+html.dark[data-scheme="lavender"][data-background="softer"] {
+  --neutral-50: 227 224 237;
+  --neutral-100: 222 219 234;
+  --neutral-200: 213 209 226;
+  --neutral-400: 175 170 194;
+  --neutral-500: 134 129 156;
+  --neutral-700: 66 62 83;
+  --neutral-800: 53 50 68;
+  --neutral-900: 42 38 55;
+  --neutral-950: 31 28 43;
+  --neutral-white: 240 238 246;
+  --editor-dark-bg: 42 38 55;
+}
+
+html[data-scheme="lavender"][data-background="softest"] {
+  --neutral-50: 229 226 239;
+  --neutral-100: 226 223 238;
+  --neutral-200: 217 214 231;
+  --neutral-400: 141 136 161;
+  --neutral-500: 98 93 119;
+  --neutral-white: 237 235 245;
+}
+html.dark[data-scheme="lavender"][data-background="softest"] {
+  --neutral-50: 222 220 233;
+  --neutral-100: 219 216 232;
+  --neutral-200: 207 204 222;
+  --neutral-400: 178 174 197;
+  --neutral-500: 142 137 163;
+  --neutral-700: 68 64 86;
+  --neutral-800: 59 56 76;
+  --neutral-900: 49 45 64;
+  --neutral-950: 38 35 51;
+  --neutral-white: 237 235 245;
+  --editor-dark-bg: 49 45 64;
+}
+
+/* ========================================
+   ACCENT COLOUR
+   Scale: --accent-50 … --accent-950 (bg-accent-100, text-accent-700, …)
+   Semantic tokens adapt to light/dark on their own:
+     --accent-solid / --accent-solid-hover / --accent-on-solid  → bg-accent, hover:bg-accent-hover, text-accent-fg
+     --accent-ink   → text-accent-ink (accent text/icons on normal surfaces)
+     --accent-soft  → bg-accent-soft (selected / active item tint)
+     --accent-ring  → ring-accent-ring (focus rings)
+   ======================================== */
+
+/* Graphite (default) follows the scheme's own near-black / near-white */
+:root,
+html[data-accent="graphite"] {
+  --accent-50: var(--neutral-50);
+  --accent-100: var(--neutral-100);
+  --accent-200: var(--neutral-200);
+  --accent-300: var(--neutral-300);
+  --accent-400: var(--neutral-400);
+  --accent-500: var(--neutral-500);
+  --accent-600: var(--neutral-600);
+  --accent-700: var(--neutral-700);
+  --accent-800: var(--neutral-800);
+  --accent-900: var(--neutral-900);
+  --accent-950: var(--neutral-950);
+}
+html[data-accent="indigo"] { --accent-50: 238 242 255; --accent-100: 224 231 255; --accent-200: 199 210 254; --accent-300: 165 180 252; --accent-400: 129 140 248; --accent-500: 99 102 241; --accent-600: 79 70 229; --accent-700: 67 56 202; --accent-800: 55 48 163; --accent-900: 49 46 129; --accent-950: 30 27 75; }
+html[data-accent="blue"] { --accent-50: 239 246 255; --accent-100: 219 234 254; --accent-200: 191 219 254; --accent-300: 147 197 253; --accent-400: 96 165 250; --accent-500: 59 130 246; --accent-600: 37 99 235; --accent-700: 29 78 216; --accent-800: 30 64 175; --accent-900: 30 58 138; --accent-950: 23 37 84; }
+html[data-accent="teal"] { --accent-50: 240 253 250; --accent-100: 204 251 241; --accent-200: 153 246 228; --accent-300: 94 234 212; --accent-400: 45 212 191; --accent-500: 20 184 166; --accent-600: 13 148 136; --accent-700: 15 118 110; --accent-800: 17 94 89; --accent-900: 19 78 74; --accent-950: 4 47 46; }
+html[data-accent="green"] { --accent-50: 240 253 244; --accent-100: 220 252 231; --accent-200: 187 247 208; --accent-300: 134 239 172; --accent-400: 74 222 128; --accent-500: 34 197 94; --accent-600: 22 163 74; --accent-700: 21 128 61; --accent-800: 22 101 52; --accent-900: 20 83 45; --accent-950: 5 46 22; }
+html[data-accent="amber"] { --accent-50: 255 251 235; --accent-100: 254 243 199; --accent-200: 253 230 138; --accent-300: 252 211 77; --accent-400: 251 191 36; --accent-500: 245 158 11; --accent-600: 217 119 6; --accent-700: 180 83 9; --accent-800: 146 64 14; --accent-900: 120 53 15; --accent-950: 69 26 3; }
+html[data-accent="rose"] { --accent-50: 255 241 242; --accent-100: 255 228 230; --accent-200: 254 205 211; --accent-300: 253 164 175; --accent-400: 251 113 133; --accent-500: 244 63 94; --accent-600: 225 29 72; --accent-700: 190 18 60; --accent-800: 159 18 57; --accent-900: 136 19 55; --accent-950: 76 5 25; }
+html[data-accent="violet"] { --accent-50: 245 243 255; --accent-100: 237 233 254; --accent-200: 221 214 254; --accent-300: 196 181 253; --accent-400: 167 139 250; --accent-500: 139 92 246; --accent-600: 124 58 237; --accent-700: 109 40 217; --accent-800: 91 33 182; --accent-900: 76 29 149; --accent-950: 46 16 101; }
+
+/* Semantic tokens — light (white text on a 600 fill passes AA for these hues) */
+:root {
+  --accent-solid: var(--accent-600);
+  --accent-solid-hover: var(--accent-700);
+  --accent-on-solid: var(--neutral-white);
+  --accent-ink: var(--accent-700);
+  --accent-ring: var(--accent-500);
+  --accent-soft: var(--accent-500);
+  --accent-soft-alpha: 0.1;
+}
+/* Teal, green and amber need a darker fill / text to keep AA contrast */
+html:not(.dark)[data-accent="teal"],
+html:not(.dark)[data-accent="green"],
+html:not(.dark)[data-accent="amber"] {
+  --accent-solid: var(--accent-700);
+  --accent-solid-hover: var(--accent-800);
+  --accent-ink: var(--accent-800);
+}
+/* Semantic tokens — dark: light fills with deep text */
+html.dark {
+  --accent-solid: var(--accent-400);
+  --accent-solid-hover: var(--accent-300);
+  --accent-on-solid: var(--accent-950);
+  --accent-ink: var(--accent-400);
+  --accent-ring: var(--accent-400);
+  --accent-soft: var(--accent-400);
+  --accent-soft-alpha: 0.16;
+}
+/* Graphite matches the original near-black buttons (inverted in dark) */
+html:not(.dark):not([data-accent]),
+html:not(.dark)[data-accent="graphite"] {
+  --accent-solid: var(--neutral-900);
+  --accent-solid-hover: var(--neutral-800);
+  --accent-on-solid: var(--neutral-white);
+  --accent-ink: var(--neutral-900);
+  --accent-ring: var(--neutral-600);
+  --accent-soft: var(--neutral-900);
+  --accent-soft-alpha: 0.05;
+}
+html.dark:not([data-accent]),
+html.dark[data-accent="graphite"] {
+  --accent-solid: var(--neutral-100);
+  --accent-solid-hover: var(--neutral-200);
+  --accent-on-solid: var(--neutral-900);
+  --accent-ink: var(--neutral-100);
+  --accent-ring: var(--neutral-300);
+  --accent-soft: var(--neutral-100);
+  --accent-soft-alpha: 0.1;
+}
+
+/* ========================================
+   FONTS & TEXT SIZE
+   ======================================== */
+
+:root {
+  --font-inter: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-system: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-literata: 'Literata', Georgia, 'Times New Roman', serif;
+  --font-georgia: 'Georgia', 'Times New Roman', serif;
+
+  --font-body: var(--font-inter);
+  /* Sans used for headings when "Sans" is chosen (never the serif body font) */
+  --font-ui-sans: var(--font-inter);
+  --font-heading: var(--font-georgia);
+}
+html[data-body-font="system"] {
+  --font-body: var(--font-system);
+  --font-ui-sans: var(--font-system);
+}
+html[data-body-font="literata"] {
+  --font-body: var(--font-literata);
+}
+html[data-heading-font="sans"] {
+  --font-heading: var(--font-ui-sans);
+}
+
+/* The UI is rem-based, so the root size scales everything.
+   Percentages respect the browser's own default font size. */
+html[data-text-size="small"] {
+  font-size: 93.75%; /* 15px */
+}
+html[data-text-size="large"] {
+  font-size: 109.375%; /* 17.5px */
+}
+
+/* ========================================
+   PAGE TOKENS
+   ======================================== */
+
 :root {
   /* Backgrounds */
-  --bg-page: #fafafa;
-  --bg-card: #ffffff;
-  --bg-hover: #f5f5f5;
-  --bg-active: #f5f5f5;
+  --bg-page: rgb(var(--neutral-50));
+  --bg-card: rgb(var(--neutral-white));
+  --bg-hover: rgb(var(--neutral-100));
+  --bg-active: rgb(var(--neutral-100));
+  --surface: rgb(var(--neutral-white));
 
   /* Borders */
-  --border-default: #e5e5e5;
-  --border-subtle: #f5f5f5;
+  --border-default: rgb(var(--neutral-200));
+  --border-subtle: rgb(var(--neutral-100));
 
   /* Text */
-  --text-primary: #171717;
-  --text-secondary: #525252;
-  --text-tertiary: #a3a3a3;
-  --text-muted: #d4d4d4;
+  --text-primary: rgb(var(--neutral-900));
+  --text-secondary: rgb(var(--neutral-600));
+  --text-tertiary: rgb(var(--neutral-400));
+  --text-muted: rgb(var(--neutral-300));
 
   /* Accent (use sparingly) */
   --accent-urgent: #d97706;
   --accent-now: #f43f5e;
-  --accent-hover: #525252;
+  --accent-hover: rgb(var(--neutral-600));
 }
 
 html.dark {
-  --bg-page: #0a0a0a;
-  --bg-card: #171717;
-  --bg-hover: #262626;
-  --bg-active: #262626;
+  --bg-page: rgb(var(--neutral-950));
+  --bg-card: rgb(var(--neutral-900));
+  --bg-hover: rgb(var(--neutral-800));
+  --bg-active: rgb(var(--neutral-800));
+  --surface: rgb(var(--neutral-900));
 
-  --border-default: #262626;
-  --border-subtle: #1f1f1f;
+  --border-default: rgb(var(--neutral-800));
+  --border-subtle: color-mix(in srgb, rgb(var(--neutral-800)) 50%, rgb(var(--neutral-900)));
 
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --text-tertiary: #737373;
-  --text-muted: #525252;
+  --text-primary: rgb(var(--neutral-100));
+  --text-secondary: rgb(var(--neutral-400));
+  --text-tertiary: rgb(var(--neutral-500));
+  --text-muted: rgb(var(--neutral-600));
 
-  --accent-hover: #d4d4d4;
+  --accent-hover: rgb(var(--neutral-300));
 
   color-scheme: dark;
 }
 
-/* Serif font for display text */
+/* Legacy hard-coded page background (bg-[#fafafa]) follows the scheme too;
+   the dark: variants next to it are more specific and still win. */
+.bg-\[\#fafafa\] {
+  background-color: var(--bg-page);
+}
+
+/* Serif font for display text (heading font setting) */
 .font-serif {
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: var(--font-heading);
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-page);
@@ -76,7 +928,7 @@ body {
 
 /* Large display numbers - use with font-serif */
 .display-number {
-  font-family: 'Georgia', 'Times New Roman', serif;
+  font-family: var(--font-heading);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -89,14 +941,24 @@ button, a, input {
 
 /* Visible focus indicator for keyboard users only — preserves the existing
    focus:outline-none + focus:border-X patterns when clicking with a mouse,
-   but always shows a ring when navigating via Tab. */
+   but always shows a ring when navigating via Tab. Uses the accent ring
+   (graphite: the original #525252 / #d4d4d4). */
 *:focus-visible {
-  outline: 2px solid #525252;
+  outline: 2px solid rgb(var(--accent-ring));
   outline-offset: 2px;
   border-radius: 4px;
 }
-html.dark *:focus-visible {
-  outline-color: #d4d4d4;
+
+/* Accent-coloured text selection and native controls (checkboxes, ranges,
+   progress). Graphite keeps the browser defaults, as before. */
+html[data-accent]:not([data-accent="graphite"]) {
+  accent-color: rgb(var(--accent-solid));
+}
+html[data-accent]:not([data-accent="graphite"]) ::selection {
+  background-color: rgb(var(--accent-500) / 0.28);
+}
+html.dark[data-accent]:not([data-accent="graphite"]) ::selection {
+  background-color: rgb(var(--accent-400) / 0.35);
 }
 
 /* Honor prefers-reduced-motion for users who opt out of animations.
@@ -124,20 +986,48 @@ html.dark *:focus-visible {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
+  background: rgb(var(--neutral-300));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a3a3a3;
+  background: rgb(var(--neutral-400));
 }
 
 html.dark ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: rgb(var(--neutral-700));
 }
 
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #525252;
+  background: rgb(var(--neutral-600));
+}
+
+/* ========================================
+   BLOCKNOTE EDITOR
+   Follows the scheme surfaces, body font, text size and accent.
+   Prefixed with html to outrank BlockNote's stylesheet, which loads later.
+   ======================================== */
+
+html .bn-container {
+  --bn-font-family: var(--font-body);
+  --bn-colors-editor-background: rgb(var(--neutral-white));
+  --bn-colors-menu-background: rgb(var(--neutral-white));
+}
+html .bn-container[data-color-scheme="dark"] {
+  --bn-colors-editor-background: rgb(var(--editor-dark-bg));
+  --bn-colors-menu-background: rgb(var(--editor-dark-bg));
+}
+html .bn-default-styles {
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+html .bn-editor a {
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--accent-ring) / 0.6);
+  text-underline-offset: 2px;
+}
+html[data-accent]:not([data-accent="graphite"]) .bn-editor a {
+  color: rgb(var(--accent-ink));
 }
 
 @layer base {
@@ -154,8 +1044,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 32%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 90%;
@@ -210,8 +1098,57 @@ html.eink.dark {
   --text-muted: #404040;
 
   --accent-hover: #000000;
+  --surface: #ffffff;
 
   color-scheme: light;
+}
+
+/* E-ink ignores the colour scheme and accent: pure greys, black accent.
+   The repeated class outranks every scheme/accent selector above
+   (at most html.dark[data-…] / html:not(.dark)[data-…]). */
+html.eink.eink.eink {
+  --neutral-white: 255 255 255;
+  --neutral-black: 0 0 0;
+  --neutral-50: 250 250 250;
+  --neutral-100: 245 245 245;
+  --neutral-200: 229 229 229;
+  --neutral-300: 212 212 212;
+  --neutral-400: 163 163 163;
+  --neutral-500: 115 115 115;
+  --neutral-600: 82 82 82;
+  --neutral-700: 64 64 64;
+  --neutral-800: 38 38 38;
+  --neutral-900: 23 23 23;
+  --neutral-950: 10 10 10;
+  --editor-dark-bg: 255 255 255;
+
+  --accent-50: 250 250 250;
+  --accent-100: 245 245 245;
+  --accent-200: 229 229 229;
+  --accent-300: 212 212 212;
+  --accent-400: 163 163 163;
+  --accent-500: 64 64 64;
+  --accent-600: 23 23 23;
+  --accent-700: 0 0 0;
+  --accent-800: 0 0 0;
+  --accent-900: 0 0 0;
+  --accent-950: 0 0 0;
+  --accent-solid: 0 0 0;
+  --accent-solid-hover: 26 26 26;
+  --accent-on-solid: 255 255 255;
+  --accent-ink: 0 0 0;
+  --accent-ring: 0 0 0;
+  --accent-soft: 0 0 0;
+  --accent-soft-alpha: 0.08;
+
+  accent-color: #000000;
+}
+html.eink.eink.eink.eink ::selection {
+  background-color: #c8c8c8;
+  color: #000000;
+}
+html.eink.eink.eink.eink .bn-editor a {
+  color: #000000;
 }
 
 html.eink body {
@@ -450,4 +1387,75 @@ html.eink a[target="_blank"] svg {
 html.eink .text-black\/30 svg {
   color: var(--eink-gray) !important;
   stroke-width: 2.5px !important;
+}
+
+/* ========================================
+   CALENDAR CATEGORY COLOURS
+   Elements set --cat-h (hue) and --cat-chroma inline (see
+   components/calendar/categoryColors.js). Saturation and lightness are tuned
+   per scheme, light/dark and softness so categories sit comfortably in any
+   theme: muted and warm in Paper, cooler in Slate and Midnight, and so on.
+   ======================================== */
+
+:root {
+  --cat-shift: 0;   /* nudges every hue towards the scheme's own colour */
+  --cat-sat: 1;     /* overall saturation for the scheme */
+  --cat-bg-s: 70%;
+  --cat-bg-l: 93%;
+  --cat-ink-s: 55%;
+  --cat-ink-l: 30%;
+  --cat-dot-s: 62%;
+  --cat-dot-l: 52%;
+}
+
+html.dark {
+  --cat-bg-s: 32%;
+  --cat-bg-l: 21%;
+  --cat-ink-s: 65%;
+  --cat-ink-l: 80%;
+  --cat-dot-s: 58%;
+  --cat-dot-l: 62%;
+}
+
+/* Softer pages get slightly deeper chips so they don't wash out */
+html:not(.dark)[data-background="softer"] { --cat-bg-l: 90%; }
+html:not(.dark)[data-background="softest"] { --cat-bg-l: 87%; --cat-bg-s: 60%; }
+html.dark[data-background="softer"] { --cat-bg-l: 25%; }
+html.dark[data-background="softest"] { --cat-bg-l: 28%; --cat-bg-s: 28%; }
+
+html[data-scheme="paper"] { --cat-shift: 6; --cat-sat: 0.72; }
+html[data-scheme="sage"] { --cat-shift: 4; --cat-sat: 0.7; }
+html[data-scheme="slate"] { --cat-shift: -4; --cat-sat: 0.85; }
+html[data-scheme="midnight"] { --cat-shift: -6; --cat-sat: 0.92; }
+html.dark[data-scheme="midnight"] { --cat-sat: 1.05; }
+html[data-scheme="ocean"] { --cat-shift: -3; --cat-sat: 0.82; }
+html[data-scheme="blush"] { --cat-shift: 5; --cat-sat: 0.78; }
+html[data-scheme="lavender"] { --cat-shift: -5; --cat-sat: 0.75; }
+
+/* E-reader: categories become shades of grey */
+html.eink { --cat-sat: 0; }
+
+.cat-chip,
+.cat-dot,
+.cat-bar,
+.cat-text {
+  --cat-hue: calc(var(--cat-h, 205) + var(--cat-shift));
+  --cat-scale: calc(var(--cat-sat) * var(--cat-chroma, 1));
+}
+
+.cat-chip {
+  background-color: hsl(var(--cat-hue) calc(var(--cat-bg-s) * var(--cat-scale)) var(--cat-bg-l));
+  color: hsl(var(--cat-hue) calc(var(--cat-ink-s) * var(--cat-scale)) var(--cat-ink-l));
+}
+
+.cat-text {
+  color: hsl(var(--cat-hue) calc(var(--cat-ink-s) * var(--cat-scale)) var(--cat-ink-l));
+}
+
+.cat-dot {
+  background-color: hsl(var(--cat-hue) calc(var(--cat-dot-s) * var(--cat-scale)) var(--cat-dot-l));
+}
+
+.cat-bar {
+  border-left-color: hsl(var(--cat-hue) calc(var(--cat-dot-s) * var(--cat-scale)) var(--cat-dot-l));
 }

@@ -6,12 +6,31 @@ import { useConfirm } from '../components/common/ConfirmDialog';
 import Layout from '../components/layout/Layout';
 import Header from '../components/layout/Header';
 import WidgetDashboard from '../components/dashboard/Dashboard';
+import SettingsModal from '../components/settings/SettingsModal';
+import MoveToModal from '../components/sections/MoveToModal';
+import TemplatePickerModal from '../components/templates/TemplatePickerModal';
+import WritingStatsRecorder from '../components/writing/WritingStatsRecorder';
+import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
 
 // Heavier views load on first use to keep the initial download small
 const NoteEditor = lazy(() => import('../components/notes/NoteEditor'));
 const KanbanBoard = lazy(() => import('../components/board/KanbanBoard'));
 const ReadingList = lazy(() => import('../components/reading-list/ReadingList'));
 const CalendarView = lazy(() => import('../components/calendar/CalendarView'));
+const WeeklyReview = lazy(() => import('../components/review/WeeklyReview'));
+const TagsView = lazy(() => import('../components/tags/TagsView'));
+const TrashView = lazy(() => import('../components/trash/TrashView'));
+
+// Views that aren't a note/board/folder
+const SPECIAL_VIEWS = {
+  'reading-list': 'Reading List',
+  calendar: 'Calendar',
+  review: 'Weekly Review',
+  tags: 'Tags',
+  trash: 'Trash',
+};
+
+const viewItem = (type, extra = {}) => ({ id: type, type, name: SPECIAL_VIEWS[type], ...extra });
 
 function ViewSpinner() {
   return (
@@ -20,12 +39,13 @@ function ViewSpinner() {
     </div>
   );
 }
-import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard, CalendarDays } from 'lucide-react';
+import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard, CalendarDays, ClipboardList, Tag, Settings, FolderInput, LayoutTemplate } from 'lucide-react';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import CommandPalette from '../components/common/CommandPalette';
 import { useTheme } from '../contexts/ThemeContext';
 import { defaultBoardColumns } from '../lib/defaults';
+import { subtreeIds } from '../lib/sectionTree';
 
 export default function Dashboard() {
   const { sections, loading, error: sectionsError, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
@@ -36,11 +56,15 @@ export default function Dashboard() {
   // What's open: a section id, or a special view (reading list / calendar).
   // The section itself is always read from live data so it never goes stale.
   const [selection, setSelectedItem] = useState(null);
-  const isSpecialView = selection?.type === 'reading-list' || selection?.type === 'calendar';
+  const isSpecialView = Boolean(selection && SPECIAL_VIEWS[selection.type]);
   const selectedItem = !selection ? null : isSpecialView ? selection : (sections.find(s => s.id === selection.id) || null);
   // One-shot navigation details: which paper, task or calendar day to open
   const [navParams, setNavParams] = useState({});
   const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState(null);
+  // undefined = template picker closed; null/id = open, creating in that folder
+  const [templateParentId, setTemplateParentId] = useState(undefined);
   const [isCreating, setIsCreating] = useState(false);
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -104,10 +128,10 @@ export default function Dashboard() {
       return;
     }
 
-    // Handle special navigation items (reading-list, calendar)
-    if (item.type === 'reading-list' || item.type === 'calendar') {
+    // Handle special views (reading list, calendar, review, tags, trash)
+    if (SPECIAL_VIEWS[item.type]) {
       setSelectedItem(item);
-      setNavParams({ paperId: item.paperId, date: item.date });
+      setNavParams({ paperId: item.paperId, date: item.date, tag: item.tag });
       if (isMobile) closeSidebar();
       return;
     }
@@ -207,14 +231,14 @@ export default function Dashboard() {
   };
 
   const confirmDeleteSection = async (item) => {
-    const childCount = sections.filter(s => s.parentId === item.id).length;
+    const childCount = subtreeIds(sections, item.id).length - 1;
     return confirm({
-      title: `Delete "${item.name}"?`,
-      body: childCount > 0
-        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
-        : 'This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
+      title: `Move "${item.name}" to Trash?`,
+      body: `${childCount > 0
+        ? `The ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it will move to Trash too. `
+        : ''}You can restore ${childCount > 0 ? 'them' : 'it'} from Trash for 30 days.`,
+      confirmLabel: 'Move to Trash',
+      danger: false,
     });
   };
 
@@ -293,6 +317,18 @@ export default function Dashboard() {
       );
     }
 
+    if (selectedItem.type === 'review') {
+      return <WeeklyReview onSelect={handleSelect} />;
+    }
+
+    if (selectedItem.type === 'tags') {
+      return <TagsView key={navParams.tag || 'tags'} initialTag={navParams.tag} onSelect={handleSelect} />;
+    }
+
+    if (selectedItem.type === 'trash') {
+      return <TrashView onSelect={handleSelect} />;
+    }
+
     if (selectedItem.type === 'calendar') {
       return (
         <CalendarView
@@ -328,6 +364,7 @@ export default function Dashboard() {
           note={selectedItem}
           sections={sections}
           updateSection={updateSection}
+          onOpenNote={(id) => handleSelect({ id })}
           onDelete={async (id) => {
             setSelectedItem(selectedItem.parentId ? { id: selectedItem.parentId } : null);
             await deleteSection(id);
@@ -381,6 +418,15 @@ export default function Dashboard() {
                   <Folder size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Folder
                 </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setIsCreating(false); setTemplateParentId(selectedItem.id); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
+                >
+                  <LayoutTemplate size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
+                  From template…
+                </button>
               </div>
             )}
           </div>
@@ -424,7 +470,7 @@ export default function Dashboard() {
                 }}
                 className="relative p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-left hover:border-neutral-300 dark:hover:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors cursor-pointer group"
               >
-                <div className="flex items-center gap-3 pr-16">
+                <div className="flex items-center gap-3 pr-24">
                   {child.type === 'note' && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   {child.type === 'board' && <Kanban size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   {child.type === 'folder' && <Folder size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
@@ -443,9 +489,18 @@ export default function Dashboard() {
                   </button>
                   <button
                     type="button"
+                    onClick={(e) => { e.stopPropagation(); setMoveTarget(child); }}
+                    aria-label={`Move ${child.name}`}
+                    title="Move to…"
+                    className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
+                  >
+                    <FolderInput size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={(e) => handleChildDelete(e, child)}
-                    aria-label={`Delete ${child.name}`}
-                    title="Delete"
+                    aria-label={`Move ${child.name} to Trash`}
+                    title="Move to Trash"
                     className="p-1.5 text-neutral-400 hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 dark:focus-visible:ring-rose-800"
                   >
                     <Trash2 size={14} aria-hidden="true" />
@@ -460,7 +515,9 @@ export default function Dashboard() {
   };
 
   return (
-    <Layout selectedId={selectedItem?.id} onSelect={handleSelect}>
+    <Layout selectedId={selectedItem?.id} onSelect={handleSelect} onOpenSettings={() => setSettingsOpen(true)}>
+      <WritingStatsRecorder />
+      <GoogleCalendarSync />
       {!focusMode && (
       <Header
         breadcrumbs={getBreadcrumbs()}
@@ -481,7 +538,7 @@ export default function Dashboard() {
               <Search className="w-5 h-5" />
             </Button>
             {/* Item actions menu - shown when viewing an item */}
-            {selectedItem && selectedItem.type !== 'reading-list' && selectedItem.type !== 'calendar' && (
+            {selectedItem && !isSpecialView && (
               <div className="relative">
                 <Button
                   variant="ghost"
@@ -519,6 +576,15 @@ export default function Dashboard() {
                       <Copy size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                       Duplicate
                     </button>
+                    <button
+                      onClick={() => { setItemMenuOpen(false); setMoveTarget(selectedItem); }}
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-100 dark:active:bg-neutral-700 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors touch-manipulation"
+                    >
+                      <FolderInput size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
+                      Move to…
+                    </button>
                     <div role="separator" className="border-t border-neutral-100 dark:border-neutral-800 my-1" />
                     <button
                       onClick={handleDelete}
@@ -550,8 +616,14 @@ export default function Dashboard() {
           { id: 'add-note', label: 'New note', icon: FileText, keywords: 'create add', run: () => handleCreateItem('note') },
           { id: 'add-board', label: 'New board', icon: Kanban, keywords: 'create add tasks kanban', run: () => handleCreateItem('board') },
           { id: 'add-folder', label: 'New folder', icon: Folder, keywords: 'create add', run: () => handleCreateItem('folder') },
-          { id: 'calendar', label: 'Open Calendar', icon: CalendarDays, keywords: 'schedule events agenda todo day week month google', run: () => handleSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' }) },
-          { id: 'reading-list', label: 'Open Reading List', icon: BookOpen, keywords: 'papers references', run: () => handleSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' }) },
+          { id: 'add-from-template', label: 'New note from template', icon: LayoutTemplate, keywords: 'create add template supervision meeting summary', run: () => setTemplateParentId(null) },
+          { id: 'calendar', label: 'Open Calendar', icon: CalendarDays, keywords: 'schedule events agenda todo day week month google', run: () => handleSelect(viewItem('calendar')) },
+          { id: 'reading-list', label: 'Open Reading List', icon: BookOpen, keywords: 'papers references', run: () => handleSelect(viewItem('reading-list')) },
+          { id: 'review', label: 'Open Weekly Review', icon: ClipboardList, keywords: 'progress summary supervision week', run: () => handleSelect(viewItem('review')) },
+          { id: 'tags', label: 'Open Tags', icon: Tag, keywords: 'labels filter', run: () => handleSelect(viewItem('tags')) },
+          { id: 'trash', label: 'Open Trash', icon: Trash2, keywords: 'deleted restore bin', run: () => handleSelect(viewItem('trash')) },
+          { id: 'settings', label: 'Settings', icon: Settings, keywords: 'appearance theme colour color font backup export preferences', run: () => setSettingsOpen(true) },
+          ...(selectedItem && !isSpecialView ? [{ id: 'move', label: `Move "${selectedItem.name}" to…`, icon: FolderInput, keywords: 'folder relocate', run: () => setMoveTarget(selectedItem) }] : []),
           { id: 'toggle-dark', label: isDark ? 'Switch to light mode' : 'Switch to dark mode', icon: isDark ? Sun : Moon, keywords: 'theme color', run: toggleTheme },
           { id: 'toggle-focus', label: focusMode ? 'Exit focus mode' : 'Enter focus mode', icon: Maximize2, keywords: 'distraction-free zen', shortcut: 'Ctrl+Shift+F', run: toggleFocusMode },
           { id: 'shortcuts', label: 'Keyboard shortcuts', icon: Keyboard, keywords: 'help hotkeys', shortcut: '?', run: () => setShortcutsOpen(true) },
@@ -622,6 +694,14 @@ export default function Dashboard() {
           On Mac, Ctrl works the same way (or use ⌘).
         </p>
       </Modal>
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <MoveToModal isOpen={Boolean(moveTarget)} item={moveTarget} onClose={() => setMoveTarget(null)} />
+      <TemplatePickerModal
+        isOpen={templateParentId !== undefined}
+        parentId={templateParentId ?? null}
+        onClose={() => setTemplateParentId(undefined)}
+        onCreated={(id) => { setTemplateParentId(undefined); handleSelect({ id }); }}
+      />
     </Layout>
   );
 }

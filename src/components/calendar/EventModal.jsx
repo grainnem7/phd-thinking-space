@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileText, BookOpen, X, Trash2 } from 'lucide-react';
+import { FileText, BookOpen, X, Trash2, Repeat } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
-import { EVENT_COLORS } from './calendarEntries';
+import { CategoryPicker, ColorSwatches, CategoryManager } from './CategoryControls';
 import { timeToMinutes } from '../../utils/date';
+import { weekdayOf, daysBetween, addDaysToKey } from '../../lib/recurrence';
+import RepeatFields from './RepeatFields';
+import { repeatFormFrom, recurrenceFromForm, repeatError } from './repeatForm';
 
 export const INPUT_CLASS = 'w-full px-3 py-2.5 text-base bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-300 dark:focus:border-neutral-600 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100';
 const LABEL_CLASS = 'block text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mb-1.5';
@@ -14,12 +17,15 @@ function emptyForm(defaults) {
     type: 'event',
     title: '',
     date: d.date || '',
+    endDate: d.date || '',
     allDay: d.allDay ?? false,
     startTime: d.startTime || '09:00',
     endTime: d.endTime || '10:00',
     color: 'sky',
+    categoryId: d.categoryId || null,
     notes: '',
     links: [],
+    repeat: repeatFormFrom(null, d.date),
   };
 }
 
@@ -27,6 +33,7 @@ function emptyForm(defaults) {
 export default function EventModal({ isOpen, onClose, entry, defaults, sections = [], papers = [], onSave, onDelete }) {
   const [form, setForm] = useState(() => emptyForm(defaults));
   const [linkQuery, setLinkQuery] = useState('');
+  const [manageCategories, setManageCategories] = useState(false);
   const isEditing = Boolean(entry);
 
   useEffect(() => {
@@ -39,12 +46,15 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
         type: 'event',
         title: entry.title || '',
         date: entry.date || '',
+        endDate: entry.date ? addDaysToKey(entry.date, Math.max(0, Number(entry.durationDays) || 0)) : '',
         allDay: Boolean(entry.allDay),
         startTime: entry.startTime || '09:00',
         endTime: entry.endTime || '10:00',
         color: entry.color || 'sky',
+        categoryId: entry.categoryId || null,
         notes: entry.notes || '',
         links: entry.links || [],
+        repeat: repeatFormFrom(entry.recurrence, entry.date),
       });
     } else {
       setForm(emptyForm(defaults));
@@ -54,6 +64,22 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
   }, [isOpen, entry?.id]);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const isOverride = Boolean(entry?.recurringEventId);
+
+  // Moving the start date of a single-weekday weekly rule moves its weekday too
+  const setDate = (date) => setForm((f) => {
+    const { repeat } = f;
+    const weekly = repeat.preset === 'weekly' || repeat.preset === 'biweekly' || repeat.preset === 'never';
+    const followsDate = f.date && date && repeat.byWeekday.length === 1 && repeat.byWeekday[0] === weekdayOf(f.date);
+    // Keep the event's length when the start date moves
+    const length = f.date && f.endDate && f.endDate >= f.date ? daysBetween(f.date, f.endDate) : 0;
+    return {
+      ...f,
+      date,
+      endDate: date ? addDaysToKey(date, length) : date,
+      repeat: weekly && followsDate ? { ...repeat, byWeekday: [weekdayOf(date)] } : repeat,
+    };
+  });
 
   const linkOptions = useMemo(() => {
     const q = linkQuery.trim().toLowerCase();
@@ -68,10 +94,13 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
     return [...notes, ...paperMatches].filter((o) => !linked.has(`${o.type}:${o.id}`)).slice(0, 8);
   }, [linkQuery, sections, papers, form.links]);
 
-  const timeError = form.type === 'event' && !form.allDay
+  const multiDay = form.type === 'event' && Boolean(form.date && form.endDate && form.endDate > form.date);
+  const endDateError = form.type === 'event' && Boolean(form.date && form.endDate && form.endDate < form.date);
+  const timeError = form.type === 'event' && !form.allDay && !multiDay && !endDateError
     && timeToMinutes(form.endTime) !== null && timeToMinutes(form.startTime) !== null
     && timeToMinutes(form.endTime) < timeToMinutes(form.startTime);
-  const canSave = form.title.trim() && form.date && !timeError;
+  const repeatInvalid = form.type === 'event' && !isOverride && Boolean(repeatError(form.repeat, form.date));
+  const canSave = form.title.trim() && form.date && !timeError && !endDateError && !repeatInvalid;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -84,18 +113,23 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
           kind: 'event',
           title: form.title.trim(),
           date: form.date,
+          durationDays: multiDay ? daysBetween(form.date, form.endDate) : 0,
           allDay: form.allDay,
           startTime: form.allDay ? null : form.startTime,
           endTime: form.allDay ? null : form.endTime,
           color: form.color,
+          categoryId: form.categoryId || null,
           notes: form.notes.trim(),
           links: form.links,
+          // Edited single occurrences never repeat themselves
+          ...(isOverride ? {} : { recurrence: recurrenceFromForm(form.repeat, form.date) }),
         },
       });
     }
   };
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? `Edit ${form.type}` : 'New'} size="md">
       <form
         className="space-y-4"
@@ -133,10 +167,38 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
           />
         </div>
 
-        <div>
-          <label htmlFor="event-date" className={LABEL_CLASS}>Date</label>
-          <input id="event-date" type="date" value={form.date} onChange={(e) => set({ date: e.target.value })} className={INPUT_CLASS} />
-        </div>
+        {form.type === 'event' ? (
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="event-date" className={LABEL_CLASS}>Start date</label>
+                <input id="event-date" type="date" value={form.date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLASS} />
+              </div>
+              <div>
+                <label htmlFor="event-end-date" className={LABEL_CLASS}>End date</label>
+                <input
+                  id="event-end-date"
+                  type="date"
+                  value={form.endDate}
+                  min={form.date || undefined}
+                  onChange={(e) => set({ endDate: e.target.value })}
+                  className={INPUT_CLASS}
+                />
+              </div>
+            </div>
+            {endDateError && <p className="text-sm text-rose-600 mt-2">The end date can't be before the start date.</p>}
+            {multiDay && !endDateError && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5">
+                Runs for {daysBetween(form.date, form.endDate) + 1} days
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="event-date" className={LABEL_CLASS}>Date</label>
+            <input id="event-date" type="date" value={form.date} onChange={(e) => setDate(e.target.value)} className={INPUT_CLASS} />
+          </div>
+        )}
 
         {form.type === 'event' && (
           <>
@@ -154,11 +216,11 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
               <div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="event-start" className={LABEL_CLASS}>Starts</label>
+                    <label htmlFor="event-start" className={LABEL_CLASS}>{multiDay ? 'Start time' : 'Starts'}</label>
                     <input id="event-start" type="time" value={form.startTime} onChange={(e) => set({ startTime: e.target.value })} className={INPUT_CLASS} />
                   </div>
                   <div>
-                    <label htmlFor="event-end" className={LABEL_CLASS}>Ends</label>
+                    <label htmlFor="event-end" className={LABEL_CLASS}>{multiDay ? 'End time (last day)' : 'Ends'}</label>
                     <input id="event-end" type="time" value={form.endTime} onChange={(e) => set({ endTime: e.target.value })} className={INPUT_CLASS} />
                   </div>
                 </div>
@@ -166,24 +228,27 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
               </div>
             )}
 
+            {isOverride ? (
+              <p className="flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+                <Repeat size={14} aria-hidden="true" /> Changed occurrence of a repeating event
+              </p>
+            ) : (
+              <RepeatFields value={form.repeat} onChange={(repeat) => set({ repeat })} dateKey={form.date} />
+            )}
+
             <div>
-              <span className={LABEL_CLASS}>Colour</span>
-              <div className="flex gap-2" role="radiogroup" aria-label="Colour">
-                {Object.entries(EVENT_COLORS).map(([key, c]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={form.color === key}
-                    aria-label={c.label}
-                    title={c.label}
-                    onClick={() => set({ color: key })}
-                    className={`w-7 h-7 rounded-full ${c.dot} transition-transform ${form.color === key
-                      ? 'ring-2 ring-offset-2 ring-neutral-800 dark:ring-neutral-200 dark:ring-offset-neutral-900 scale-110'
-                      : 'hover:scale-110'}`}
-                  />
-                ))}
-              </div>
+              <span className={LABEL_CLASS}>Category</span>
+              <CategoryPicker
+                value={form.categoryId}
+                onChange={(categoryId) => set({ categoryId })}
+                onManage={() => setManageCategories(true)}
+              />
+              {!form.categoryId && (
+                <div className="mt-3">
+                  <span className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">Or pick a colour</span>
+                  <ColorSwatches value={form.color} onChange={(color) => set({ color })} />
+                </div>
+              )}
             </div>
 
             <div>
@@ -268,5 +333,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
         </div>
       </form>
     </Modal>
+    <CategoryManager isOpen={manageCategories} onClose={() => setManageCategories(false)} />
+    </>
   );
 }

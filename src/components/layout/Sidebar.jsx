@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
+  useDroppable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -40,12 +42,17 @@ import {
   Search,
   BookMarked,
   CalendarDays,
+  ClipboardList,
+  Tag,
+  Settings,
   Home,
   RotateCcw,
   Monitor,
   Sun,
   Moon,
   UserPlus,
+  FolderInput,
+  CornerLeftUp,
 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -57,6 +64,8 @@ import { defaultBoardColumns } from '../../lib/defaults';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import MoveToModal from '../sections/MoveToModal';
+import { canMoveSection, subtreeIds } from '../../lib/sectionTree';
 
 const iconMap = {
   'code': Code,
@@ -86,8 +95,14 @@ function sortableGroupOf(entry) {
   return entry?.data?.current?.sortable?.containerId;
 }
 
-// Only let items collide with their siblings, so a drag never "lands" in a
-// different folder (moving between folders isn't supported by reordering).
+// Droppable ids for "drop inside this folder" and "move to the top level"
+const INTO_PREFIX = 'into:';
+const ROOT_ZONE = 'root-zone';
+// How long a dragged item must hover a collapsed folder before it opens
+const HOVER_EXPAND_MS = 600;
+
+// Reordering: only let items collide with their siblings, so a reorder never
+// "lands" in a different folder. Moving into folders uses the drop targets below.
 function siblingCollisionDetection(args) {
   const group = sortableGroupOf(args.active);
   return closestCenter({
@@ -108,6 +123,52 @@ function siblingKeyboardCoordinates(event, args) {
   return sortableKeyboardCoordinates(event, { ...args, context: { ...context, droppableContainers: scoped } });
 }
 
+// Pointer drags: the middle of a folder row (or the top-level zone) moves the
+// item inside; the row's top and bottom edges still reorder among siblings.
+function createCollisionDetection(sections) {
+  return (args) => {
+    const { active, pointerCoordinates, droppableContainers, droppableRects } = args;
+    if (pointerCoordinates) {
+      const { x, y } = pointerCoordinates;
+      const activeItem = sections.find((s) => s.id === active.id);
+      const activeParentId = activeItem?.parentId ?? null;
+      for (const container of droppableContainers) {
+        const data = container.data.current;
+        if (data?.kind !== 'into' && data?.kind !== 'root') continue;
+        const rect = droppableRects.get(container.id);
+        if (!rect || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+        if (data.kind === 'root') {
+          if (activeParentId !== null) return [{ id: container.id, data: { droppableContainer: container, value: 0 } }];
+          continue;
+        }
+        const edge = rect.height * 0.25;
+        const inMiddle = y > rect.top + edge && y < rect.bottom - edge;
+        if (inMiddle && data.folderId !== activeParentId && canMoveSection(sections, active.id, data.folderId)) {
+          return [{ id: container.id, data: { droppableContainer: container, value: 0 } }];
+        }
+      }
+    }
+    return siblingCollisionDetection(args);
+  };
+}
+
+function RootDropZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: ROOT_ZONE, data: { kind: 'root' } });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center gap-2 mt-2 px-3 py-2.5 text-sm rounded-lg border border-dashed transition-colors ${
+        isOver
+          ? 'border-neutral-500 bg-neutral-100 text-neutral-900 dark:border-neutral-400 dark:bg-neutral-800 dark:text-neutral-100'
+          : 'border-neutral-300 text-neutral-400 dark:border-neutral-700 dark:text-neutral-500'
+      }`}
+    >
+      <CornerLeftUp size={15} aria-hidden="true" />
+      Move to top level
+    </div>
+  );
+}
+
 const KEYBOARD_CODES = {
   // Enter selects the row, so only Space picks an item up
   start: ['Space'],
@@ -117,7 +178,7 @@ const KEYBOARD_CODES = {
 
 // Shared class fragments
 const ROW_BASE = 'rounded-lg cursor-pointer transition-colors touch-manipulation focus-visible:-outline-offset-2';
-const ROW_SELECTED = 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium';
+const ROW_SELECTED = 'bg-accent-soft text-accent-ink font-medium';
 const ROW_IDLE = 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/60 active:bg-neutral-100 dark:active:bg-neutral-800';
 const FOOTER_TEXT_BUTTON = 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors';
 const INPUT_CLASS = 'w-full px-3 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-500 transition-colors placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100';
@@ -171,19 +232,33 @@ function TreeItem({
   const isExpanded = isSearching ? visibleChildren.length > 0 : expandedIds.has(item.id);
   const isSelected = selectedId === item.id;
   const name = item.name || 'Untitled';
+  // Items can be dropped inside real folders (and older untyped items with children)
+  const acceptsDrops = item.type === 'folder' || (!item.type && hasChildren);
+  const { setNodeRef: setDropRef, isOver: isDropTarget } = useDroppable({
+    id: `${INTO_PREFIX}${item.id}`,
+    data: { kind: 'into', folderId: item.id },
+    disabled: isSearching || !acceptsDrops,
+  });
 
   return (
     <SortableItem id={item.id} disabled={isSearching}>
       {({ activatorRef, attributes, listeners, isDragging }) => (
         <>
           <div
-            ref={activatorRef}
+            ref={(node) => {
+              activatorRef(node);
+              setDropRef(node);
+            }}
             {...attributes}
             {...listeners}
             role="button"
             tabIndex={0}
             aria-current={isSelected ? 'page' : undefined}
-            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 mb-0.5 ${ROW_BASE} ${isSelected ? ROW_SELECTED : ROW_IDLE}`}
+            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 mb-0.5 ${ROW_BASE} ${
+              isDropTarget
+                ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 ring-2 ring-inset ring-neutral-400 dark:ring-neutral-500'
+                : isSelected ? ROW_SELECTED : ROW_IDLE
+            }`}
             style={{ paddingLeft: `${level * 12 + 8}px` }}
             onClick={() => onSelect(item)}
             onKeyDown={(e) => {
@@ -269,8 +344,11 @@ function TreeItem({
                     <DropdownItem onClick={() => { onContextMenu('duplicate', item); close(); }}>
                       <Copy className="w-4 h-4" /> Duplicate
                     </DropdownItem>
+                    <DropdownItem onClick={() => { close(); onContextMenu('move', item); }}>
+                      <FolderInput className="w-4 h-4" /> Move to…
+                    </DropdownItem>
                     <DropdownItem danger onClick={() => { onContextMenu('delete', item); close(); }}>
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 className="w-4 h-4" /> Move to Trash
                     </DropdownItem>
                   </>
                 )}
@@ -326,10 +404,10 @@ function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
   );
 }
 
-export default function Sidebar({ selectedId, onSelect }) {
+export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const { isOpen, isCollapsed, close, isMobile, effectiveWidth, isResizing, startResizing, toggleCollapsed } = useSidebar();
   const { logout, isDemo } = useAuth();
-  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
+  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, moveSection, resetToDefaults } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const { focusMode } = useFocusMode();
   const { theme, preference: themePreference, setTheme, toggle: toggleTheme, isDarkSuppressed } = useTheme();
@@ -339,6 +417,11 @@ export default function Sidebar({ selectedId, onSelect }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [modalState, setModalState] = useState({ type: null, item: null });
   const [newItemName, setNewItemName] = useState('');
+  const [moveItem, setMoveItem] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const hoverExpand = useRef({ id: null, timer: null });
+
+  useEffect(() => () => clearTimeout(hoverExpand.current.timer), []);
 
   const iconOnly = isCollapsed && !isMobile;
   const isVisible = isOpen && !focusMode;
@@ -424,6 +507,9 @@ export default function Sidebar({ selectedId, onSelect }) {
       case 'delete':
         setModalState({ type: 'delete', item });
         break;
+      case 'move':
+        setMoveItem(item);
+        break;
       case 'add-note':
         setNewItemName('');
         setModalState({ type: 'add-child', itemType: 'note', parentItem: item });
@@ -482,9 +568,75 @@ export default function Sidebar({ selectedId, onSelect }) {
     closeModal();
   };
 
-  // Reorder within a sibling group (same parentId) only
+  const collisionDetection = useMemo(() => createCollisionDetection(sections), [sections]);
+
+  // Screen reader announcements with item names instead of internal ids
+  const dragAccessibility = useMemo(() => {
+    const nameOf = (id) => sections.find((s) => s.id === id)?.name || 'Untitled';
+    const describeOver = (over) => {
+      const overId = String(over.id);
+      if (overId === ROOT_ZONE) return 'the top level';
+      if (overId.startsWith(INTO_PREFIX)) return `inside folder ${nameOf(overId.slice(INTO_PREFIX.length))}`;
+      return `the position of ${nameOf(over.id)}`;
+    };
+    return {
+      announcements: {
+        onDragStart: ({ active }) => `Picked up ${nameOf(active.id)}.`,
+        onDragOver: ({ active, over }) => (over
+          ? `${nameOf(active.id)} is over ${describeOver(over)}.`
+          : `${nameOf(active.id)} is not over a drop target.`),
+        onDragEnd: ({ active, over }) => (over
+          ? `${nameOf(active.id)} was dropped at ${describeOver(over)}.`
+          : `${nameOf(active.id)} was dropped.`),
+        onDragCancel: ({ active }) => `Dragging was cancelled. ${nameOf(active.id)} was not moved.`,
+      },
+    };
+  }, [sections]);
+
+  const clearHoverExpand = () => {
+    clearTimeout(hoverExpand.current.timer);
+    hoverExpand.current = { id: null, timer: null };
+  };
+
+  // Hovering a collapsed folder while dragging opens it after a moment
+  const handleDragOver = ({ over }) => {
+    const overId = over ? String(over.id) : '';
+    const folderId = overId.startsWith(INTO_PREFIX) ? overId.slice(INTO_PREFIX.length) : null;
+    if (hoverExpand.current.id === folderId) return;
+    clearHoverExpand();
+    if (!folderId || expandedIds.has(folderId)) return;
+    hoverExpand.current = {
+      id: folderId,
+      timer: setTimeout(() => {
+        setExpandedIds((prev) => new Set([...prev, folderId]));
+      }, HOVER_EXPAND_MS),
+    };
+  };
+
+  const handleDragCancel = () => {
+    clearHoverExpand();
+    setDraggingId(null);
+  };
+
+  // Drop inside a folder / on the top-level zone moves; otherwise reorder
+  // within the sibling group (same parentId)
   const handleDragEnd = ({ active, over }) => {
+    clearHoverExpand();
+    setDraggingId(null);
     if (!over || active.id === over.id) return;
+
+    const overId = String(over.id);
+    if (overId === ROOT_ZONE) {
+      moveSection(active.id, null);
+      return;
+    }
+    if (overId.startsWith(INTO_PREFIX)) {
+      const folderId = overId.slice(INTO_PREFIX.length);
+      moveSection(active.id, folderId);
+      setExpandedIds((prev) => new Set([...prev, folderId]));
+      return;
+    }
+
     const activeItem = sections.find((s) => s.id === active.id);
     const overItem = sections.find((s) => s.id === over.id);
     if (!activeItem || !overItem) return;
@@ -627,6 +779,20 @@ export default function Sidebar({ selectedId, onSelect }) {
               isSelected={selectedId === 'reading-list'}
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
             />
+            <QuickLink
+              icon={ClipboardList}
+              label="Weekly Review"
+              iconOnly={iconOnly}
+              isSelected={selectedId === 'review'}
+              onClick={() => onSelect({ id: 'review', type: 'review', name: 'Weekly Review' })}
+            />
+            <QuickLink
+              icon={Tag}
+              label="Tags"
+              iconOnly={iconOnly}
+              isSelected={selectedId === 'tags'}
+              onClick={() => onSelect({ id: 'tags', type: 'tags', name: 'Tags' })}
+            />
           </div>
 
           {/* Navigation Tree - collapsed shows icons only */}
@@ -649,8 +815,14 @@ export default function Sidebar({ selectedId, onSelect }) {
               // Expanded view - full tree
               <DndContext
                 sensors={sensors}
-                collisionDetection={siblingCollisionDetection}
+                collisionDetection={collisionDetection}
+                accessibility={dragAccessibility}
+                // Folders opened mid-drag and the top-level zone need measuring too
+                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                onDragStart={({ active }) => setDraggingId(active.id)}
+                onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
               >
                 <SortableContext
                   id={groupIdFor(null)}
@@ -671,6 +843,7 @@ export default function Sidebar({ selectedId, onSelect }) {
                     />
                   ))}
                 </SortableContext>
+                {draggingId && (sections.find((s) => s.id === draggingId)?.parentId ?? null) !== null && <RootDropZone />}
                 {searchVisibleIds && visibleRootSections.length === 0 && (
                   <p className="px-3 py-4 text-sm text-neutral-400 dark:text-neutral-500" role="status">
                     No matches for “{searchQuery.trim()}”
@@ -705,6 +878,29 @@ export default function Sidebar({ selectedId, onSelect }) {
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Changes are stored locally only</p>
               </div>
             )}
+            <div className={iconOnly ? 'space-y-1' : 'flex items-center gap-4'}>
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className={`flex items-center ${FOOTER_TEXT_BUTTON} ${iconOnly ? 'w-full justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-sm'}`}
+                title={iconOnly ? 'Settings' : 'Appearance, backup and more'}
+                aria-label={iconOnly ? 'Settings' : undefined}
+              >
+                <Settings size={16} aria-hidden="true" />
+                {!iconOnly && <span>Settings</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelect({ id: 'trash', type: 'trash', name: 'Trash' })}
+                aria-current={selectedId === 'trash' ? 'page' : undefined}
+                className={`flex items-center ${FOOTER_TEXT_BUTTON} ${iconOnly ? 'w-full justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-sm'}`}
+                title={iconOnly ? 'Trash' : 'Recently deleted items'}
+                aria-label={iconOnly ? 'Trash' : undefined}
+              >
+                <Trash2 size={16} aria-hidden="true" />
+                {!iconOnly && <span>Trash</span>}
+              </button>
+            </div>
             {/* Dark mode toggle (+ way back to following the system setting) */}
             <div className="flex items-center gap-2">
               <button
@@ -843,29 +1039,24 @@ export default function Sidebar({ selectedId, onSelect }) {
       <Modal
         isOpen={modalState.type === 'delete'}
         onClose={closeModal}
-        title="Delete Item"
+        title="Move to Trash"
         size="sm"
       >
         {(() => {
           const target = modalState.item;
           if (!target) return null;
-          // Recursively count descendants
-          const countDescendants = (id) => {
-            const children = childrenByParent.get(id) ?? [];
-            return children.reduce((acc, c) => acc + 1 + countDescendants(c.id), 0);
-          };
-          const descendantCount = countDescendants(target.id);
+          const descendantCount = subtreeIds(sections, target.id).length - 1;
           return (
             <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              Delete "{target.name}"?
+              Move "{target.name}" to Trash?
               {descendantCount > 0 && (
                 <>
-                  {' '}This will also delete{' '}
+                  {' '}The{' '}
                   <strong className="font-medium text-neutral-900 dark:text-neutral-100">{descendantCount} {descendantCount === 1 ? 'item' : 'items'}</strong>
-                  {' '}inside it (notes, boards, sub-folders).
+                  {' '}inside it (notes, boards, sub-folders) will move too.
                 </>
               )}
-              {' '}This cannot be undone.
+              {' '}You can restore {descendantCount > 0 ? 'them' : 'it'} from Trash for 30 days.
             </p>
           );
         })()}
@@ -873,8 +1064,8 @@ export default function Sidebar({ selectedId, onSelect }) {
           <Button variant="secondary" onClick={closeModal}>
             Cancel
           </Button>
-          <Button variant="danger" onClick={handleModalSubmit}>
-            Delete
+          <Button onClick={handleModalSubmit} autoFocus>
+            Move to Trash
           </Button>
         </div>
       </Modal>
@@ -887,7 +1078,7 @@ export default function Sidebar({ selectedId, onSelect }) {
         size="sm"
       >
         <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong> ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
+          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong>, including anything in Trash ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
         </p>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={closeModal}>
@@ -902,6 +1093,8 @@ export default function Sidebar({ selectedId, onSelect }) {
           </Button>
         </div>
       </Modal>
+
+      <MoveToModal isOpen={Boolean(moveItem)} item={moveItem} onClose={() => setMoveItem(null)} />
     </>
   );
 }

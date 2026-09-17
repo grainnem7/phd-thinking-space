@@ -1,6 +1,14 @@
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { timeToMinutes, toDateKey } from '../../utils/date';
 import { isDoneColumn } from '../../hooks/useBoards';
+import { expandOccurrences, addDaysToKey } from '../../lib/recurrence';
+import { colorVars } from './categoryColors';
+
+// Window used to expand repeating events when a caller doesn't pass a range.
+export function defaultEntriesRange(now = new Date()) {
+  const today = toDateKey(now);
+  return { start: addDaysToKey(today, -60), end: addDaysToKey(today, 400) };
+}
 
 // Range the dashboard needs data for: this month's grid plus the next 7 days.
 export function dashboardCalendarRange(now = new Date()) {
@@ -13,34 +21,85 @@ export function dashboardCalendarRange(now = new Date()) {
   };
 }
 
-// Tailwind needs literal class names, so every colour is spelled out here.
-export const EVENT_COLORS = {
-  neutral: { label: 'Grey', dot: 'bg-neutral-500', chip: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200', bar: 'border-l-neutral-400' },
-  sky: { label: 'Blue', dot: 'bg-sky-500', chip: 'bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200', bar: 'border-l-sky-500' },
-  violet: { label: 'Violet', dot: 'bg-violet-500', chip: 'bg-violet-50 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200', bar: 'border-l-violet-500' },
-  emerald: { label: 'Green', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200', bar: 'border-l-emerald-500' },
-  rose: { label: 'Pink', dot: 'bg-rose-500', chip: 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200', bar: 'border-l-rose-500' },
-  orange: { label: 'Orange', dot: 'bg-orange-500', chip: 'bg-orange-50 text-orange-800 dark:bg-orange-950/60 dark:text-orange-200', bar: 'border-l-orange-500' },
-};
-
 export const DEADLINE_STYLE = { dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200', bar: 'border-l-amber-500' };
 export const TASK_STYLE = { dot: 'bg-neutral-400', chip: 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-900 dark:text-neutral-300 dark:ring-neutral-700', bar: 'border-l-neutral-300' };
 export const GOOGLE_STYLE = { dot: '', chip: 'bg-neutral-50 text-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-200', bar: 'border-l-transparent' };
 
+// Events use theme-aware category colours: apply `vars` as inline style
+// alongside the class names (see .cat-* in index.css).
 export function styleFor(entry) {
   if (entry.source === 'deadline') return DEADLINE_STYLE;
   if (entry.source === 'task') return TASK_STYLE;
   if (entry.source === 'google') return GOOGLE_STYLE;
-  return EVENT_COLORS[entry.color] || EVENT_COLORS.sky;
+  return { chip: 'cat-chip', dot: 'cat-dot', bar: 'cat-bar', vars: colorVars(entry.category?.color || entry.color) };
+}
+
+// Days after the first that an event covers (0 for single-day events)
+export function eventExtraDays(item) {
+  return Math.max(0, Math.floor(Number(item?.durationDays) || 0));
+}
+
+// One entry per day an event covers. Days after the first get ids like
+// `${id}+${n}` and a `span` describing the whole event; timed events show their
+// start time on the first day, end time on the last, and run all day between.
+function pushEventDays(entries, base, startKey, extraDays, range) {
+  if (extraDays === 0) {
+    entries.push(base);
+    return;
+  }
+  const span = {
+    index: 0,
+    length: extraDays + 1,
+    start: startKey,
+    end: addDaysToKey(startKey, extraDays),
+    baseId: base.id,
+    allDay: base.allDay,
+    startTime: base.startTime,
+    endTime: base.endTime,
+  };
+  for (let k = 0; k <= extraDays; k++) {
+    const day = addDaysToKey(startKey, k);
+    if (range && (day < range.start || day > range.end)) continue;
+    let display = {};
+    if (!base.allDay) {
+      if (k === 0) display = { startTime: base.startTime, endTime: '23:59' };
+      else if (k === extraDays) display = { startTime: '00:00', endTime: base.endTime };
+      else display = { allDay: true, startTime: null, endTime: null };
+    }
+    entries.push({ ...base, ...display, id: k === 0 ? base.id : `${base.id}+${k}`, date: day, span: { ...span, index: k } });
+  }
+}
+
+// The whole event behind one of its days (for editing, moving and duplicating)
+export function spanBase(entry) {
+  if (!entry?.span) return entry;
+  const { span, ...rest } = entry;
+  return { ...rest, id: span.baseId, date: span.start, allDay: span.allDay, startTime: span.startTime, endTime: span.endTime };
 }
 
 // Merge every dated thing in the app into one list of calendar entries.
-export function buildEntries({ items = [], deadlines = [], sections = [], googleEvents = [] }) {
+// Repeating events become one entry per occurrence within `range` ({ start, end }
+// date keys; defaults to 60 days back to 400 days ahead). Occurrence entries have
+// ids like `${seriesId}__${date}` plus `seriesId` and `occurrenceDate`.
+export function buildEntries({ items = [], deadlines = [], sections = [], googleEvents = [], categories = [], range } = {}) {
   const entries = [];
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const { start, end } = range?.start && range?.end ? range : defaultEntriesRange();
 
   for (const item of items) {
     if (item.kind !== 'event' || !item.date) continue;
-    entries.push({ ...item, source: 'event', allDay: item.allDay || !item.startTime });
+    const allDay = Boolean(item.allDay || !item.startTime);
+    const category = item.categoryId ? categoryById.get(item.categoryId) || null : null;
+    const extraDays = eventExtraDays(item);
+    if (!item.recurrence?.freq) {
+      pushEventDays(entries, { ...item, source: 'event', allDay, category }, item.date, extraDays);
+      continue;
+    }
+    // Include occurrences that start before the range but run into it
+    for (const date of expandOccurrences(item, addDaysToKey(start, -extraDays), end)) {
+      const base = { ...item, id: `${item.id}__${date}`, date, seriesId: item.id, occurrenceDate: date, source: 'event', allDay, category };
+      pushEventDays(entries, base, date, extraDays, { start, end });
+    }
   }
 
   for (const d of deadlines) {
@@ -75,6 +134,9 @@ const SOURCE_ORDER = { deadline: 0, event: 1, google: 2, task: 3 };
 
 export function compareEntries(a, b) {
   if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+  // Multi-day events first, in start order, so they line up across days
+  if (Boolean(a.span) !== Boolean(b.span)) return a.span ? -1 : 1;
+  if (a.span && b.span && a.span.start !== b.span.start) return a.span.start < b.span.start ? -1 : 1;
   if (!a.allDay) {
     const diff = (timeToMinutes(a.startTime) ?? 0) - (timeToMinutes(b.startTime) ?? 0);
     if (diff !== 0) return diff;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, createElement } from 'react';
 import {
   doc,
   collection,
@@ -21,6 +21,7 @@ import {
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../lib/firebase';
 import { useAuth } from './useAuth';
+import { isTrashExpired } from '../lib/sectionTree';
 
 const PAPERS_KEY = 'demo-papers';
 const COLLECTIONS_KEY = 'demo-collections';
@@ -135,7 +136,35 @@ function loadDemo(key, fallback) {
   return fallback;
 }
 
+// Demo papers, with Trash older than the retention period purged
+function loadDemoPapers() {
+  const papers = loadDemo(PAPERS_KEY, DEMO_PAPERS);
+  const kept = papers.filter((p) => !(p.deletedAt && isTrashExpired(p.deletedAt)));
+  if (kept.length !== papers.length) writeDemo(PAPERS_KEY, kept);
+  return kept;
+}
+
+// Accounts whose expired Trash was already purged this session
+const purgedAccounts = new Set();
+
+// Removes a paper document and its attached file for good
+async function hardDeletePaper(uid, paperId) {
+  const refToDelete = doc(db, 'users', uid, 'papers', paperId);
+  const paperSnap = await getDoc(refToDelete);
+  const filePath = paperSnap.exists() ? paperSnap.data().file?.path : null;
+  if (filePath) {
+    try {
+      await deleteObject(ref(storage, filePath));
+    } catch (fileError) {
+      // File might not exist, continue with paper deletion
+      if (fileError?.code !== 'storage/object-not-found') console.warn('Could not delete file:', fileError);
+    }
+  }
+  await deleteDoc(refToDelete);
+}
+
 function newPaperFields(paperData) {
+  const status = paperData.status || 'to-read';
   return {
     title: paperData.title || 'Untitled',
     authors: paperData.authors || '',
@@ -149,7 +178,8 @@ function newPaperFields(paperData) {
     issue: paperData.issue || '',
     pages: paperData.pages || '',
     // Status and organization
-    status: paperData.status || 'to-read',
+    status,
+    ...(status === 'read' && { readAt: now() }),
     priority: paperData.priority || null,
     starred: paperData.starred || false,
     collections: paperData.collections || [],
@@ -163,12 +193,12 @@ function now() {
   return new Date().toISOString();
 }
 
-export function useReadingList() {
+function useReadingListState() {
   const { user, isDemo } = useAuth();
   const uid = user?.uid ?? null;
 
   // Demo mode keeps everything in state mirrored to sessionStorage.
-  const [demoPapers, setDemoPapers] = useState(() => (isDemo ? loadDemo(PAPERS_KEY, DEMO_PAPERS) : null));
+  const [demoPapers, setDemoPapers] = useState(() => (isDemo ? loadDemoPapers() : null));
   const [demoCollections, setDemoCollections] = useState(() => (isDemo ? loadDemo(COLLECTIONS_KEY, DEMO_COLLECTIONS) : null));
 
   // Firestore snapshots, tagged with the uid they belong to so a stale list is
@@ -183,11 +213,17 @@ export function useReadingList() {
     const unsubscribePapers = onSnapshot(
       papersQuery,
       (snapshot) => {
-        setRemotePapers({
-          uid,
-          items: snapshot.docs.map((d) => ({ id: d.id, ...d.data() })),
-          error: null,
-        });
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setRemotePapers({ uid, items, error: null });
+
+        // Once per session: permanently remove Trash older than the retention period
+        if (!purgedAccounts.has(uid) && !snapshot.metadata.fromCache) {
+          purgedAccounts.add(uid);
+          items
+            .filter((p) => p.deletedAt && isTrashExpired(p.deletedAt))
+            .reduce((chain, p) => chain.then(() => hardDeletePaper(uid, p.id)), Promise.resolve())
+            .catch((err) => console.warn('Could not empty expired Trash:', err));
+        }
       },
       (error) => {
         console.error('Error subscribing to papers:', error);
@@ -227,25 +263,29 @@ export function useReadingList() {
     [isDemo, demoCollections],
   );
 
-  let papers = EMPTY;
+  let allPapers = EMPTY;
   let collections = EMPTY;
   let isLoading = false;
   let error = null;
   if (uid && isDemo) {
-    papers = demoPapers ?? demoPapersFallback;
+    allPapers = demoPapers ?? demoPapersFallback;
     collections = demoCollections ?? demoCollectionsFallback;
   } else if (uid) {
-    papers = remotePapers.uid === uid ? remotePapers.items : EMPTY;
+    allPapers = remotePapers.uid === uid ? remotePapers.items : EMPTY;
     collections = remoteCollections.uid === uid ? remoteCollections.items : EMPTY;
     isLoading = remotePapers.uid !== uid;
     error = remotePapers.uid === uid ? remotePapers.error : null;
   }
 
+  // Papers in Trash (deletedAt set) are kept apart from the reading list
+  const papers = useMemo(() => allPapers.filter((p) => !p.deletedAt), [allPapers]);
+  const trashedPapers = useMemo(() => allPapers.filter((p) => p.deletedAt), [allPapers]);
+
   // Latest lists for use inside async callbacks (never read during render)
-  const latest = useRef({ papers, collections });
+  const latest = useRef({ papers: allPapers, collections });
   useEffect(() => {
-    latest.current = { papers, collections };
-  }, [papers, collections]);
+    latest.current = { papers: allPapers, collections };
+  }, [allPapers, collections]);
 
   // Functional demo updates: every mutation builds on the newest state, so a
   // loop of mutations (bulk actions) applies all of them.
@@ -299,20 +339,31 @@ export function useReadingList() {
     return docRef.id;
   }, [uid, isDemo, requireUser, mutateDemoPapers]);
 
-  // Update top-level paper fields
+  // Update top-level paper fields. A status change to 'read' records readAt
+  // (ISO string); changing away from 'read' clears it.
   const updatePaper = useCallback(async (paperId, updates) => {
     requireUser();
+    const statusChanged = Object.prototype.hasOwnProperty.call(updates, 'status');
 
     if (isDemo) {
-      mutateDemoPaper(paperId, (p) => ({ ...p, ...updates }));
+      mutateDemoPaper(paperId, (p) => {
+        const next = { ...p, ...updates };
+        if (statusChanged && updates.status === 'read' && p.status !== 'read') next.readAt = now();
+        if (statusChanged && updates.status !== 'read') delete next.readAt;
+        return next;
+      });
       return;
     }
 
+    const current = latest.current.papers.find((p) => p.id === paperId);
+    let readAt = {};
+    if (statusChanged && updates.status === 'read' && current?.status !== 'read') readAt = { readAt: now() };
+    if (statusChanged && updates.status !== 'read' && current?.readAt !== undefined) readAt = { readAt: deleteField() };
+
     await updateDoc(paperRef(paperId), {
       ...updates,
+      ...readAt,
       updatedAt: serverTimestamp(),
-      // Set readAt when status changes to 'read'
-      ...(updates.status === 'read' ? { readAt: serverTimestamp() } : {}),
     });
   }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
@@ -334,8 +385,32 @@ export function useReadingList() {
     });
   }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
 
-  // Delete paper (and associated file if exists)
+  // Move a paper to Trash (its attached file is kept until it's deleted for good)
   const deletePaper = useCallback(async (paperId) => {
+    requireUser();
+    const deletedAt = now();
+
+    if (isDemo) {
+      mutateDemoPaper(paperId, (p) => ({ ...p, deletedAt }));
+      return;
+    }
+
+    await updateDoc(paperRef(paperId), { deletedAt, updatedAt: serverTimestamp() });
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
+
+  const restorePaper = useCallback(async (paperId) => {
+    requireUser();
+
+    if (isDemo) {
+      mutateDemoPaper(paperId, ({ deletedAt, ...rest }) => rest);
+      return;
+    }
+
+    await updateDoc(paperRef(paperId), { deletedAt: deleteField(), updatedAt: serverTimestamp() });
+  }, [isDemo, requireUser, mutateDemoPaper, paperRef]);
+
+  // Permanently delete a paper and its attached file
+  const deletePaperForever = useCallback(async (paperId) => {
     requireUser();
 
     if (isDemo) {
@@ -343,19 +418,8 @@ export function useReadingList() {
       return;
     }
 
-    const refToDelete = paperRef(paperId);
-    const paperSnap = await getDoc(refToDelete);
-    const filePath = paperSnap.exists() ? paperSnap.data().file?.path : null;
-    if (filePath) {
-      try {
-        await deleteObject(ref(storage, filePath));
-      } catch (fileError) {
-        // File might not exist, continue with paper deletion
-        console.warn('Could not delete file:', fileError);
-      }
-    }
-    await deleteDoc(refToDelete);
-  }, [isDemo, requireUser, mutateDemoPapers, paperRef]);
+    await hardDeletePaper(uid, paperId);
+  }, [uid, isDemo, requireUser, mutateDemoPapers]);
 
   // Add collection (returns the existing id if the name is taken)
   const addCollection = useCallback(async (name) => {
@@ -595,6 +659,7 @@ export function useReadingList() {
 
   return {
     papers,
+    trashedPapers,
     collections,
     isLoading,
     error,
@@ -602,6 +667,8 @@ export function useReadingList() {
     updatePaper,
     setPaperCollection,
     deletePaper,
+    restorePaper,
+    deletePaperForever,
     addCollection,
     updateCollection,
     deleteCollection,
@@ -615,4 +682,19 @@ export function useReadingList() {
     getCounts,
     getStarredPapers,
   };
+}
+
+// One shared copy of the reading list for the whole signed-in app, so every
+// screen (and demo mode's sessionStorage copy) stays in sync.
+const ReadingListContext = createContext(null);
+
+export function ReadingListProvider({ children }) {
+  const value = useReadingListState();
+  return createElement(ReadingListContext.Provider, { value }, children);
+}
+
+export function useReadingList() {
+  const context = useContext(ReadingListContext);
+  if (!context) throw new Error('useReadingList must be used within a ReadingListProvider');
+  return context;
 }

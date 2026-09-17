@@ -420,7 +420,7 @@ export default function AddPaperModal({ isOpen = true, onClose, onSave, collecti
                     disabled={isSubmitting}
                     aria-pressed={active}
                     className={`px-3 py-1.5 text-sm rounded-full transition-colors ${active
-                      ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                      ? 'bg-accent text-accent-fg'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'}`}
                   >
                     {col.name}
@@ -440,7 +440,7 @@ export default function AddPaperModal({ isOpen = true, onClose, onSave, collecti
             </div>
             <div className="h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-neutral-900 dark:bg-neutral-100 transition-all duration-300"
+                className="h-full bg-accent transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
@@ -462,7 +462,7 @@ export default function AddPaperModal({ isOpen = true, onClose, onSave, collecti
           <button
             type="submit"
             disabled={isSubmitting || !formData.title.trim()}
-            className="px-4 py-2 text-sm rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-sm rounded-lg bg-accent text-accent-fg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isSubmitting && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
             {paper ? 'Save' : 'Add Paper'}

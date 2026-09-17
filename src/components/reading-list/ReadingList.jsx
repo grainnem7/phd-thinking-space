@@ -22,7 +22,7 @@ const FILTERS = [
   { id: 'read', label: 'Read' },
 ];
 
-const PRIMARY_BUTTON = 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white';
+const PRIMARY_BUTTON = 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-accent text-accent-fg hover:bg-accent-hover';
 const INPUT = 'border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-200 dark:focus:ring-neutral-700';
 
 function iconButtonClass(active) {
@@ -170,10 +170,10 @@ export default function ReadingList({ initialPaperId = null, onOpenNote }) {
   const handleBulkDelete = async () => {
     const count = selectedPapers.length;
     const ok = await confirm({
-      title: `Delete ${count} ${count === 1 ? 'paper' : 'papers'}?`,
-      body: 'Attached files will also be removed from storage. This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
+      title: `Move ${count} ${count === 1 ? 'paper' : 'papers'} to Trash?`,
+      body: `You can restore ${count === 1 ? 'it' : 'them'} from Trash for 30 days. Attached files are kept until ${count === 1 ? 'it is' : 'they are'} deleted forever.`,
+      confirmLabel: 'Move to Trash',
+      danger: false,
     });
     if (!ok) return;
     await runBulk(
@@ -622,7 +622,7 @@ function PaperCard({ paper, getCollectionName, onClick, selectionMode = false, i
               aria-hidden="true"
               className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                 isSelected
-                  ? 'bg-neutral-900 dark:bg-neutral-100 border-neutral-900 dark:border-neutral-100'
+                  ? 'bg-accent border-accent'
                   : 'border-neutral-300 dark:border-neutral-600'
               }`}
             >

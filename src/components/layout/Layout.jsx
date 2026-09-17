@@ -3,13 +3,13 @@ import { useSidebar } from '../../contexts/SidebarContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import Sidebar from './Sidebar';
 
-export default function Layout({ children, selectedId, onSelect }) {
+export default function Layout({ children, selectedId, onSelect, onOpenSettings }) {
   const { isOpen, isMobile } = useSidebar();
   const { focusMode, exit: exitFocusMode } = useFocusMode();
 
   return (
     <div className="flex h-screen bg-[var(--bg-page)] overflow-hidden">
-      <Sidebar selectedId={selectedId} onSelect={onSelect} />
+      <Sidebar selectedId={selectedId} onSelect={onSelect} onOpenSettings={onOpenSettings} />
       <main className={`flex-1 flex flex-col min-h-0 overflow-auto ${!isMobile && !isOpen ? 'w-full' : ''}`}>
         {children}
       </main>

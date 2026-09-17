@@ -18,6 +18,9 @@ import { TaskCardOverlay } from './TaskCard';
 import TaskModal from './TaskModal';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import { useConfirm } from '../common/ConfirmDialog';
+import TagInput from '../tags/TagInput';
+import { useFirestore } from '../../hooks/useFirestore';
+import { useTagSuggestions } from '../../hooks/useTags';
 
 const EMPTY = [];
 
@@ -45,6 +48,8 @@ export default function KanbanBoard({ board, initialTaskId, onRename, onDelete }
     deleteTask,
     moveTask,
   } = useBoards(board?.id);
+  const { updateSection } = useFirestore();
+  const tagSuggestions = useTagSuggestions();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -244,8 +249,17 @@ export default function KanbanBoard({ board, initialTaskId, onRename, onDelete }
   return (
     <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-[#fafafa] dark:bg-neutral-950">
       {/* Board Header */}
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-        <h2 className="font-serif text-xl sm:text-2xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight truncate">{board.name}</h2>
+      <div className="flex items-start justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-serif text-xl sm:text-2xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight truncate">{board.name}</h2>
+          <TagInput
+            tags={board.tags}
+            onChange={(tags) => updateSection(board.id, { tags }).catch(logError('update board tags'))}
+            suggestions={tagSuggestions}
+            label={`Tags for ${board.name}`}
+            className="mt-1.5"
+          />
+        </div>
         {(onRename || onDelete) && (
           <Dropdown
             align="right"
@@ -275,9 +289,9 @@ export default function KanbanBoard({ board, initialTaskId, onRename, onDelete }
                       const ok = await confirm({
                         title: `Delete "${board.name}"?`,
                         body: taskCount > 0
-                          ? `This board has ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}. Deleting it will remove them too. This cannot be undone.`
-                          : 'This cannot be undone.',
-                        confirmLabel: 'Delete',
+                          ? `The board and its ${taskCount} ${taskCount === 1 ? 'task' : 'tasks'} will move to Trash, where you can restore them.`
+                          : 'The board will move to Trash, where you can restore it.',
+                        confirmLabel: 'Move to Trash',
                         danger: true,
                       });
                       if (ok) onDelete(board.id);

@@ -37,7 +37,32 @@ const DEMO_MIGRATION_MAP = {
   'demo-papers': 'papers',
   'demo-collections': 'paperCollections',
   'demo-calendarItems': 'calendarItems',
+  'demo-writingStats': 'writingStats',
+  'demo-templates': 'templates',
+  'demo-weeklyReviews': 'weeklyReviews',
+  'demo-calendarCategories': 'calendarCategories',
 };
+
+// Collections whose document id is meaningful (a date / week start) and must be kept
+const NATURAL_ID_FIELDS = {
+  writingStats: 'date',
+  weeklyReviews: 'weekStart',
+};
+
+// Demo keys holding a single settings document rather than a list
+const DEMO_SINGLE_DOCS = {
+  'demo-dashboardLayout': ['dashboard', 'config'],
+  'demo-writingSettings': ['settings', 'writing'],
+};
+
+function readDemoObject(key) {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(key));
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 function readDemoArray(key) {
   try {
@@ -120,11 +145,12 @@ export function AuthProvider({ children }) {
     return { user: result.user, isNewUser };
   };
 
-  const hasDemoData = () =>
-    Object.keys(DEMO_MIGRATION_MAP).some((k) => sessionStorage.getItem(k));
+  const demoKeys = () => [...Object.keys(DEMO_MIGRATION_MAP), ...Object.keys(DEMO_SINGLE_DOCS)];
+
+  const hasDemoData = () => demoKeys().some((k) => sessionStorage.getItem(k));
 
   const clearDemoData = () => {
-    Object.keys(DEMO_MIGRATION_MAP).forEach((k) => sessionStorage.removeItem(k));
+    demoKeys().forEach((k) => sessionStorage.removeItem(k));
     sessionStorage.removeItem('demo-mode');
   };
 
@@ -136,7 +162,11 @@ export function AuthProvider({ children }) {
     const plans = Object.entries(DEMO_MIGRATION_MAP).map(([storageKey, collectionName]) => {
       const collRef = collection(db, 'users', userId, collectionName);
       const items = readDemoArray(storageKey);
-      idMaps[collectionName] = new Map(items.map((item) => [item.id, doc(collRef).id]));
+      const naturalField = NATURAL_ID_FIELDS[collectionName];
+      idMaps[collectionName] = new Map(items.map((item) => [
+        item.id,
+        naturalField && item[naturalField] ? String(item[naturalField]) : doc(collRef).id,
+      ]));
       return { collectionName, collRef, items };
     });
 
@@ -154,6 +184,9 @@ export function AuthProvider({ children }) {
         if (collectionName === 'papers' && Array.isArray(data.collections)) {
           data.collections = data.collections.map((c) => remap('paperCollections', c));
         }
+        if (collectionName === 'calendarItems' && data.categoryId) {
+          data.categoryId = remap('calendarCategories', data.categoryId);
+        }
         if (collectionName === 'calendarItems' && Array.isArray(data.links)) {
           data.links = data.links.map((l) => ({
             ...l,
@@ -165,6 +198,14 @@ export function AuthProvider({ children }) {
 
         writes.push({ ref: doc(collRef, idMaps[collectionName].get(id)), data });
       }
+    }
+
+    for (const [storageKey, path] of Object.entries(DEMO_SINGLE_DOCS)) {
+      const value = readDemoObject(storageKey);
+      if (!value) continue;
+      const data = { ...value, updatedAt: serverTimestamp() };
+      Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+      writes.push({ ref: doc(db, 'users', userId, ...path), data });
     }
 
     for (let i = 0; i < writes.length; i += BATCH_LIMIT) {

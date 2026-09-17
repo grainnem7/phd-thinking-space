@@ -1,53 +1,51 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNotes } from '../../hooks/useNotes';
-import { Trash2, Maximize2, BookOpen } from 'lucide-react';
+import { Trash2, Maximize2, BookOpen, LayoutTemplate, FileText, CornerDownRight } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
+import { isLinkableNote, linksToNote, withNoteLinkMappings } from '../editors/noteLinks';
+import SaveAsTemplateModal from '../templates/SaveAsTemplateModal';
+import { useFirestore } from '../../hooks/useFirestore';
 import { useConfirm } from '../common/ConfirmDialog';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useReadingList } from '../../hooks/useReadingList';
 import { generateInTextCitation } from '../../utils/paperMetadata';
 import Modal from '../common/Modal';
+import { contentToText, countWords } from '../../lib/noteText';
+import TagInput from '../tags/TagInput';
+import { useTagSuggestions } from '../../hooks/useTags';
 
-// Walk a BlockNote document tree and concatenate inline text. Returns "" for malformed input.
-function extractTextFromBlocks(blocks) {
-  if (!Array.isArray(blocks)) return '';
-  let out = '';
-  for (const block of blocks) {
-    if (Array.isArray(block?.content)) {
-      for (const inline of block.content) {
-        if (typeof inline?.text === 'string') out += inline.text + ' ';
-      }
-    } else if (typeof block?.content === 'string') {
-      out += block.content + ' ';
-    }
-    if (Array.isArray(block?.children) && block.children.length) {
-      out += extractTextFromBlocks(block.children);
-    }
-  }
-  return out;
+function noteStats(content) {
+  const text = contentToText(content).trim();
+  return { words: countWords(text), chars: text.length };
 }
 
-function countWords(content) {
-  if (!content) return { words: 0, chars: 0 };
-  let parsed = content;
-  if (typeof content === 'string') {
-    try { parsed = JSON.parse(content); } catch { return { words: 0, chars: 0 }; }
-  }
-  const text = extractTextFromBlocks(parsed).trim();
-  return {
-    words: text ? text.split(/\s+/).length : 0,
-    chars: text.length,
-  };
-}
-
-export default function NoteEditor({ note, updateSection, onDelete }) {
+export default function NoteEditor({ note, updateSection, onDelete, onOpenNote }) {
   const confirm = useConfirm();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const { papers } = useReadingList();
+  const { sections, addSection } = useFirestore();
+  const tagSuggestions = useTagSuggestions();
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+
+  // Notes that link to this one
+  const backlinks = useMemo(() => (
+    note ? sections.filter((s) => s.id !== note.id && isLinkableNote(s) && linksToNote(s.content, note.id)) : []
+  ), [sections, note]);
+
+  // "[[New name" -> create a note next to this one
+  const noteParentId = note?.parentId ?? null;
+  const handleCreateLinkedNote = useCallback(async (name) => {
+    const siblings = sections.filter((s) => (s.parentId ?? null) === noteParentId);
+    const order = siblings.length ? Math.max(...siblings.map((s) => s.order || 0)) + 1 : 0;
+    return addSection({ name, type: 'note', parentId: noteParentId, order, content: '' });
+  }, [sections, noteParentId, addSection]);
+
+  // Links are exported as the linked note's current name
+  const linkName = useCallback(({ noteId, name }) => sections.find((s) => s.id === noteId)?.name || name, [sections]);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [titleDraft, setTitleDraft] = useState(note?.name || '');
-  const [wordStats, setWordStats] = useState(() => countWords(note?.content));
+  const [wordStats, setWordStats] = useState(() => noteStats(note?.content));
   const [citePickerOpen, setCitePickerOpen] = useState(false);
   const [citeQuery, setCiteQuery] = useState('');
   const wordCountTimeoutRef = useRef(null);
@@ -86,7 +84,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
   // Adjusting state during render avoids an extra effect-driven re-render.
   const [syncedNote, setSyncedNote] = useState({ id: note?.id, name: note?.name });
   if (syncedNote.id !== note?.id || syncedNote.name !== note?.name) {
-    if (syncedNote.id !== note?.id) setWordStats(countWords(note?.content));
+    if (syncedNote.id !== note?.id) setWordStats(noteStats(note?.content));
     setSyncedNote({ id: note?.id, name: note?.name });
     setTitleDraft(note?.name || '');
   }
@@ -95,7 +93,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     debouncedSave(newContent);
     if (wordCountTimeoutRef.current) clearTimeout(wordCountTimeoutRef.current);
     wordCountTimeoutRef.current = setTimeout(() => {
-      setWordStats(countWords(newContent));
+      setWordStats(noteStats(newContent));
     }, 500);
   }, [debouncedSave]);
 
@@ -144,7 +142,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
         import('@blocknote/xl-docx-exporter'),
         import('docx'),
       ]);
-      const exporter = new DOCXExporter(editor.schema, docxDefaultSchemaMappings);
+      const exporter = new DOCXExporter(editor.schema, withNoteLinkMappings(docxDefaultSchemaMappings, linkName));
       const docxDocument = await exporter.toDocxJsDocument(editor.document);
 
       // Use toBlob for browser environments
@@ -171,8 +169,8 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     if (!note || !onDelete) return;
     const ok = await confirm({
       title: `Delete "${note.name}"?`,
-      body: 'This cannot be undone.',
-      confirmLabel: 'Delete',
+      body: 'The note will move to Trash, where you can restore it.',
+      confirmLabel: 'Move to Trash',
       danger: true,
     });
     if (ok) onDelete(note.id);
@@ -196,7 +194,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
         import('@blocknote/xl-pdf-exporter'),
         import('@react-pdf/renderer'),
       ]);
-      const exporter = new PDFExporter(editor.schema, pdfDefaultSchemaMappings);
+      const exporter = new PDFExporter(editor.schema, withNoteLinkMappings(pdfDefaultSchemaMappings, linkName));
       const pdfDocument = await exporter.toReactPDFDocument(editor.document);
 
       // Use pdf().toBlob() for browser environments
@@ -264,6 +262,14 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
               </span>
             )}
             <button
+              onClick={() => setSaveTemplateOpen(true)}
+              aria-label="Save as template"
+              title="Save as template"
+              className="text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1"
+            >
+              <LayoutTemplate size={16} />
+            </button>
+            <button
               onClick={() => setCitePickerOpen(true)}
               aria-label="Cite a paper"
               title="Cite a paper"
@@ -325,11 +331,60 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
             aria-label="Note title"
             className="w-full font-serif text-3xl sm:text-4xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight bg-transparent focus:outline-none placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
           />
+          <TagInput
+            tags={note.tags}
+            onChange={(tags) => updateSection?.(note.id, { tags })}
+            suggestions={tagSuggestions}
+            label="Note tags"
+            className="mt-3"
+          />
         </div>
         <div className="max-w-3xl mx-auto px-5 sm:px-10 pb-10">
-          <BlockNoteEditor key={note?.id} ref={editorRef} content={note?.content} onChange={handleChange} />
+          <BlockNoteEditor
+            key={note?.id}
+            ref={editorRef}
+            content={note?.content}
+            onChange={handleChange}
+            notes={sections}
+            currentNoteId={note.id}
+            onOpenNote={onOpenNote}
+            onCreateNote={handleCreateLinkedNote}
+          />
+          {backlinks.length > 0 && !focusMode && (
+            <section aria-labelledby="backlinks-heading" className="mt-10 pt-6 border-t border-neutral-100 dark:border-neutral-800">
+              <h2 id="backlinks-heading" className="flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-medium mb-3">
+                <CornerDownRight size={12} aria-hidden="true" />
+                Linked from {backlinks.length} {backlinks.length === 1 ? 'note' : 'notes'}
+              </h2>
+              <ul className="flex flex-wrap gap-2">
+                {backlinks.map((source) => (
+                  <li key={source.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenNote?.(source.id)}
+                      disabled={!onOpenNote}
+                      className="inline-flex items-center gap-1.5 max-w-xs px-2.5 py-1.5 text-sm text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:border-neutral-300 hover:text-neutral-900 dark:hover:border-neutral-700 dark:hover:text-neutral-100 transition-colors"
+                    >
+                      <FileText size={13} aria-hidden="true" className="flex-shrink-0 text-neutral-400" />
+                      <span className="truncate">{source.name || 'Untitled'}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       </div>
+
+      <SaveAsTemplateModal
+        isOpen={saveTemplateOpen}
+        onClose={() => setSaveTemplateOpen(false)}
+        defaultName={note.name}
+        getContent={() => {
+          const editor = editorRef.current?.getEditor();
+          return editor ? JSON.stringify(editor.document) : (note.content || '');
+        }}
+      />
 
       <Modal
         isOpen={citePickerOpen}
