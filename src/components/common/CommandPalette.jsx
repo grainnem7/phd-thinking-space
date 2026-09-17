@@ -103,7 +103,19 @@ function PaletteDialog({ onOpenChange, sections = [], actions = [], onNavigate }
     onOpenChange(false);
   };
 
-  const hasResults = matchingActions.length > 0 || results.length > 0 || matchingTags.length > 0 || (!trimmed && sections.length > 0);
+  const showSections = !trimmed && sections.length > 0;
+  const hasResults = matchingActions.length > 0 || results.length > 0 || matchingTags.length > 0 || showSections;
+
+  // cmdk doesn't re-highlight when it isn't filtering, so keep the active item
+  // on the first visible one whenever the previous choice disappears.
+  const [selectedValue, setSelectedValue] = useState('');
+  const visibleValues = [
+    ...matchingTags.map((t) => `tag:${t.tag}`),
+    ...results.map((r) => `result:${r.key}`),
+    ...matchingActions.map((a) => `action:${a.id}`),
+    ...(showSections ? sections.map((s) => `section:${s.id}`) : []),
+  ];
+  const activeValue = visibleValues.includes(selectedValue) ? selectedValue : (visibleValues[0] || '');
 
   return (
     <div
@@ -117,7 +129,13 @@ function PaletteDialog({ onOpenChange, sections = [], actions = [], onNavigate }
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl dark:shadow-black/50 overflow-hidden"
       >
-        <Command label="Command palette" shouldFilter={false} className="flex flex-col">
+        <Command
+          label="Command palette"
+          shouldFilter={false}
+          value={activeValue}
+          onValueChange={setSelectedValue}
+          className="flex flex-col"
+        >
           <Command.Input
             autoFocus
             value={query}
@@ -212,7 +230,7 @@ function PaletteDialog({ onOpenChange, sections = [], actions = [], onNavigate }
               </Command.Group>
             )}
 
-            {!trimmed && sections.length > 0 && (
+            {showSections && (
               <Command.Group heading="Navigate" className={groupClass}>
                 {sections.map((section) => {
                   const Icon = iconFor(section);

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { SuggestionMenuController } from '@blocknote/react';
+import { SuggestionMenuController, useExtension } from '@blocknote/react';
+import { SuggestionMenu } from '@blocknote/core/extensions';
 import { FileText, FilePlus } from 'lucide-react';
 import { NOTE_LINK_TYPE, isLinkableNote } from './noteLinks';
 import { normalizeText } from '../../lib/search';
 
 const MAX_ITEMS = 8;
+const TRIGGER = '[[';
 
 // Typing `[[` opens a menu of notes to link to, ending with "Create note".
 export default function NoteLinkMenu({ editor, notes, currentNoteId, onCreateNote }) {
@@ -13,6 +15,27 @@ export default function NoteLinkMenu({ editor, notes, currentNoteId, onCreateNot
   useEffect(() => {
     latest.current = { notes, currentNoteId, onCreateNote };
   }, [notes, currentNoteId, onCreateNote]);
+
+  // BlockNote 0.45 only recognises single-character triggers when typing
+  // (its multi-character check compares one character too many), so watch for
+  // "[[" before the cursor and open the menu ourselves.
+  const suggestionMenu = useExtension(SuggestionMenu);
+  useEffect(() => editor.onChange(() => {
+    const view = editor.prosemirrorView;
+    if (!view || !editor.isEditable || suggestionMenu.shown()) return;
+    const { selection } = view.state;
+    const { $from } = selection;
+    if (!selection.empty || $from.parent.type.spec.code || $from.parentOffset < TRIGGER.length) return;
+    const before = $from.parent.textBetween($from.parentOffset - TRIGGER.length, $from.parentOffset, undefined, '￼');
+    if (before !== TRIGGER) return;
+    const pos = selection.from;
+    // Replace the typed brackets with a tracked trigger once this update finishes
+    queueMicrotask(() => {
+      if (editor.prosemirrorView?.state.selection.from !== pos || suggestionMenu.shown()) return;
+      editor.transact((tr) => tr.delete(pos - TRIGGER.length, pos));
+      suggestionMenu.openSuggestionMenu(TRIGGER, { deleteTriggerCharacter: true });
+    });
+  }), [editor, suggestionMenu]);
 
   const insertLink = useCallback((noteId, name) => {
     editor.insertInlineContent([
@@ -54,5 +77,5 @@ export default function NoteLinkMenu({ editor, notes, currentNoteId, onCreateNot
     return items;
   }, [insertLink]);
 
-  return <SuggestionMenuController triggerCharacter="[[" getItems={getItems} />;
+  return <SuggestionMenuController triggerCharacter={TRIGGER} getItems={getItems} />;
 }

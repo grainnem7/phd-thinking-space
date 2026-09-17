@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useRef } from 'react';
 import Modal from '../common/Modal';
 import TagInput from '../tags/TagInput';
 import { useTagSuggestions } from '../../hooks/useTags';
@@ -23,6 +23,7 @@ function TaskForm({ task, columnId, onSave, onClose }) {
   const id = useId();
   const [formData, setFormData] = useState(() => initialForm(task));
   const tagSuggestions = useTagSuggestions();
+  const tagInputRef = useRef(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -35,7 +36,8 @@ function TaskForm({ task, columnId, onSave, onClose }) {
       title,
       description: formData.description.trim(),
       priority: formData.priority,
-      tags: formData.tags,
+      // Include a tag that was typed but not yet added
+      tags: tagInputRef.current?.flush() ?? formData.tags,
       dueDate: formData.dueDate || null,
     });
     onClose();
@@ -99,6 +101,7 @@ function TaskForm({ task, columnId, onSave, onClose }) {
       <div>
         <label htmlFor={`${id}-tag`} className={LABEL_CLASS}>Tags</label>
         <TagInput
+          ref={tagInputRef}
           inputId={`${id}-tag`}
           tags={formData.tags}
           onChange={(tags) => setFormData(prev => ({ ...prev, tags }))}

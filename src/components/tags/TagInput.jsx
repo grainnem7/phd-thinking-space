@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useImperativeHandle, useRef, useState } from 'react';
 import { Tag } from 'lucide-react';
 import TagChip from './TagChip';
 import { cleanTags, normalizeTag } from '../../lib/tags';
@@ -17,6 +17,7 @@ export default function TagInput({
   className = '',
   showIcon = true,
   navigable = true,
+  ref,
 }) {
   const generatedId = useId();
   const id = inputId || generatedId;
@@ -43,6 +44,17 @@ export default function TagInput({
   };
 
   const remove = (tag) => onChange(current.filter((t) => t !== tag));
+
+  // Lets a form include a typed-but-uncommitted tag when it submits
+  useImperativeHandle(ref, () => ({
+    flush: () => {
+      if (!draft.trim()) return current;
+      const next = cleanTags([...current, draft]);
+      onChange(next);
+      setDraft('');
+      return next;
+    },
+  }));
 
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown' && options.length) {
