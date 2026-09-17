@@ -196,6 +196,7 @@ export function useDashboard() {
   return {
     // State
     deadlines: deadlines.items,
+    deadlinesLoaded: deadlines.loaded,
     scheduleBlocks: blocks.items,
     quickCaptures: captures.items,
     todos,

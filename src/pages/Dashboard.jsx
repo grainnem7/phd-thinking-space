@@ -10,6 +10,7 @@ import SettingsModal from '../components/settings/SettingsModal';
 import MoveToModal from '../components/sections/MoveToModal';
 import TemplatePickerModal from '../components/templates/TemplatePickerModal';
 import WritingStatsRecorder from '../components/writing/WritingStatsRecorder';
+import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
 
 // Heavier views load on first use to keep the initial download small
 const NoteEditor = lazy(() => import('../components/notes/NoteEditor'));
@@ -516,6 +517,7 @@ export default function Dashboard() {
   return (
     <Layout selectedId={selectedItem?.id} onSelect={handleSelect} onOpenSettings={() => setSettingsOpen(true)}>
       <WritingStatsRecorder />
+      <GoogleCalendarSync />
       {!focusMode && (
       <Header
         breadcrumbs={getBreadcrumbs()}

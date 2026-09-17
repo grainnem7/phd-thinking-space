@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, Plus, LogOut, RotateCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, Plus, LogOut, RotateCw, AlertCircle, ArrowLeftRight } from 'lucide-react';
 import Modal from '../common/Modal';
 import { useConfirm } from '../common/ConfirmDialog';
 
@@ -17,7 +17,51 @@ function GoogleMark() {
 const PILL = 'inline-flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-colors hover:border-neutral-300 dark:hover:border-neutral-600';
 const SMALL_BUTTON = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-600 hover:text-neutral-900 dark:hover:text-neutral-100';
 
-function AccountCard({ account, onReconnect, onRemove, onToggleCalendar }) {
+function timeAgo(ms) {
+  const minutes = Math.round((Date.now() - ms) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes === 1) return '1 minute ago';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function SyncRow({ account, onToggleSync }) {
+  const { sync } = account;
+  let status = 'Off';
+  if (account.syncEnabled) {
+    if (!account.connected) status = 'Paused until you reconnect';
+    else if (sync?.running) status = 'Syncing…';
+    else if (sync?.error) status = sync.error;
+    else if (sync?.lastSyncedAt) status = `Up to date · ${timeAgo(sync.lastSyncedAt)}`;
+    else status = 'Waiting to sync…';
+  }
+  return (
+    <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-start gap-3">
+      <ArrowLeftRight size={16} className="mt-0.5 text-neutral-400 flex-shrink-0" aria-hidden="true" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-neutral-800 dark:text-neutral-200">Sync to a “Thinking Space” calendar</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Your events and deadlines, plus events from your other connected accounts. Edits made in Google come back to the app.
+        </p>
+        <p className={`mt-1 text-xs ${account.syncEnabled && sync?.error ? 'text-rose-700 dark:text-rose-300' : 'text-neutral-500 dark:text-neutral-400'}`} role="status">
+          {status}
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={account.syncEnabled}
+        aria-label={`Sync to ${account.email}`}
+        onClick={() => onToggleSync(account.email, !account.syncEnabled)}
+        className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring ${account.syncEnabled ? 'bg-accent' : 'bg-neutral-200 dark:bg-neutral-700'}`}
+      >
+        <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${account.syncEnabled ? 'translate-x-[1.375rem]' : 'translate-x-0.5'}`} />
+      </button>
+    </div>
+  );
+}
+
+function AccountCard({ account, onReconnect, onRemove, onToggleCalendar, onToggleSync }) {
   const initial = (account.name || account.email || '?').trim().charAt(0).toUpperCase();
   return (
     <li className="p-3 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
@@ -53,6 +97,8 @@ function AccountCard({ account, onReconnect, onRemove, onToggleCalendar }) {
         </p>
       )}
 
+      <SyncRow account={account} onToggleSync={onToggleSync} />
+
       {account.connected && account.calendars.length > 0 && (
         <fieldset className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
           <legend className="sr-only">Calendars from {account.email}</legend>
@@ -85,7 +131,7 @@ function AccountCard({ account, onReconnect, onRemove, onToggleCalendar }) {
 export default function GoogleCalendarControl({ google }) {
   const [open, setOpen] = useState(false);
   const confirm = useConfirm();
-  const { status, accounts, isFetching, connect, reconnect, removeAccount, setCalendarHidden, refresh, error } = google;
+  const { status, accounts, isFetching, connect, reconnect, removeAccount, setCalendarHidden, setAccountSync, refresh, error } = google;
 
   if (status === 'unavailable') return null;
 
@@ -95,7 +141,7 @@ export default function GoogleCalendarControl({ google }) {
   const handleRemove = async (account) => {
     const ok = await confirm({
       title: `Remove ${account.email}?`,
-      body: 'Its events will no longer show in your calendar. Nothing is changed in Google Calendar.',
+      body: 'Its events will no longer show here and syncing to it stops. Its “Thinking Space” calendar stays in Google; delete it there if you no longer want it.',
       confirmLabel: 'Remove',
       danger: false,
     });
@@ -136,8 +182,10 @@ export default function GoogleCalendarControl({ google }) {
 
       <Modal isOpen={open} onClose={() => setOpen(false)} title="Google Calendar" size="lg">
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          Show events from one or more Google accounts. It's read-only: nothing is changed in Google Calendar.
-          Google only allows an hour of access at a time, so you'll sometimes need to reconnect.
+          Show events from one or more Google accounts, and keep a “Thinking Space” calendar in each one up to date with
+          your app events, deadlines and your other accounts. The app never changes your other Google calendars.
+          Google only allows an hour of access at a time, so you'll sometimes need to reconnect; anything changed
+          meanwhile syncs when you do.
         </p>
 
         {error && (
@@ -155,6 +203,7 @@ export default function GoogleCalendarControl({ google }) {
                 onReconnect={reconnect}
                 onRemove={handleRemove}
                 onToggleCalendar={setCalendarHidden}
+                onToggleSync={setAccountSync}
               />
             ))}
           </ul>

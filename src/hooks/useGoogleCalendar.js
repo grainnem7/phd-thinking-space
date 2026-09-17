@@ -4,20 +4,23 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, setPersistence, 
 import app from '../lib/firebase';
 import { useAuth } from './useAuth';
 import { parseLocalDate, toDateKey } from '../utils/date';
+import { isSyncCalendar } from '../lib/googleSync';
 
-// Read-only Google Calendar sync for one or more Google accounts.
+// Google Calendar for one or more Google accounts: events are shown in the app,
+// and components/calendar/GoogleCalendarSync.jsx copies app events, deadlines
+// and the other accounts' events into a "Thinking Space" calendar in each.
 //
 // Each account is connected through a separate, in-memory Firebase Auth
 // instance, so choosing another Google account in the popup never affects the
 // user's sign-in to the app. The popup returns a Google access token with the
-// calendar.readonly scope. Those tokens last one hour and can't be refreshed
+// calendar scope (read and write). Those tokens last one hour and can't be refreshed
 // from the browser, so they're kept in sessionStorage with their expiry and the
 // account shows "Reconnect" once it lapses.
 //
-// The list of connected accounts (and which of their calendars are hidden) is
-// remembered per device in localStorage.
+// The list of connected accounts (which calendars are hidden, whether sync is
+// on) is remembered per device in localStorage.
 
-const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const SCOPE = 'https://www.googleapis.com/auth/calendar';
 const API = 'https://www.googleapis.com/calendar/v3';
 const ACCOUNTS_KEY = 'gcal-accounts';
 const TOKENS_KEY = 'gcal-tokens';
@@ -52,11 +55,15 @@ function loadState() {
   return { accounts: Array.isArray(accounts) ? accounts : [], tokens: tokens && typeof tokens === 'object' ? tokens : {} };
 }
 
-let state = loadState();
+let state = { ...loadState(), sync: {} };
 const listeners = new Set();
 
 function setState(patch) {
   state = { ...state, ...patch };
+  if (!('accounts' in patch) && !('tokens' in patch)) {
+    listeners.forEach((listener) => listener());
+    return;
+  }
   writeJson(localStorage, ACCOUNTS_KEY, state.accounts);
   writeJson(sessionStorage, TOKENS_KEY, state.tokens);
   listeners.forEach((listener) => listener());
@@ -99,7 +106,7 @@ async function connectAccount(loginHint) {
   const existing = state.accounts.find((a) => a.email === email);
   const accounts = existing
     ? state.accounts.map((a) => (a.email === email ? { ...a, name, photoURL } : a))
-    : [...state.accounts, { email, name, photoURL, hiddenCalendars: [] }];
+    : [...state.accounts, { email, name, photoURL, hiddenCalendars: [], syncEnabled: true }];
   setState({
     accounts,
     tokens: { ...state.tokens, [email]: { accessToken: credential.accessToken, expiresAt: Date.now() + TOKEN_LIFETIME_MS } },
@@ -133,6 +140,35 @@ function setCalendarHidden(email, calendarId, hidden) {
       return { ...a, hiddenCalendars: [...set] };
     }),
   });
+}
+
+function setAccountSync(email, enabled) {
+  setState({ accounts: state.accounts.map((a) => (a.email === email ? { ...a, syncEnabled: enabled } : a)) });
+}
+
+// --- Used by the background sync -------------------------------------------
+
+export function subscribeGoogleAccounts(listener) {
+  return subscribe(listener);
+}
+
+export function getGoogleAccountsSnapshot() {
+  return state;
+}
+
+// Accounts whose access token is still valid
+export function getActiveGoogleAccounts() {
+  return state.accounts
+    .map((a) => ({ ...a, syncEnabled: a.syncEnabled !== false, token: validToken(a.email) }))
+    .filter((a) => a.token);
+}
+
+export function markGoogleTokenExpired(email) {
+  expireToken(email);
+}
+
+export function setGoogleSyncStatus(email, status) {
+  setState({ sync: { ...state.sync, [email]: { ...state.sync[email], ...status } } });
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +247,7 @@ function describeError(e) {
   if (e.status === 403 && (e.reason === 'accessNotConfigured' || e.reason === 'SERVICE_DISABLED')) {
     return 'The Google Calendar API is not enabled for this Firebase project yet.';
   }
-  if (e.status === 403) return 'Calendar access was not granted. Reconnect and tick the calendar permission.';
+  if (e.status === 403) return 'Calendar access was not granted. Reconnect and allow access to your calendars.';
   return 'Could not load Google Calendar events.';
 }
 
@@ -234,6 +270,8 @@ export function useGoogleCalendar(rangeStart, rangeEnd) {
   const accounts = store.accounts.map((a) => ({
     ...a,
     connected: Boolean(store.tokens[a.email]?.accessToken && store.tokens[a.email].expiresAt > now),
+    syncEnabled: a.syncEnabled !== false,
+    sync: store.sync[a.email] || null,
     calendars: calendarsByAccount[a.email] || [],
     error: errorsByAccount[a.email] || null,
   }));
@@ -287,14 +325,16 @@ export function useGoogleCalendar(rangeStart, rangeEnd) {
         const token = validToken(account.email);
         try {
           const list = await googleFetch('/users/me/calendarList?minAccessRole=reader', token);
-          const calendars = (list.items || []).map((c) => ({
+          // The app's own sync calendars would duplicate what's already shown
+          const ownCalendars = (list.items || []).filter((c) => !isSyncCalendar(c));
+          const calendars = ownCalendars.map((c) => ({
             id: c.id,
             name: c.summaryOverride || c.summary,
             color: c.backgroundColor || '#10b981',
             primary: Boolean(c.primary),
           }));
           const hidden = new Set(account.hiddenCalendars || []);
-          const visible = (list.items || []).filter((c) => !hidden.has(c.id));
+          const visible = ownCalendars.filter((c) => !hidden.has(c.id));
 
           const perCalendar = await Promise.all(visible.map(async (calendar) => {
             const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
@@ -340,6 +380,7 @@ export function useGoogleCalendar(rangeStart, rangeEnd) {
     reconnect: (email) => connect(email),
     removeAccount,
     setCalendarHidden,
+    setAccountSync,
     refresh,
   };
 }
