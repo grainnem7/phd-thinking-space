@@ -8,15 +8,24 @@ import {
 import { storage } from '../lib/firebase';
 import { useAuth } from './useAuth';
 
+export const DEMO_UPLOAD_MESSAGE = 'Sign in to attach PDFs. Files can’t be uploaded in demo mode.';
+
 export function useStorage() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
 
+  // Demo sessions share one "demo-user" id, so nothing may be written to Storage.
+  const canUpload = Boolean(user) && !isDemo;
+
   const uploadFile = useCallback(async (file, path) => {
     if (!user) {
       throw new Error('Must be logged in to upload files');
+    }
+    if (isDemo) {
+      setError(DEMO_UPLOAD_MESSAGE);
+      throw new Error(DEMO_UPLOAD_MESSAGE);
     }
 
     setUploading(true);
@@ -33,7 +42,7 @@ export function useStorage() {
       // Upload with progress tracking
       const uploadTask = uploadBytesResumable(storageRef, file);
 
-      return new Promise((resolve, reject) => {
+      return await new Promise((resolve, reject) => {
         uploadTask.on(
           'state_changed',
           (snapshot) => {
@@ -46,16 +55,22 @@ export function useStorage() {
             reject(err);
           },
           async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            setUploading(false);
-            setUploadProgress(100);
-            resolve({
-              url: downloadURL,
-              path: fullPath,
-              name: file.name,
-              size: file.size,
-              type: file.type,
-            });
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              setUploadProgress(100);
+              resolve({
+                url: downloadURL,
+                path: fullPath,
+                name: file.name,
+                size: file.size,
+                type: file.type,
+              });
+            } catch (err) {
+              setError(err.message);
+              reject(err);
+            } finally {
+              setUploading(false);
+            }
           }
         );
       });
@@ -64,10 +79,11 @@ export function useStorage() {
       setUploading(false);
       throw err;
     }
-  }, [user]);
+  }, [user, isDemo]);
 
   const deleteFile = useCallback(async (filePath) => {
     if (!filePath) return;
+    if (isDemo) throw new Error(DEMO_UPLOAD_MESSAGE);
 
     try {
       const fileRef = ref(storage, filePath);
@@ -79,7 +95,7 @@ export function useStorage() {
         throw err;
       }
     }
-  }, []);
+  }, [isDemo]);
 
   const getFileUrl = useCallback(async (filePath) => {
     if (!filePath) return null;
@@ -97,6 +113,7 @@ export function useStorage() {
     uploadFile,
     deleteFile,
     getFileUrl,
+    canUpload,
     uploading,
     uploadProgress,
     error,
