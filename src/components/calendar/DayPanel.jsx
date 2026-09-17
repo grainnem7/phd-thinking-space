@@ -1,8 +1,14 @@
 import { useState, useEffect, forwardRef } from 'react';
 import { format, differenceInCalendarDays } from 'date-fns';
-import { Plus, Flag, Kanban, ExternalLink, FileText, BookOpen, X, ArrowRight, Check } from 'lucide-react';
-import { parseLocalDate, timeToMinutes } from '../../utils/date';
+import { useDraggable } from '@dnd-kit/core';
+import {
+  Plus, Flag, Kanban, ExternalLink, FileText, BookOpen, X, ArrowRight, Check,
+  GripVertical, Ellipsis, CalendarDays, Copy, Repeat,
+} from 'lucide-react';
+import Dropdown, { DropdownItem } from '../common/Dropdown';
+import { parseLocalDate, timeToMinutes, toDateKey } from '../../utils/date';
 import { styleFor } from './calendarEntries';
+import { canMoveEntry, canDragTodo } from './calendarDnd';
 import { INPUT_CLASS } from './EventModal';
 
 function relativeLabel(dateKey) {
@@ -34,34 +40,80 @@ function EntryMeta({ entry }) {
   return null;
 }
 
-function EntryRow({ entry, isNow, onOpen, onOpenLink }) {
+const HANDLE_CLASS = 'p-1 text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 rounded cursor-grab touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400';
+const ROW_ACTION_CLASS = 'p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400';
+
+function EntryRow({ entry, isNow, onOpen, onOpenLink, onMove, onDuplicate }) {
   const style = styleFor(entry);
   const meta = <EntryMeta entry={entry} />;
+  const movable = canMoveEntry(entry);
+  const { setNodeRef, setActivatorNodeRef, attributes, listeners, isDragging } = useDraggable({
+    id: `panel:${entry.id}`,
+    data: { kind: 'entry', entry, date: entry.date },
+    disabled: !movable,
+  });
   return (
-    <li className={`rounded-lg border-l-[3px] ${style.bar} ${isNow ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'}`}
+    <li
+      ref={setNodeRef}
+      className={`rounded-lg border-l-[3px] ${style.bar} ${isNow ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'} ${isDragging ? 'opacity-40' : ''}`}
       style={entry.source === 'google' ? { borderLeftColor: entry.colorHex } : undefined}
     >
-      <button
-        type="button"
-        onClick={() => onOpen(entry)}
-        className="w-full text-left px-3 py-2.5 rounded-r-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-      >
-        <span className="flex flex-wrap items-baseline gap-x-2">
-          {!entry.allDay && (
-            <span className="text-sm tabular-nums text-neutral-500 dark:text-neutral-400 flex-shrink-0">
-              {entry.startTime}{entry.endTime ? `–${entry.endTime}` : ''}
+      <div className="flex items-start">
+        <button
+          type="button"
+          onClick={() => onOpen(entry)}
+          className="flex-1 min-w-0 text-left px-3 py-2.5 rounded-r-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        >
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            {!entry.allDay && (
+              <span className="text-sm tabular-nums text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+                {entry.startTime}{entry.endTime ? `–${entry.endTime}` : ''}
+              </span>
+            )}
+            <span className={`text-base text-neutral-900 dark:text-neutral-100 min-w-0 break-words ${entry.done ? 'line-through text-neutral-400 dark:text-neutral-500' : ''}`}>
+              {entry.title}
             </span>
-          )}
-          <span className={`text-base text-neutral-900 dark:text-neutral-100 min-w-0 break-words ${entry.done ? 'line-through text-neutral-400 dark:text-neutral-500' : ''}`}>
-            {entry.title}
+            {entry.seriesId && <Repeat size={13} className="self-center text-neutral-400 flex-shrink-0" aria-label="Repeats" />}
+            {isNow && <span className="ml-auto text-xs text-rose-500 font-medium uppercase flex-shrink-0">Now</span>}
           </span>
-          {isNow && <span className="ml-auto text-xs text-rose-500 font-medium uppercase flex-shrink-0">Now</span>}
-        </span>
-        {entry.source !== 'event' && (
-          <span className="flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">{meta}</span>
+          {entry.source !== 'event' && (
+            <span className="flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500 mt-1 truncate">{meta}</span>
+          )}
+          {entry.notes && <span className="block text-sm text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 whitespace-pre-line">{entry.notes}</span>}
+        </button>
+        {movable && (
+          <div className="flex items-center gap-0.5 pt-1.5 pr-1.5 flex-shrink-0">
+            <button
+              type="button"
+              ref={setActivatorNodeRef}
+              {...attributes}
+              {...listeners}
+              aria-label={`Drag ${entry.title} to another day`}
+              title="Drag to a day in the month"
+              className={HANDLE_CLASS}
+            >
+              <GripVertical size={16} />
+            </button>
+            <Dropdown
+              align="right"
+              trigger={(
+                <button type="button" aria-label={`Actions for ${entry.title}`} className={ROW_ACTION_CLASS}>
+                  <Ellipsis size={16} />
+                </button>
+              )}
+            >
+              {({ close }) => (
+                <>
+                  <DropdownItem onClick={() => { close(); onMove(entry); }}><CalendarDays size={15} /> Move to…</DropdownItem>
+                  {entry.source === 'event' && (
+                    <DropdownItem onClick={() => { close(); onDuplicate(entry); }}><Copy size={15} /> Duplicate</DropdownItem>
+                  )}
+                </>
+              )}
+            </Dropdown>
+          </div>
         )}
-        {entry.notes && <span className="block text-sm text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 whitespace-pre-line">{entry.notes}</span>}
-      </button>
+      </div>
       {entry.links?.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pb-2.5 -mt-1">
           {entry.links.map((link) => (
@@ -81,6 +133,66 @@ function EntryRow({ entry, isNow, onOpen, onOpenLink }) {
   );
 }
 
+function TodoRow({ todo, todayKey, onToggle, onDelete, onMove }) {
+  const draggable = canDragTodo(todo, todayKey);
+  const { setNodeRef, setActivatorNodeRef, attributes, listeners, isDragging } = useDraggable({
+    id: `todo:${todo.id}`,
+    data: { kind: 'todo', todo, date: todo.date },
+    disabled: !draggable,
+  });
+  return (
+    <li ref={setNodeRef} className={`flex items-center gap-3 py-2 group ${isDragging ? 'opacity-40' : ''}`}>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={Boolean(todo.completed)}
+        aria-label={todo.title}
+        onClick={() => onToggle(todo)}
+        className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${todo.completed
+          ? 'bg-neutral-700 border-neutral-700 dark:bg-neutral-300 dark:border-neutral-300'
+          : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-500'}`}
+      >
+        {todo.completed && <Check size={12} strokeWidth={3} className="text-white dark:text-neutral-900" />}
+      </button>
+      <span className={`flex-1 min-w-0 break-words text-base ${todo.completed ? 'text-neutral-400 line-through' : 'text-neutral-700 dark:text-neutral-200'}`}>
+        {todo.title}
+      </span>
+      <div className="flex items-center sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onClick={() => onMove(todo)}
+          aria-label={`Move to-do ${todo.title} to another day`}
+          title="Move to…"
+          className="p-1 text-neutral-300 hover:text-neutral-600 dark:hover:text-neutral-300"
+        >
+          <CalendarDays size={16} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(todo)}
+          aria-label={`Delete to-do ${todo.title}`}
+          className="p-1 text-neutral-300 hover:text-rose-500"
+        >
+          <X size={16} />
+        </button>
+      </div>
+      {draggable && (
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag to-do ${todo.title} to another day`}
+          title="Drag to a day in the month"
+          className={HANDLE_CLASS}
+        >
+          <GripVertical size={16} />
+        </button>
+      )}
+    </li>
+  );
+}
+
 const DayPanel = forwardRef(function DayPanel({
   dateKey,
   entries = [],
@@ -93,10 +205,14 @@ const DayPanel = forwardRef(function DayPanel({
   onToggleTodo,
   onDeleteTodo,
   onMoveUnfinished,
+  onMoveEntry,
+  onDuplicateEntry,
+  onMoveTodo,
 }, ref) {
   const [todoText, setTodoText] = useState('');
   const [quickAdd, setQuickAdd] = useState(null);
   const [now, setNow] = useState(() => new Date());
+  const todayKey = toDateKey(now);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000);
@@ -167,7 +283,7 @@ const DayPanel = forwardRef(function DayPanel({
             <SectionHeading>All day</SectionHeading>
             <ul className="space-y-1.5">
               {allDay.map((entry) => (
-                <EntryRow key={entry.id} entry={entry} onOpen={onOpenEntry} onOpenLink={onOpenLink} />
+                <EntryRow key={entry.id} entry={entry} onOpen={onOpenEntry} onOpenLink={onOpenLink} onMove={onMoveEntry} onDuplicate={onDuplicateEntry} />
               ))}
             </ul>
           </div>
@@ -194,7 +310,7 @@ const DayPanel = forwardRef(function DayPanel({
                 const start = timeToMinutes(entry.startTime);
                 const end = timeToMinutes(entry.endTime) ?? start;
                 const isNow = isToday && start !== null && nowMinutes >= start && nowMinutes < end;
-                return <EntryRow key={entry.id} entry={entry} isNow={isNow} onOpen={onOpenEntry} onOpenLink={onOpenLink} />;
+                return <EntryRow key={entry.id} entry={entry} isNow={isNow} onOpen={onOpenEntry} onOpenLink={onOpenLink} onMove={onMoveEntry} onDuplicate={onDuplicateEntry} />;
               })}
             </ul>
           )}
@@ -235,31 +351,7 @@ const DayPanel = forwardRef(function DayPanel({
           {todos.length > 0 && (
             <ul className="mb-2">
               {todos.map((todo) => (
-                <li key={todo.id} className="flex items-center gap-3 py-2 group">
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={Boolean(todo.completed)}
-                    aria-label={todo.title}
-                    onClick={() => onToggleTodo(todo)}
-                    className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${todo.completed
-                      ? 'bg-neutral-700 border-neutral-700 dark:bg-neutral-300 dark:border-neutral-300'
-                      : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-500'}`}
-                  >
-                    {todo.completed && <Check size={12} strokeWidth={3} className="text-white dark:text-neutral-900" />}
-                  </button>
-                  <span className={`flex-1 min-w-0 break-words text-base ${todo.completed ? 'text-neutral-400 line-through' : 'text-neutral-700 dark:text-neutral-200'}`}>
-                    {todo.title}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteTodo(todo)}
-                    aria-label={`Delete to-do ${todo.title}`}
-                    className="p-1 text-neutral-300 hover:text-rose-500 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                  >
-                    <X size={16} />
-                  </button>
-                </li>
+                <TodoRow key={todo.id} todo={todo} todayKey={todayKey} onToggle={onToggleTodo} onDelete={onDeleteTodo} onMove={onMoveTodo} />
               ))}
             </ul>
           )}

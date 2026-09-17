@@ -3,34 +3,75 @@ import {
   addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, isSameMonth, addDays,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, CheckSquare } from 'lucide-react';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useCalendar } from '../../hooks/useCalendar';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReadingList } from '../../hooks/useReadingList';
 import { useGoogleCalendar } from '../../hooks/useGoogleCalendar';
+import { useBoards } from '../../hooks/useBoards';
 import { useConfirm } from '../common/ConfirmDialog';
 import { parseLocalDate, toDateKey } from '../../utils/date';
-import { buildEntries, groupByDate, todosByDate, styleFor } from './calendarEntries';
+import { sameRecurrence } from '../../lib/recurrence';
+import { buildEntries, groupByDate, todosByDate } from './calendarEntries';
+import { useCalendarSensors, dayCollision } from './calendarDnd';
+import { useSeriesActions } from './useSeriesActions';
 import EventModal from './EventModal';
 import DayPanel from './DayPanel';
 import GoogleCalendarControl from './GoogleCalendarControl';
+import MonthDayCell, { DragPreview } from './MonthDayCell';
+import { SeriesScopeDialog, MoveToDialog, UndoToast } from './CalendarDialogs';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MAX_CHIPS = 3;
+
+const shortDay = (key) => format(parseLocalDate(key), 'EEE d MMM');
+const longDay = (key) => format(parseLocalDate(key), 'EEEE d MMMM');
+const dragName = (data) => (data?.kind === 'todo' ? `to-do ${data.todo.title}` : data?.entry?.title || 'item');
+
+const SCREEN_READER_INSTRUCTIONS = {
+  draggable: 'To move this item, press Space or Enter to pick it up, use the arrow keys to choose a day in the month, then press Space or Enter to drop it. Press Escape to cancel. You can also use the Move to action.',
+};
+
+const ANNOUNCEMENTS = {
+  onDragStart: ({ active }) => `Picked up ${dragName(active.data.current)}. Use the arrow keys to choose a day.`,
+  onDragOver: ({ active, over }) => (over?.data.current?.date
+    ? `${dragName(active.data.current)} is over ${longDay(over.data.current.date)}.`
+    : `${dragName(active.data.current)} is not over a day.`),
+  onDragEnd: ({ active, over }) => (over?.data.current?.date && over.data.current.date !== active.data.current?.date
+    ? `Dropped ${dragName(active.data.current)} on ${longDay(over.data.current.date)}.`
+    : `${dragName(active.data.current)} was not moved.`),
+  onDragCancel: ({ active }) => `Cancelled. ${dragName(active.data.current)} was not moved.`,
+};
+
+// Board task due dates are saved through useBoards, which is bound to one board;
+// each bridge registers its board's updateTask with the calendar.
+function BoardTaskBridge({ boardId, register }) {
+  const { updateTask } = useBoards(boardId);
+  useEffect(() => register(boardId, updateTask), [boardId, updateTask, register]);
+  return null;
+}
 
 export default function CalendarView({ initialDate, sections = [], onSelect }) {
   const todayKey = toDateKey(new Date());
   const [selectedDate, setSelectedDate] = useState(initialDate || todayKey);
   const [month, setMonth] = useState(() => startOfMonth(parseLocalDate(initialDate || todayKey)));
   const [modal, setModal] = useState({ open: false, entry: null, defaults: null });
+  const [activeDrag, setActiveDrag] = useState(null);
+  const [scopeRequest, setScopeRequest] = useState(null);
+  const [moveTarget, setMoveTarget] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [announcement, setAnnouncement] = useState('');
   const gridRef = useRef(null);
   const panelRef = useRef(null);
   const focusAfterMove = useRef(false);
+  const taskUpdaters = useRef(new Map());
 
   const confirm = useConfirm();
   const { items, addItem, updateItem, deleteItem, moveItems } = useCalendar();
   const { deadlines, addDeadline, updateDeadline, deleteDeadline } = useDashboard();
   const { papers } = useReadingList();
+  const { changeEvent, deleteEvent, duplicateEvent } = useSeriesActions({ items, addItem, updateItem, deleteItem });
+  const sensors = useCalendarSensors();
 
   const days = useMemo(() => eachDayOfInterval({
     start: startOfWeek(month, { weekStartsOn: 1 }),
@@ -42,11 +83,26 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
 
   const google = useGoogleCalendar(rangeStart, rangeEnd);
 
-  const entriesByDate = useMemo(
-    () => groupByDate(buildEntries({ items, deadlines, sections, googleEvents: google.events })),
-    [items, deadlines, sections, google.events],
-  );
+  // The day panel can show a date outside the visible grid, so widen the range to include it
+  const entriesByDate = useMemo(() => groupByDate(buildEntries({
+    items,
+    deadlines,
+    sections,
+    googleEvents: google.events,
+    range: {
+      start: selectedDate < rangeStart ? selectedDate : rangeStart,
+      end: selectedDate > rangeEnd ? selectedDate : rangeEnd,
+    },
+  })), [items, deadlines, sections, google.events, rangeStart, rangeEnd, selectedDate]);
   const todoMap = useMemo(() => todosByDate(items), [items]);
+  const boardIds = useMemo(() => sections.filter((s) => s.type === 'board').map((s) => s.id), [sections]);
+
+  const registerTaskUpdater = useCallback((boardId, updateTask) => {
+    taskUpdaters.current.set(boardId, updateTask);
+    return () => {
+      if (taskUpdaters.current.get(boardId) === updateTask) taskUpdaters.current.delete(boardId);
+    };
+  }, []);
 
   const selectDate = useCallback((key, { scroll = false } = {}) => {
     setSelectedDate(key);
@@ -66,10 +122,88 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
 
   const handleGridKeyDown = (e) => {
     const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-    if (!(e.key in offsets)) return;
+    if (!(e.key in offsets) || !e.target.matches('[data-date]')) return;
     e.preventDefault();
     focusAfterMove.current = true;
     selectDate(toDateKey(addDays(parseLocalDate(selectedDate), offsets[e.key])));
+  };
+
+  const dismissToast = useCallback(() => setToast(null), []);
+  const showToast = (message, undo) => {
+    setToast({ id: Date.now(), message, undo });
+    setAnnouncement(undo ? `${message}. Undo is available for a few seconds.` : message);
+  };
+  const handleUndo = async () => {
+    const current = toast;
+    setToast(null);
+    if (!current?.undo) return;
+    await current.undo();
+    setAnnouncement('Undone.');
+  };
+
+  // Resolves to 'this' | 'following' | 'all', or null when cancelled
+  const askScope = (request) => new Promise((resolve) => setScopeRequest({ ...request, resolve }));
+  const chooseScope = (scope) => {
+    scopeRequest?.resolve(scope);
+    setScopeRequest(null);
+  };
+
+  const moveEntry = async (entry, date) => {
+    if (!date || date === entry.date) return;
+    let undo = null;
+    if (entry.source === 'deadline') {
+      const from = entry.date;
+      await updateDeadline(entry.deadlineId, { date });
+      undo = () => updateDeadline(entry.deadlineId, { date: from });
+    } else if (entry.source === 'task') {
+      const updateTask = taskUpdaters.current.get(entry.boardId);
+      if (!updateTask) return;
+      const from = entry.date;
+      await updateTask(entry.taskId, { dueDate: date });
+      undo = () => updateTask(entry.taskId, { dueDate: from });
+    } else if (entry.source === 'event') {
+      let scope = 'all';
+      if (entry.seriesId) {
+        scope = await askScope({ title: entry.title, verb: 'Move' });
+        if (!scope) {
+          setAnnouncement(`${entry.title} was not moved.`);
+          return;
+        }
+      }
+      undo = await changeEvent({ entry, scope, date });
+    } else {
+      return;
+    }
+    showToast(`Moved “${entry.title}” to ${shortDay(date)}`, undo);
+  };
+
+  const moveTodo = async (todo, date) => {
+    if (!date || date === todo.date) return;
+    const order = (todoMap.get(date) || []).reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1;
+    const from = { date: todo.date, order: todo.order ?? 0 };
+    await updateItem(todo.id, { date, order });
+    showToast(`Moved to-do “${todo.title}” to ${shortDay(date)}`, () => updateItem(todo.id, from));
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    setActiveDrag(null);
+    const data = active.data.current;
+    const date = over?.data.current?.date;
+    if (!data || !date || date === data.date) return;
+    if (data.kind === 'todo') moveTodo(data.todo, date);
+    else moveEntry(data.entry, date);
+  };
+
+  const handleMoveTo = (date) => {
+    const target = moveTarget;
+    setMoveTarget(null);
+    if (target?.todo) moveTodo(target.todo, date);
+    else if (target?.entry) moveEntry(target.entry, date);
+  };
+
+  const handleDuplicate = async (entry) => {
+    const id = await duplicateEvent(entry);
+    if (id) showToast(`Duplicated “${entry.title}”`, () => deleteItem(id));
   };
 
   const openNew = (date, extra = {}) => setModal({ open: true, entry: null, defaults: { date, ...extra } });
@@ -95,14 +229,24 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
 
   const handleSave = async ({ type, data }) => {
     const { entry } = modal;
-    closeModal();
     if (type === 'deadline') {
+      closeModal();
       if (entry) await updateDeadline(entry.deadlineId, data);
       else await addDeadline({ ...data, createdAt: new Date().toISOString() });
     } else if (entry) {
-      await updateItem(entry.id, data);
+      const { date, recurrence, ...changes } = data;
+      let scope = 'all';
+      if (entry.seriesId) {
+        // Changing the rule itself can't apply to a single occurrence
+        const ruleChanged = 'recurrence' in data && !sameRecurrence(recurrence, entry.recurrence, entry.date);
+        scope = await askScope({ title: data.title, verb: 'Save', allowThis: !ruleChanged });
+        if (!scope) return;
+      }
+      closeModal();
+      await changeEvent({ entry, scope, date, changes, recurrence: 'recurrence' in data ? recurrence : undefined });
     } else {
-      await addItem(data);
+      closeModal();
+      await addItem(data.recurrence ? { ...data, exdates: [] } : data);
     }
     selectDate(data.date);
   };
@@ -110,6 +254,13 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
   const handleDelete = async () => {
     const { entry } = modal;
     if (!entry) return;
+    if (entry.seriesId) {
+      const scope = await askScope({ title: entry.title, verb: 'Delete' });
+      if (!scope) return;
+      closeModal();
+      await deleteEvent(entry, scope);
+      return;
+    }
     const ok = await confirm({
       title: `Delete "${entry.title}"?`,
       body: 'This cannot be undone.',
@@ -119,13 +270,16 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
     if (!ok) return;
     closeModal();
     if (entry.source === 'deadline') await deleteDeadline(entry.deadlineId);
-    else await deleteItem(entry.id);
+    else await deleteEvent(entry);
   };
 
   const selectedTodos = todoMap.get(selectedDate) || [];
 
   return (
     <main className="flex-1 overflow-auto bg-[#fafafa] dark:bg-neutral-950">
+      {boardIds.map((id) => <BoardTaskBridge key={id} boardId={id} register={registerTaskUpdater} />)}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">{announcement}</p>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-5">
           <div className="flex items-center gap-1 mr-auto">
@@ -160,109 +314,79 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
           </p>
         )}
 
-        <div className="flex flex-col lg:flex-row gap-5 items-start">
-          <div className="w-full flex-1 min-w-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
-            <div className="grid grid-cols-7 border-b border-neutral-100 dark:border-neutral-800" aria-hidden="true">
-              {WEEKDAYS.map((d) => (
-                <div key={d} className="px-2 py-2.5 text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest text-center sm:text-left">
-                  <span className="sm:hidden">{d[0]}</span><span className="hidden sm:inline">{d}</span>
-                </div>
-              ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={dayCollision}
+          accessibility={{ announcements: ANNOUNCEMENTS, screenReaderInstructions: SCREEN_READER_INSTRUCTIONS }}
+          onDragStart={({ active }) => setActiveDrag(active.data.current)}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveDrag(null)}
+        >
+          <div className="flex flex-col lg:flex-row gap-5 items-start">
+            <div className="w-full flex-1 min-w-0 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-7 border-b border-neutral-100 dark:border-neutral-800" aria-hidden="true">
+                {WEEKDAYS.map((d) => (
+                  <div key={d} className="px-2 py-2.5 text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest text-center sm:text-left">
+                    <span className="sm:hidden">{d[0]}</span><span className="hidden sm:inline">{d}</span>
+                  </div>
+                ))}
+              </div>
+              <div ref={gridRef} role="group" aria-label={format(month, 'MMMM yyyy')} onKeyDown={handleGridKeyDown} className="grid grid-cols-7">
+                {days.map((day, i) => {
+                  const key = toDateKey(day);
+                  return (
+                    <MonthDayCell
+                      key={key}
+                      day={day}
+                      dateKey={key}
+                      inMonth={isSameMonth(day, month)}
+                      isToday={key === todayKey}
+                      isSelected={key === selectedDate}
+                      tabbable={key === selectedDate || (!selectedInGrid && key === toDateKey(month))}
+                      entries={entriesByDate.get(key) || []}
+                      todos={todoMap.get(key) || []}
+                      borderClass={`${(i + 1) % 7 !== 0 ? 'border-r' : ''} ${i < days.length - 7 ? 'border-b' : ''}`}
+                      onSelect={(k) => selectDate(k, { scroll: true })}
+                      onOpenNew={openNew}
+                      onOpenEntry={handleOpenEntry}
+                    />
+                  );
+                })}
+              </div>
             </div>
-            <div ref={gridRef} role="group" aria-label={format(month, 'MMMM yyyy')} onKeyDown={handleGridKeyDown} className="grid grid-cols-7">
-              {days.map((day, i) => {
-                const key = toDateKey(day);
-                const dayEntries = entriesByDate.get(key) || [];
-                const dayTodos = todoMap.get(key) || [];
-                const inMonth = isSameMonth(day, month);
-                const isToday = key === todayKey;
-                const isSelected = key === selectedDate;
-                const hidden = dayEntries.length - MAX_CHIPS;
-                const doneTodos = dayTodos.filter((t) => t.completed).length;
-                const label = `${format(day, 'EEEE d MMMM')}${dayEntries.length ? `, ${dayEntries.length} item${dayEntries.length === 1 ? '' : 's'}` : ''}${dayTodos.length ? `, ${doneTodos} of ${dayTodos.length} to-dos done` : ''}`;
 
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    data-date={key}
-                    aria-pressed={isSelected}
-                    aria-current={isToday ? 'date' : undefined}
-                    aria-label={label}
-                    tabIndex={isSelected || (!selectedInGrid && key === toDateKey(month)) ? 0 : -1}
-                    onClick={() => selectDate(key, { scroll: true })}
-                    onDoubleClick={() => openNew(key)}
-                    className={`relative min-h-[64px] sm:min-h-[104px] xl:min-h-[118px] p-1 sm:p-1.5 flex flex-col items-stretch text-left border-neutral-100 dark:border-neutral-800 transition-colors focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-400
-                      ${(i + 1) % 7 !== 0 ? 'border-r' : ''} ${i < days.length - 7 ? 'border-b' : ''}
-                      ${inMonth ? '' : 'bg-neutral-50/70 dark:bg-neutral-950/40'}
-                      ${isSelected ? 'bg-neutral-100/80 dark:bg-neutral-800/70' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/40'}`}
-                  >
-                    <span className={`self-center sm:self-start w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-xs sm:text-sm tabular-nums
-                      ${isToday ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 font-medium' : inMonth ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-300 dark:text-neutral-600'}`}
-                    >
-                      {day.getDate()}
-                    </span>
-
-                    {/* Phones: dots only */}
-                    {(dayEntries.length > 0 || dayTodos.length > 0) && (
-                      <span className="sm:hidden flex justify-center flex-wrap gap-0.5 mt-1" aria-hidden="true">
-                        {dayEntries.slice(0, 4).map((e) => (
-                          <span key={e.id} className={`w-1.5 h-1.5 rounded-full ${styleFor(e).dot}`} style={e.source === 'google' ? { backgroundColor: e.colorHex } : undefined} />
-                        ))}
-                        {dayTodos.length > 0 && <span className="w-1.5 h-1.5 rounded-full border border-neutral-400" />}
-                      </span>
-                    )}
-
-                    {/* Larger screens: chips */}
-                    <span className="hidden sm:flex flex-col gap-0.5 mt-1 min-w-0" aria-hidden="true">
-                      {dayEntries.slice(0, MAX_CHIPS).map((e) => {
-                        const style = styleFor(e);
-                        return (
-                          <span key={e.id} className={`flex items-center gap-1 px-1.5 py-px rounded text-[11px] leading-4 min-w-0 ${style.chip} ${e.done ? 'line-through opacity-60' : ''}`}>
-                            {e.source === 'google' && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: e.colorHex }} />}
-                            {!e.allDay && <span className="tabular-nums opacity-70 flex-shrink-0">{e.startTime}</span>}
-                            <span className="truncate">{e.title}</span>
-                          </span>
-                        );
-                      })}
-                      {hidden > 0 && <span className="px-1.5 text-[11px] leading-4 text-neutral-400">+{hidden} more</span>}
-                    </span>
-
-                    {dayTodos.length > 0 && (
-                      <span className={`hidden sm:flex items-center gap-1 mt-auto pt-1 px-1 text-[11px] tabular-nums ${doneTodos === dayTodos.length ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-400'}`} aria-hidden="true">
-                        <CheckSquare size={11} /> {doneTodos}/{dayTodos.length}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            <div className="w-full lg:w-[360px] xl:w-[400px] flex-shrink-0 lg:sticky lg:top-0">
+              <DayPanel
+                key={selectedDate}
+                ref={panelRef}
+                dateKey={selectedDate}
+                entries={entriesByDate.get(selectedDate) || []}
+                todos={selectedTodos}
+                onNewEvent={() => openNew(selectedDate)}
+                onOpenEntry={handleOpenEntry}
+                onOpenLink={handleOpenLink}
+                onQuickAddEvent={(data) => addItem({ kind: 'event', date: selectedDate, allDay: false, color: 'sky', notes: '', links: [], ...data })}
+                onAddTodo={(title) => addItem({
+                  kind: 'todo',
+                  title,
+                  date: selectedDate,
+                  completed: false,
+                  order: selectedTodos.reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1,
+                })}
+                onToggleTodo={(todo) => updateItem(todo.id, { completed: !todo.completed })}
+                onDeleteTodo={(todo) => deleteItem(todo.id)}
+                onMoveUnfinished={(todos) => moveItems(todos.map((t) => t.id), toDateKey(addDays(parseLocalDate(selectedDate), 1)))}
+                onMoveEntry={(entry) => setMoveTarget({ key: `entry:${entry.id}`, title: entry.title, date: entry.date, entry })}
+                onDuplicateEntry={handleDuplicate}
+                onMoveTodo={(todo) => setMoveTarget({ key: `todo:${todo.id}`, title: todo.title, date: todo.date, todo })}
+              />
             </div>
           </div>
 
-          <div className="w-full lg:w-[360px] xl:w-[400px] flex-shrink-0 lg:sticky lg:top-0">
-            <DayPanel
-              key={selectedDate}
-              ref={panelRef}
-              dateKey={selectedDate}
-              entries={entriesByDate.get(selectedDate) || []}
-              todos={selectedTodos}
-              onNewEvent={() => openNew(selectedDate)}
-              onOpenEntry={handleOpenEntry}
-              onOpenLink={handleOpenLink}
-              onQuickAddEvent={(data) => addItem({ kind: 'event', date: selectedDate, allDay: false, color: 'sky', notes: '', links: [], ...data })}
-              onAddTodo={(title) => addItem({
-                kind: 'todo',
-                title,
-                date: selectedDate,
-                completed: false,
-                order: selectedTodos.reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1,
-              })}
-              onToggleTodo={(todo) => updateItem(todo.id, { completed: !todo.completed })}
-              onDeleteTodo={(todo) => deleteItem(todo.id)}
-              onMoveUnfinished={(todos) => moveItems(todos.map((t) => t.id), toDateKey(addDays(parseLocalDate(selectedDate), 1)))}
-            />
-          </div>
-        </div>
+          <DragOverlay dropAnimation={null}>
+            <DragPreview item={activeDrag} />
+          </DragOverlay>
+        </DndContext>
       </div>
 
       <EventModal
@@ -275,6 +399,9 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
         onSave={handleSave}
         onDelete={handleDelete}
       />
+      <SeriesScopeDialog request={scopeRequest} onChoose={chooseScope} />
+      <MoveToDialog target={moveTarget} onClose={() => setMoveTarget(null)} onMove={handleMoveTo} />
+      <UndoToast key={toast?.id} toast={toast} onUndo={handleUndo} onDismiss={dismissToast} />
     </main>
   );
 }
