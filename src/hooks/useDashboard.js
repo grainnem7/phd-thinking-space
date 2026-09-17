@@ -1,206 +1,131 @@
 import { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { doc, collection, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './useAuth';
-import { parseLocalDate } from '../utils/date';
+import { parseLocalDate, toDateKey } from '../utils/date';
 
-// Demo data for dashboard
-const DEMO_DEADLINES = [
-  { id: 'demo-deadline-1', title: 'Submit literature review', date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
-  { id: 'demo-deadline-2', title: 'Advisor meeting', date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
-  { id: 'demo-deadline-3', title: 'Conference paper deadline', date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
+function daysFromNow(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return toDateKey(d);
+}
+
+const demoDeadlines = () => [
+  { id: 'demo-deadline-1', title: 'Submit literature review', date: daysFromNow(3) },
+  { id: 'demo-deadline-2', title: 'Advisor meeting', date: daysFromNow(7) },
+  { id: 'demo-deadline-3', title: 'Conference paper deadline', date: daysFromNow(14) },
 ];
 
-const DEMO_SCHEDULE_BLOCKS = [
+const demoScheduleBlocks = () => [
   { id: 'demo-block-1', title: 'Deep work - Writing', startTime: '09:00', endTime: '12:00' },
   { id: 'demo-block-2', title: 'Lunch break', startTime: '12:00', endTime: '13:00' },
   { id: 'demo-block-3', title: 'Reading & Research', startTime: '14:00', endTime: '16:00' },
 ];
 
-const DEMO_QUICK_CAPTURES = [
+const demoQuickCaptures = () => [
   { id: 'demo-capture-1', text: 'Look into transformer attention mechanisms', createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() },
   { id: 'demo-capture-2', text: 'Schedule meeting with co-author', createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
 ];
 
-const DEMO_TODOS = [
+const demoTodos = () => [
   { id: 'demo-todo-1', title: 'Review methodology chapter', completed: false, order: 0 },
   { id: 'demo-todo-2', title: 'Update bibliography', completed: true, order: 1 },
   { id: 'demo-todo-3', title: 'Email supervisor', completed: false, order: 2 },
 ];
 
-export function useDashboard() {
+function loadDemo(key, defaults) {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(key));
+    if (Array.isArray(saved)) return saved;
+  } catch { /* ignore */ }
+  const initial = defaults();
+  sessionStorage.setItem(key, JSON.stringify(initial));
+  return initial;
+}
+
+// A live users/{uid}/{name} collection, or a sessionStorage-backed list in demo mode.
+function useUserCollection({ name, order, direction = 'asc', max, demoKey, demoDefaults, prepend = false }) {
   const { user, isDemo } = useAuth();
-  const [layout, setLayout] = useState(null);
-  const [activeWidgets, setActiveWidgets] = useState(['schedule', 'deadlines', 'taskSummary', 'quickCapture', 'recentNotes']);
-  const [deadlines, setDeadlines] = useState([]);
-  const [scheduleBlocks, setScheduleBlocks] = useState([]);
-  const [scheduleSettings, setScheduleSettings] = useState({ startTime: '07:00', endTime: '22:00' });
-  const [quickCaptures, setQuickCaptures] = useState([]);
-  const [todos, setTodos] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [items, setItems] = useState(() => (isDemo ? loadDemo(demoKey, demoDefaults) : []));
+  const [loaded, setLoaded] = useState(isDemo);
 
-  // Demo mode helpers
-  const saveDemoDeadlines = useCallback((data) => {
-    setDeadlines(data);
-    sessionStorage.setItem('demo-deadlines', JSON.stringify(data));
-  }, []);
-
-  const saveDemoScheduleBlocks = useCallback((data) => {
-    setScheduleBlocks(data);
-    sessionStorage.setItem('demo-scheduleBlocks', JSON.stringify(data));
-  }, []);
-
-  const saveDemoQuickCaptures = useCallback((data) => {
-    setQuickCaptures(data);
-    sessionStorage.setItem('demo-quickCaptures', JSON.stringify(data));
-  }, []);
-
-  const saveDemoTodos = useCallback((data) => {
-    setTodos(data);
-    sessionStorage.setItem('demo-todos', JSON.stringify(data));
-  }, []);
-
-  // Load dashboard layout and demo data
   useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+    if (!user || isDemo) return;
+    const constraints = [orderBy(order, direction)];
+    if (max) constraints.push(limit(max));
+    return onSnapshot(query(collection(db, 'users', user.uid, name), ...constraints), (snapshot) => {
+      setItems(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoaded(true);
+    }, (error) => {
+      console.error(`Error loading ${name}:`, error);
+      setLoaded(true);
+    });
+  }, [user, isDemo, name, order, direction, max]);
 
-    // Demo mode: load from sessionStorage or use defaults
+  const updateDemo = useCallback((fn) => {
+    setItems((prev) => {
+      const next = fn(prev);
+      sessionStorage.setItem(demoKey, JSON.stringify(next));
+      return next;
+    });
+  }, [demoKey]);
+
+  const add = useCallback(async (data) => {
+    if (!user) return;
     if (isDemo) {
-      const savedDeadlines = sessionStorage.getItem('demo-deadlines');
-      const savedBlocks = sessionStorage.getItem('demo-scheduleBlocks');
-      const savedCaptures = sessionStorage.getItem('demo-quickCaptures');
-      const savedTodos = sessionStorage.getItem('demo-todos');
-
-      setDeadlines(savedDeadlines ? JSON.parse(savedDeadlines) : DEMO_DEADLINES);
-      setScheduleBlocks(savedBlocks ? JSON.parse(savedBlocks) : DEMO_SCHEDULE_BLOCKS);
-      setQuickCaptures(savedCaptures ? JSON.parse(savedCaptures) : DEMO_QUICK_CAPTURES);
-      setTodos(savedTodos ? JSON.parse(savedTodos) : DEMO_TODOS);
-
-      if (!savedDeadlines) sessionStorage.setItem('demo-deadlines', JSON.stringify(DEMO_DEADLINES));
-      if (!savedBlocks) sessionStorage.setItem('demo-scheduleBlocks', JSON.stringify(DEMO_SCHEDULE_BLOCKS));
-      if (!savedCaptures) sessionStorage.setItem('demo-quickCaptures', JSON.stringify(DEMO_QUICK_CAPTURES));
-      if (!savedTodos) sessionStorage.setItem('demo-todos', JSON.stringify(DEMO_TODOS));
-
-      setIsLoading(false);
+      const item = { id: `${demoKey}-${Date.now()}`, ...data };
+      updateDemo((prev) => (prepend ? [item, ...prev] : [...prev, item]));
       return;
     }
+    try {
+      await addDoc(collection(db, 'users', user.uid, name), data);
+    } catch (error) {
+      console.error(`Error adding to ${name}:`, error);
+    }
+  }, [user, isDemo, name, demoKey, prepend, updateDemo]);
 
-    const loadDashboard = async () => {
-      try {
-        const dashboardRef = doc(db, 'users', user.uid, 'dashboard', 'config');
-        const dashboardSnap = await getDoc(dashboardRef);
-
-        if (dashboardSnap.exists()) {
-          const data = dashboardSnap.data();
-          if (data.layout) setLayout(data.layout);
-          if (data.activeWidgets) setActiveWidgets(data.activeWidgets);
-        }
-      } catch (error) {
-        console.error('Error loading dashboard:', error);
-      }
-    };
-
-    loadDashboard();
-  }, [user, isDemo]);
-
-  // Subscribe to deadlines
-  useEffect(() => {
-    if (!user || isDemo) return;
-
-    const deadlinesRef = collection(db, 'users', user.uid, 'deadlines');
-    const q = query(deadlinesRef, orderBy('date', 'asc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const deadlinesList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setDeadlines(deadlinesList);
-    });
-
-    return () => unsubscribe();
-  }, [user, isDemo]);
-
-  // Subscribe to schedule blocks
-  useEffect(() => {
-    if (!user || isDemo) return;
-
-    const blocksRef = collection(db, 'users', user.uid, 'scheduleBlocks');
-    const q = query(blocksRef, orderBy('startTime', 'asc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const blocksList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setScheduleBlocks(blocksList);
-    });
-
-    return () => unsubscribe();
-  }, [user, isDemo]);
-
-  // Subscribe to quick captures
-  useEffect(() => {
-    if (!user || isDemo) {
-      if (!user) setIsLoading(false);
+  const update = useCallback(async (id, updates) => {
+    if (!user) return;
+    if (isDemo) {
+      updateDemo((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
       return;
     }
+    try {
+      await updateDoc(doc(db, 'users', user.uid, name, id), updates);
+    } catch (error) {
+      console.error(`Error updating ${name}:`, error);
+    }
+  }, [user, isDemo, name, updateDemo]);
 
-    const capturesRef = collection(db, 'users', user.uid, 'quickCaptures');
-    const q = query(capturesRef, orderBy('createdAt', 'desc'), limit(100));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const capturesList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setQuickCaptures(capturesList);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Error subscribing to quick captures:', error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user, isDemo]);
-
-  // Subscribe to dashboard todos
-  useEffect(() => {
-    if (!user || isDemo) return;
-
-    const todosRef = collection(db, 'users', user.uid, 'dashboardTodos');
-    const q = query(todosRef, orderBy('order', 'asc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const todosList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setTodos(todosList);
-    }, (error) => {
-      console.error('Error subscribing to dashboard todos:', error);
-    });
-
-    return () => unsubscribe();
-  }, [user, isDemo]);
-
-  // Set loading to false after initial load attempt
-  useEffect(() => {
-    if (!user || isDemo) {
-      setIsLoading(false);
+  const remove = useCallback(async (id) => {
+    if (!user) return;
+    if (isDemo) {
+      updateDemo((prev) => prev.filter((i) => i.id !== id));
       return;
     }
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, name, id));
+    } catch (error) {
+      console.error(`Error deleting from ${name}:`, error);
+    }
+  }, [user, isDemo, name, updateDemo]);
 
-    // Timeout fallback in case subscriptions don't fire
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+  return { items: user ? items : [], loaded: !user || loaded, add, update, remove };
+}
 
-    return () => clearTimeout(timeout);
-  }, [user, isDemo]);
+export function useDashboard() {
+  const deadlines = useUserCollection({ name: 'deadlines', order: 'date', demoKey: 'demo-deadlines', demoDefaults: demoDeadlines });
+  const blocks = useUserCollection({ name: 'scheduleBlocks', order: 'startTime', demoKey: 'demo-scheduleBlocks', demoDefaults: demoScheduleBlocks });
+  const captures = useUserCollection({ name: 'quickCaptures', order: 'createdAt', direction: 'desc', max: 100, demoKey: 'demo-quickCaptures', demoDefaults: demoQuickCaptures, prepend: true });
+  const todoList = useUserCollection({ name: 'dashboardTodos', order: 'order', demoKey: 'demo-todos', demoDefaults: demoTodos });
+
+  // Don't hold the dashboard on a spinner if a listener is slow to report
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setTimedOut(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+  const isLoading = !timedOut && !(deadlines.loaded && blocks.loaded && captures.loaded && todoList.loaded);
 
   // Browser notifications for upcoming deadlines (24h, 1h) + schedule blocks (5min).
   // Fires once per item per kind per session (sessionStorage flags). Requires the
@@ -210,344 +135,76 @@ export function useDashboard() {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
 
+    const notifyOnce = (key, title, body) => {
+      if (sessionStorage.getItem(key)) return;
+      try { new Notification(title, { body, tag: key }); } catch { /* ignore */ }
+      sessionStorage.setItem(key, '1');
+    };
+
     const tick = () => {
       const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const todayStr = toDateKey(now);
 
-      // Deadlines
-      for (const d of deadlines) {
+      for (const d of deadlines.items) {
         if (!d?.date || !d?.title) continue;
         const target = parseLocalDate(d.date);
         if (!target) continue;
         // Treat deadline as end-of-day on the target date
         target.setHours(23, 59, 59, 999);
         const hoursUntil = (target - now) / 3600000;
-
-        if (hoursUntil > 0 && hoursUntil <= 24) {
-          const k24 = `notif-d-${d.id}-24h`;
-          if (!sessionStorage.getItem(k24)) {
-            try {
-              new Notification('Deadline approaching', {
-                body: `${d.title} — due within 24h`,
-                tag: k24,
-              });
-            } catch { /* ignore */ }
-            sessionStorage.setItem(k24, '1');
-          }
-        }
-        if (hoursUntil > 0 && hoursUntil <= 1) {
-          const k1 = `notif-d-${d.id}-1h`;
-          if (!sessionStorage.getItem(k1)) {
-            try {
-              new Notification('Deadline in under an hour', {
-                body: d.title,
-                tag: k1,
-              });
-            } catch { /* ignore */ }
-            sessionStorage.setItem(k1, '1');
-          }
-        }
+        if (hoursUntil > 0 && hoursUntil <= 24) notifyOnce(`notif-d-${d.id}-24h`, 'Deadline approaching', `${d.title} — due within 24h`);
+        if (hoursUntil > 0 && hoursUntil <= 1) notifyOnce(`notif-d-${d.id}-1h`, 'Deadline in under an hour', d.title);
       }
 
       // Schedule blocks (today only, recurring daily)
-      for (const b of scheduleBlocks) {
+      for (const b of blocks.items) {
         if (!b?.startTime || !b?.title) continue;
         const [h, m] = b.startTime.split(':').map(Number);
         if (Number.isNaN(h) || Number.isNaN(m)) continue;
         const blockStart = new Date(now);
         blockStart.setHours(h, m, 0, 0);
         const minsUntil = (blockStart - now) / 60000;
-
-        if (minsUntil > 0 && minsUntil <= 5) {
-          const key = `notif-b-${b.id}-${todayStr}`;
-          if (!sessionStorage.getItem(key)) {
-            try {
-              new Notification('Starting in 5 minutes', {
-                body: `${b.title} at ${b.startTime}`,
-                tag: key,
-              });
-            } catch { /* ignore */ }
-            sessionStorage.setItem(key, '1');
-          }
-        }
+        if (minsUntil > 0 && minsUntil <= 5) notifyOnce(`notif-b-${b.id}-${todayStr}`, 'Starting in 5 minutes', `${b.title} at ${b.startTime}`);
       }
     };
 
     tick();
     const interval = setInterval(tick, 30000);
     return () => clearInterval(interval);
-  }, [deadlines, scheduleBlocks]);
+  }, [deadlines.items, blocks.items]);
 
-  // Save dashboard layout
-  const saveLayout = useCallback(async (newLayout, newActiveWidgets) => {
-    if (!user) return;
+  const { items: todos, add: addTodoDoc, update: updateTodo, remove: deleteTodo } = todoList;
 
-    try {
-      // Sanitize layout to remove undefined values (Firebase doesn't accept them)
-      const cleanLayout = newLayout.map(item => {
-        const clean = {};
-        Object.keys(item).forEach(key => {
-          if (item[key] !== undefined) {
-            clean[key] = item[key];
-          }
-        });
-        return clean;
-      });
-
-      const dashboardRef = doc(db, 'users', user.uid, 'dashboard', 'config');
-      await setDoc(dashboardRef, {
-        layout: cleanLayout,
-        activeWidgets: newActiveWidgets,
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
-
-      setLayout(cleanLayout);
-      setActiveWidgets(newActiveWidgets);
-    } catch (error) {
-      console.error('Error saving dashboard layout:', error);
-    }
-  }, [user]);
-
-  // Deadline operations
-  const addDeadline = useCallback(async (deadline) => {
-    if (!user) return;
-
-    if (isDemo) {
-      const newDeadline = { id: `demo-deadline-${Date.now()}`, ...deadline };
-      saveDemoDeadlines([...deadlines, newDeadline]);
-      return;
-    }
-
-    try {
-      const deadlinesRef = collection(db, 'users', user.uid, 'deadlines');
-      await addDoc(deadlinesRef, deadline);
-    } catch (error) {
-      console.error('Error adding deadline:', error);
-    }
-  }, [user, isDemo, deadlines, saveDemoDeadlines]);
-
-  const updateDeadline = useCallback(async (id, updates) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoDeadlines(deadlines.map(d => d.id === id ? { ...d, ...updates } : d));
-      return;
-    }
-
-    try {
-      const deadlineRef = doc(db, 'users', user.uid, 'deadlines', id);
-      await updateDoc(deadlineRef, updates);
-    } catch (error) {
-      console.error('Error updating deadline:', error);
-    }
-  }, [user, isDemo, deadlines, saveDemoDeadlines]);
-
-  const deleteDeadline = useCallback(async (id) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoDeadlines(deadlines.filter(d => d.id !== id));
-      return;
-    }
-
-    try {
-      const deadlineRef = doc(db, 'users', user.uid, 'deadlines', id);
-      await deleteDoc(deadlineRef);
-    } catch (error) {
-      console.error('Error deleting deadline:', error);
-    }
-  }, [user, isDemo, deadlines, saveDemoDeadlines]);
-
-  // Schedule block operations
-  const addScheduleBlock = useCallback(async (block) => {
-    if (!user) return;
-
-    if (isDemo) {
-      const newBlock = { id: `demo-block-${Date.now()}`, ...block };
-      saveDemoScheduleBlocks([...scheduleBlocks, newBlock]);
-      return;
-    }
-
-    try {
-      const blocksRef = collection(db, 'users', user.uid, 'scheduleBlocks');
-      await addDoc(blocksRef, block);
-    } catch (error) {
-      console.error('Error adding schedule block:', error);
-    }
-  }, [user, isDemo, scheduleBlocks, saveDemoScheduleBlocks]);
-
-  const updateScheduleBlock = useCallback(async (id, updates) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoScheduleBlocks(scheduleBlocks.map(b => b.id === id ? { ...b, ...updates } : b));
-      return;
-    }
-
-    try {
-      const blockRef = doc(db, 'users', user.uid, 'scheduleBlocks', id);
-      await updateDoc(blockRef, updates);
-    } catch (error) {
-      console.error('Error updating schedule block:', error);
-    }
-  }, [user, isDemo, scheduleBlocks, saveDemoScheduleBlocks]);
-
-  const deleteScheduleBlock = useCallback(async (id) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoScheduleBlocks(scheduleBlocks.filter(b => b.id !== id));
-      return;
-    }
-
-    try {
-      const blockRef = doc(db, 'users', user.uid, 'scheduleBlocks', id);
-      await deleteDoc(blockRef);
-    } catch (error) {
-      console.error('Error deleting schedule block:', error);
-    }
-  }, [user, isDemo, scheduleBlocks, saveDemoScheduleBlocks]);
-
-  // Quick capture operations
-  const addQuickCapture = useCallback(async (capture) => {
-    if (!user) return;
-
-    if (isDemo) {
-      const newCapture = { id: `demo-capture-${Date.now()}`, ...capture };
-      saveDemoQuickCaptures([newCapture, ...quickCaptures]);
-      return;
-    }
-
-    try {
-      const capturesRef = collection(db, 'users', user.uid, 'quickCaptures');
-      await addDoc(capturesRef, capture);
-    } catch (error) {
-      console.error('Error adding quick capture:', error);
-    }
-  }, [user, isDemo, quickCaptures, saveDemoQuickCaptures]);
-
-  const updateQuickCapture = useCallback(async (id, updates) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoQuickCaptures(quickCaptures.map(c => c.id === id ? { ...c, ...updates } : c));
-      return;
-    }
-
-    try {
-      const captureRef = doc(db, 'users', user.uid, 'quickCaptures', id);
-      await updateDoc(captureRef, updates);
-    } catch (error) {
-      console.error('Error updating quick capture:', error);
-    }
-  }, [user, isDemo, quickCaptures, saveDemoQuickCaptures]);
-
-  const deleteQuickCapture = useCallback(async (id) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoQuickCaptures(quickCaptures.filter(c => c.id !== id));
-      return;
-    }
-
-    try {
-      const captureRef = doc(db, 'users', user.uid, 'quickCaptures', id);
-      await deleteDoc(captureRef);
-    } catch (error) {
-      console.error('Error deleting quick capture:', error);
-    }
-  }, [user, isDemo, quickCaptures, saveDemoQuickCaptures]);
-
-  // Dashboard todo operations
-  const addTodo = useCallback(async (todo) => {
-    if (!user) return;
-
-    if (isDemo) {
-      const newTodo = {
-        id: `demo-todo-${Date.now()}`,
-        ...todo,
-        completed: false,
-        order: todos.length,
-        createdAt: new Date().toISOString(),
-      };
-      saveDemoTodos([...todos, newTodo]);
-      return;
-    }
-
-    try {
-      const todosRef = collection(db, 'users', user.uid, 'dashboardTodos');
-      await addDoc(todosRef, {
-        ...todo,
-        completed: false,
-        order: todos.length,
-        createdAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error adding todo:', error);
-    }
-  }, [user, isDemo, todos, saveDemoTodos]);
-
-  const updateTodo = useCallback(async (id, updates) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoTodos(todos.map(t => t.id === id ? { ...t, ...updates } : t));
-      return;
-    }
-
-    try {
-      const todoRef = doc(db, 'users', user.uid, 'dashboardTodos', id);
-      await updateDoc(todoRef, updates);
-    } catch (error) {
-      console.error('Error updating todo:', error);
-    }
-  }, [user, isDemo, todos, saveDemoTodos]);
-
-  const deleteTodo = useCallback(async (id) => {
-    if (!user) return;
-
-    if (isDemo) {
-      saveDemoTodos(todos.filter(t => t.id !== id));
-      return;
-    }
-
-    try {
-      const todoRef = doc(db, 'users', user.uid, 'dashboardTodos', id);
-      await deleteDoc(todoRef);
-    } catch (error) {
-      console.error('Error deleting todo:', error);
-    }
-  }, [user, isDemo, todos, saveDemoTodos]);
+  const addTodo = useCallback((todo) => addTodoDoc({
+    ...todo,
+    completed: false,
+    order: todos.reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1,
+    createdAt: new Date().toISOString(),
+  }), [addTodoDoc, todos]);
 
   const toggleTodo = useCallback(async (id) => {
-    const todo = todos.find(t => t.id === id);
-    if (todo) {
-      await updateTodo(id, { completed: !todo.completed });
-    }
+    const todo = todos.find((t) => t.id === id);
+    if (todo) await updateTodo(id, { completed: !todo.completed });
   }, [todos, updateTodo]);
 
   return {
     // State
-    layout,
-    activeWidgets,
-    deadlines,
-    scheduleBlocks,
-    scheduleSettings,
-    quickCaptures,
+    deadlines: deadlines.items,
+    scheduleBlocks: blocks.items,
+    quickCaptures: captures.items,
     todos,
     isLoading,
 
     // Actions
-    saveLayout,
-    addDeadline,
-    updateDeadline,
-    deleteDeadline,
-    addScheduleBlock,
-    updateScheduleBlock,
-    deleteScheduleBlock,
-    addQuickCapture,
-    updateQuickCapture,
-    deleteQuickCapture,
+    addDeadline: deadlines.add,
+    updateDeadline: deadlines.update,
+    deleteDeadline: deadlines.remove,
+    addScheduleBlock: blocks.add,
+    updateScheduleBlock: blocks.update,
+    deleteScheduleBlock: blocks.remove,
+    addQuickCapture: captures.add,
+    updateQuickCapture: captures.update,
+    deleteQuickCapture: captures.remove,
     addTodo,
     updateTodo,
     deleteTodo,

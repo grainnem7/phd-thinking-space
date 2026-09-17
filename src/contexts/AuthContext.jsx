@@ -4,8 +4,9 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, collection, setDoc, getDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../lib/firebase';
+import { defaultSections, BATCH_LIMIT } from '../lib/defaults';
 
 const AuthContext = createContext(null);
 
@@ -26,31 +27,57 @@ const DEMO_USER = {
   isDemo: true,
 };
 
+// Demo storage keys → Firestore subcollection names
+const DEMO_MIGRATION_MAP = {
+  'demo-sections': 'sections',
+  'demo-deadlines': 'deadlines',
+  'demo-scheduleBlocks': 'scheduleBlocks',
+  'demo-quickCaptures': 'quickCaptures',
+  'demo-todos': 'dashboardTodos',
+  'demo-papers': 'papers',
+  'demo-collections': 'paperCollections',
+  'demo-calendarItems': 'calendarItems',
+};
+
+function readDemoArray(key) {
+  try {
+    const items = JSON.parse(sessionStorage.getItem(key));
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
-    // Check for existing demo session
-    const demoSession = sessionStorage.getItem('demo-mode');
-    if (demoSession === 'true') {
-      setUser(DEMO_USER);
-      setIsDemo(true);
-      setLoading(false);
-      return;
-    }
-
+    // Always listen for Firebase auth, even when a demo session exists, so that
+    // signing in after a reload in demo mode is picked up immediately.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'profile', 'info'));
+        let profileName;
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid, 'profile', 'info'));
+          profileName = userDoc.data()?.displayName;
+        } catch (e) {
+          // Offline with nothing cached, or rules denied: the profile is optional
+          console.warn('Could not load profile:', e);
+        }
+        setIsDemo(false);
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          displayName: firebaseUser.displayName || userDoc.data()?.displayName || 'User',
+          displayName: firebaseUser.displayName || profileName || 'User',
           photoURL: firebaseUser.photoURL,
         });
+      } else if (sessionStorage.getItem('demo-mode') === 'true') {
+        setIsDemo(true);
+        setUser(DEMO_USER);
       } else {
+        setIsDemo(false);
         setUser(null);
       }
       setLoading(false);
@@ -58,6 +85,15 @@ export function AuthProvider({ children }) {
 
     return unsubscribe;
   }, []);
+
+  const createDefaultSections = async (userId) => {
+    const batch = writeBatch(db);
+    const sectionsRef = collection(db, 'users', userId, 'sections');
+    for (const section of defaultSections()) {
+      batch.set(doc(sectionsRef), { ...section, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    }
+    await batch.commit();
+  };
 
   const createUserProfile = async (user, { skipDefaults = false } = {}) => {
     const profileRef = doc(db, 'users', user.uid, 'profile', 'info');
@@ -78,59 +114,10 @@ export function AuthProvider({ children }) {
     return !profileSnap.exists();
   };
 
-  const createDefaultSections = async (userId) => {
-    const { collection, addDoc } = await import('firebase/firestore');
-    const sectionsRef = collection(db, 'users', userId, 'sections');
-
-    // Create minimal, useful defaults
-    const defaultSections = [
-      {
-        name: 'Notes',
-        icon: 'folder',
-        order: 0,
-        parentId: null,
-        type: 'folder'
-      },
-      {
-        name: 'Tasks',
-        icon: 'kanban',
-        order: 1,
-        parentId: null,
-        type: 'board',
-        columns: [
-          { id: 'todo', name: 'To Do', order: 0 },
-          { id: 'in-progress', name: 'In Progress', order: 1 },
-          { id: 'done', name: 'Done', order: 2 },
-        ],
-        tasks: [],
-      },
-    ];
-
-    for (const section of defaultSections) {
-      await addDoc(sectionsRef, {
-        ...section,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-  };
-
   const signInWithGoogle = async ({ skipDefaults = false } = {}) => {
     const result = await signInWithPopup(auth, googleProvider);
     const isNewUser = await createUserProfile(result.user, { skipDefaults });
     return { user: result.user, isNewUser };
-  };
-
-  // Demo storage keys → Firestore subcollection names
-  const DEMO_MIGRATION_MAP = {
-    'demo-sections': 'sections',
-    'demo-deadlines': 'deadlines',
-    'demo-scheduleBlocks': 'scheduleBlocks',
-    'demo-quickCaptures': 'quickCaptures',
-    'demo-todos': 'dashboardTodos',
-    'demo-papers': 'papers',
-    'demo-collections': 'paperCollections',
-    'demo-calendarItems': 'calendarItems',
   };
 
   const hasDemoData = () =>
@@ -141,32 +128,54 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem('demo-mode');
   };
 
+  // Copy demo work into the signed-in account. Firestore assigns new ids, so
+  // every cross-reference (folder parents, paper collections, calendar links)
+  // is rewritten to the new ids before anything is written.
   const migrateDemoData = async (userId) => {
-    const { collection, addDoc } = await import('firebase/firestore');
-    let migratedCount = 0;
-    for (const [storageKey, firestoreCollection] of Object.entries(DEMO_MIGRATION_MAP)) {
-      const raw = sessionStorage.getItem(storageKey);
-      if (!raw) continue;
-      try {
-        const items = JSON.parse(raw);
-        if (!Array.isArray(items)) continue;
-        const collRef = collection(db, 'users', userId, firestoreCollection);
-        for (const item of items) {
-          // Strip the demo-prefixed local id; let Firestore assign a new one
-          const { id: _ignored, ...rest } = item;
-          await addDoc(collRef, {
-            ...rest,
-            createdAt: rest.createdAt || serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-          migratedCount += 1;
+    const idMaps = {};
+    const plans = Object.entries(DEMO_MIGRATION_MAP).map(([storageKey, collectionName]) => {
+      const collRef = collection(db, 'users', userId, collectionName);
+      const items = readDemoArray(storageKey);
+      idMaps[collectionName] = new Map(items.map((item) => [item.id, doc(collRef).id]));
+      return { collectionName, collRef, items };
+    });
+
+    const remap = (collectionName, id) => idMaps[collectionName]?.get(id) ?? id;
+
+    const writes = [];
+    for (const { collectionName, collRef, items } of plans) {
+      for (const item of items) {
+        const { id, ...rest } = item;
+        const data = { ...rest, createdAt: rest.createdAt || serverTimestamp(), updatedAt: serverTimestamp() };
+
+        if (collectionName === 'sections' && data.parentId) {
+          data.parentId = remap('sections', data.parentId);
         }
-      } catch (e) {
-        console.error(`Failed to migrate ${storageKey}:`, e);
+        if (collectionName === 'papers' && Array.isArray(data.collections)) {
+          data.collections = data.collections.map((c) => remap('paperCollections', c));
+        }
+        if (collectionName === 'calendarItems' && Array.isArray(data.links)) {
+          data.links = data.links.map((l) => ({
+            ...l,
+            id: remap(l.type === 'paper' ? 'papers' : 'sections', l.id),
+          }));
+        }
+        // Firestore rejects undefined values
+        Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+
+        writes.push({ ref: doc(collRef, idMaps[collectionName].get(id)), data });
       }
     }
+
+    for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      writes.slice(i, i + BATCH_LIMIT).forEach(({ ref, data }) => batch.set(ref, data));
+      // If this throws, the demo data stays in sessionStorage so nothing is lost
+      await batch.commit();
+    }
+
     clearDemoData();
-    return migratedCount;
+    return writes.length;
   };
 
   const enterDemoMode = () => {

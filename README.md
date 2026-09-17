@@ -1,16 +1,72 @@
-# React + Vite
+# Thinking Space
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal workspace for organising PhD research: notes, task boards, a reading list with PDF annotation, a calendar and a daily dashboard.
 
-Currently, two official plugins are available:
+Live site: https://thinking-space.web.app
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Notes** — rich-text editor (BlockNote) with paper citations, Word/PDF export and focus mode
+- **Boards** — Kanban boards with priorities, tags and due dates
+- **Reading list** — papers with status, collections, BibTeX/APA/MLA/Chicago/IEEE citations, PDF viewer with quote capture, and per-paper note tabs
+- **Calendar** — month view of your events, deadlines, task due dates and (optionally) Google Calendar, with a schedule and to-do list for each day
+- **Dashboard** — deadlines, today's schedule, to-dos, quick capture, focus timer and recent notes
+- **Demo mode** — try everything without signing in; demo work can be imported when you create an account
+- Dark mode, e-reader mode, installable PWA with offline support
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech
 
-## Expanding the ESLint configuration
+React 19, Vite, Tailwind CSS 3, Firebase (Auth, Firestore, Storage, Hosting).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Getting started
+
+```bash
+npm install
+cp .env.example .env.local   # fill in the Firebase web app config
+npm run dev
+```
+
+The `VITE_FIREBASE_*` values come from Firebase console → Project settings → Your apps.
+
+Other scripts:
+
+```bash
+npm run lint      # ESLint
+npm run build     # production build to dist/
+npm run preview   # serve the production build locally
+```
+
+## Data model
+
+Everything a user owns lives under `users/{uid}/` in Firestore:
+
+| Collection | Contents |
+| --- | --- |
+| `sections` | Notes, boards and folders (a tree via `parentId`); boards embed `columns` and `tasks` |
+| `papers`, `paperCollections` | Reading list |
+| `calendarItems` | Calendar events and per-day to-dos |
+| `deadlines`, `scheduleBlocks`, `dashboardTodos`, `quickCaptures` | Dashboard widgets |
+| `profile/info` | Display name and email |
+
+PDFs are stored in Firebase Storage under `users/{uid}/papers/`.
+
+Security rules are versioned in `firestore.rules` and `storage.rules`. They are **not** deployed by CI; deploy them with:
+
+```bash
+firebase deploy --only firestore:rules,storage
+```
+
+## Deployment
+
+GitHub Actions builds and deploys to Firebase Hosting:
+
+- pushes to `main` deploy the live site
+- pull requests get a preview channel URL
+
+The build reads the `VITE_FIREBASE_*` repository secrets.
+
+## Google Calendar sync (optional)
+
+1. In Google Cloud console for the Firebase project, enable the **Google Calendar API**.
+2. On the OAuth consent screen, add the `https://www.googleapis.com/auth/calendar.readonly` scope (and add yourself as a test user while the app is in testing).
+3. In the app, open Calendar → **Connect Google Calendar**. Access lasts an hour, after which the button offers **Reconnect**.

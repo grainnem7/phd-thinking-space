@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['vite.svg'],
+      includeAssets: ['icon.svg'],
       manifest: {
         name: 'Thinking Space',
         short_name: 'Thinking Space',
@@ -19,12 +19,26 @@ export default defineConfig({
         scope: '/',
         start_url: '/',
         icons: [
-          { src: 'vite.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
         ],
       },
       workbox: {
-        // Main app bundle is ~4.7MB; bump precache cap so the SW can include it.
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // Fonts bundled by the PDF/Word exporters and the PDF.js worker are only
+        // needed on demand, so they're cached the first time they're used
+        // instead of being downloaded up front with the app.
+        globIgnores: ['**/Inter_*', '**/GeistMono-*', '**/pdf.worker*', '**/react-pdf.browser-*'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lazy-assets',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 60 },
+            },
+          },
+        ],
         navigateFallback: 'index.html',
         // Don't intercept Firebase/Auth/Google network calls
         navigateFallbackDenylist: [

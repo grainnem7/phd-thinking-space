@@ -1,38 +1,50 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useFirestore } from '../hooks/useFirestore';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useFocusMode } from '../contexts/FocusModeContext';
 import { useConfirm } from '../components/common/ConfirmDialog';
 import Layout from '../components/layout/Layout';
 import Header from '../components/layout/Header';
-import NoteEditor from '../components/notes/NoteEditor';
-import KanbanBoard from '../components/board/KanbanBoard';
 import WidgetDashboard from '../components/dashboard/Dashboard';
-import ReadingList from '../components/reading-list/ReadingList';
-import CalendarView from '../components/calendar/CalendarView';
+
+// Heavier views load on first use to keep the initial download small
+const NoteEditor = lazy(() => import('../components/notes/NoteEditor'));
+const KanbanBoard = lazy(() => import('../components/board/KanbanBoard'));
+const ReadingList = lazy(() => import('../components/reading-list/ReadingList'));
+const CalendarView = lazy(() => import('../components/calendar/CalendarView'));
+
+function ViewSpinner() {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-[var(--bg-page)]" role="status" aria-label="Loading">
+      <div className="w-6 h-6 border-2 border-neutral-300 dark:border-neutral-700 border-t-neutral-600 dark:border-t-neutral-300 rounded-full animate-spin" />
+    </div>
+  );
+}
 import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Trash2, Copy, Moon, Sun, Maximize2, BookOpen, Keyboard, CalendarDays } from 'lucide-react';
 import Button from '../components/common/Button';
-import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
 import CommandPalette from '../components/common/CommandPalette';
 import { useTheme } from '../contexts/ThemeContext';
+import { defaultBoardColumns } from '../lib/defaults';
 
 export default function Dashboard() {
-  const { sections, loading, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
-  const { toggle, isOpen, isMobile } = useSidebar();
+  const { sections, loading, error: sectionsError, addSection, updateSection, deleteSection, duplicateSection } = useFirestore();
+  const { toggle, close: closeSidebar, isOpen, isMobile } = useSidebar();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const { isDark, toggle: toggleTheme } = useTheme();
   const confirm = useConfirm();
-  const [selectedItem, setSelectedItem] = useState(null);
+  // What's open: a section id, or a special view (reading list / calendar).
+  // The section itself is always read from live data so it never goes stale.
+  const [selection, setSelectedItem] = useState(null);
+  const isSpecialView = selection?.type === 'reading-list' || selection?.type === 'calendar';
+  const selectedItem = !selection ? null : isSpecialView ? selection : (sections.find(s => s.id === selection.id) || null);
   // One-shot navigation details: which paper, task or calendar day to open
   const [navParams, setNavParams] = useState({});
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [itemMenuOpen, setItemMenuOpen] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
@@ -88,6 +100,7 @@ export default function Dashboard() {
     if (!item) {
       setSelectedItem(null);
       setNavParams({});
+      if (isMobile) closeSidebar();
       return;
     }
 
@@ -95,33 +108,15 @@ export default function Dashboard() {
     if (item.type === 'reading-list' || item.type === 'calendar') {
       setSelectedItem(item);
       setNavParams({ paperId: item.paperId, date: item.date });
-      if (isMobile) {
-        toggle();
-      }
+      if (isMobile) closeSidebar();
       return;
     }
 
-    // Find the full item data from sections
-    const fullItem = sections.find(s => s.id === item.id);
-    if (fullItem) {
-      setSelectedItem(fullItem);
-      setNavParams({ taskId: item.openTaskId });
-      if (isMobile) {
-        // Close sidebar on mobile after selection
-        toggle();
-      }
-    }
-  }, [sections, isMobile, toggle]);
-
-  // Update selected item when sections change
-  useEffect(() => {
-    if (selectedItem) {
-      const updated = sections.find(s => s.id === selectedItem.id);
-      if (updated) {
-        setSelectedItem(updated);
-      }
-    }
-  }, [sections, selectedItem?.id]);
+    setSelectedItem({ id: item.id });
+    setNavParams({ taskId: item.openTaskId });
+    // Close the drawer on mobile after choosing something
+    if (isMobile) closeSidebar();
+  }, [isMobile, closeSidebar]);
 
   const getBreadcrumbs = () => {
     if (!selectedItem) return [{ label: 'Home' }];
@@ -154,14 +149,11 @@ export default function Dashboard() {
     return crumbs;
   };
 
-  const filteredSections = searchQuery
-    ? sections.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
-
   const handleCreateItem = async (type) => {
-    const parentId = selectedItem?.id || null;
+    // New items go inside the open folder, next to the open note/board, or at the top level
+    const isFolder = selectedItem && !isSpecialView
+      && (selectedItem.type === 'folder' || (!selectedItem.type && sections.some(s => s.parentId === selectedItem.id)));
+    const parentId = isFolder ? selectedItem.id : (!isSpecialView && selectedItem?.parentId) || null;
     const siblings = sections.filter(s => s.parentId === parentId);
     const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order || 0)) : -1;
 
@@ -171,11 +163,7 @@ export default function Dashboard() {
       parentId,
       order: maxOrder + 1,
       ...(type === 'board' && {
-        columns: [
-          { id: 'todo', name: 'To Do', order: 0 },
-          { id: 'in-progress', name: 'In Progress', order: 1 },
-          { id: 'done', name: 'Done', order: 2 },
-        ],
+        columns: defaultBoardColumns(),
         tasks: [],
       }),
     };
@@ -218,21 +206,26 @@ export default function Dashboard() {
     }
   };
 
-  const handleDelete = () => {
-    if (selectedItem) {
-      setDeleteModalOpen(true);
-      setItemMenuOpen(false);
-    }
+  const confirmDeleteSection = async (item) => {
+    const childCount = sections.filter(s => s.parentId === item.id).length;
+    return confirm({
+      title: `Delete "${item.name}"?`,
+      body: childCount > 0
+        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
   };
 
-  const handleDeleteConfirm = async () => {
-    if (selectedItem) {
-      // Navigate to parent or home before deleting
-      const parent = sections.find(s => s.id === selectedItem.parentId);
-      setSelectedItem(parent || null);
-      await deleteSection(selectedItem.id);
-      setDeleteModalOpen(false);
-    }
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    setItemMenuOpen(false);
+    const item = selectedItem;
+    if (!(await confirmDeleteSection(item))) return;
+    // Navigate to parent or home before deleting
+    setSelectedItem(item.parentId ? { id: item.parentId } : null);
+    await deleteSection(item.id);
   };
 
   const handleChildRename = (e, child) => {
@@ -242,20 +235,12 @@ export default function Dashboard() {
 
   const handleChildDelete = async (e, child) => {
     e.stopPropagation();
-    const childCount = sections.filter(s => s.parentId === child.id).length;
-    const ok = await confirm({
-      title: `Delete "${child.name}"?`,
-      body: childCount > 0
-        ? `This will also delete ${childCount} ${childCount === 1 ? 'item' : 'items'} inside it. This cannot be undone.`
-        : 'This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
-    });
+    const ok = await confirmDeleteSection(child);
     if (ok) {
       // If we deleted the currently-selected item, navigate to its parent
       if (selectedItem && (selectedItem.id === child.id || sections.some(s => s.id === selectedItem.id && s.parentId === child.id))) {
         const parent = sections.find(s => s.id === child.parentId);
-        setSelectedItem(parent || null);
+        setSelectedItem(parent ? { id: parent.id } : null);
       }
       await deleteSection(child.id);
     }
@@ -270,6 +255,27 @@ export default function Dashboard() {
       );
     }
 
+    if (sectionsError) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-6 bg-[#fafafa] dark:bg-neutral-950">
+          <div role="alert" className="max-w-sm text-center">
+            <p className="font-serif text-xl text-neutral-900 dark:text-neutral-100 mb-2">Couldn't load your workspace</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-5">
+              {sectionsError.code === 'permission-denied'
+                ? 'Your account does not have permission to read this data.'
+                : 'Check your connection and try again.'}
+            </p>
+            <Button onClick={() => window.location.reload()}>Try again</Button>
+          </div>
+        </div>
+      );
+    }
+
+    if (selection && !selectedItem) {
+      // The open item was deleted (possibly on another device)
+      return <WidgetDashboard notes={sections.filter(s => s.type === 'note')} sections={sections} onSelect={handleSelect} />;
+    }
+
     if (!selectedItem) {
       // Get all notes for the recent notes widget
       const allNotes = sections.filter(s => s.type === 'note' || (!s.type && !sections.some(child => child.parentId === s.id)));
@@ -278,7 +284,13 @@ export default function Dashboard() {
 
     // Reading List special view
     if (selectedItem.type === 'reading-list') {
-      return <ReadingList key={navParams.paperId || 'reading-list'} initialPaperId={navParams.paperId} />;
+      return (
+        <ReadingList
+          key={navParams.paperId || 'reading-list'}
+          initialPaperId={navParams.paperId}
+          onOpenNote={(id) => handleSelect({ id })}
+        />
+      );
     }
 
     if (selectedItem.type === 'calendar') {
@@ -299,8 +311,7 @@ export default function Dashboard() {
           initialTaskId={navParams.taskId}
           onRename={(b) => openRename(b)}
           onDelete={async (id) => {
-            const parent = sections.find(s => s.id === selectedItem.parentId);
-            setSelectedItem(parent || null);
+            setSelectedItem(selectedItem.parentId ? { id: selectedItem.parentId } : null);
             await deleteSection(id);
           }}
         />
@@ -318,8 +329,7 @@ export default function Dashboard() {
           sections={sections}
           updateSection={updateSection}
           onDelete={async (id) => {
-            const parent = sections.find(s => s.id === selectedItem.parentId);
-            setSelectedItem(parent || null);
+            setSelectedItem(selectedItem.parentId ? { id: selectedItem.parentId } : null);
             await deleteSection(id);
           }}
         />
@@ -333,33 +343,42 @@ export default function Dashboard() {
           <h2 className="font-serif text-2xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight">{selectedItem.name}</h2>
           <div className="relative">
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); setIsCreating(!isCreating); }}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+              aria-haspopup="menu"
+              aria-expanded={isCreating}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
             >
-              <Plus size={16} />
+              <Plus size={16} aria-hidden="true" />
               Add
             </button>
             {isCreating && (
-              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 z-10">
+              <div role="menu" aria-label="Add to folder" onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-black/40 py-1 z-10">
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleCreateItem('note')}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
                 >
-                  <FileText size={16} className="text-neutral-400" />
+                  <FileText size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Note
                 </button>
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleCreateItem('board')}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
                 >
-                  <Kanban size={16} className="text-neutral-400" />
+                  <Kanban size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Board
                 </button>
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleCreateItem('folder')}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
                 >
-                  <Folder size={16} className="text-neutral-400" />
+                  <Folder size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Folder
                 </button>
               </div>
@@ -368,23 +387,23 @@ export default function Dashboard() {
         </div>
         {children.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
-              <Folder size={24} className="text-neutral-400" />
+            <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
+              <Folder size={24} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
             </div>
-            <p className="text-neutral-500 mb-4">This folder is empty</p>
+            <p className="text-neutral-500 dark:text-neutral-400 mb-4">This folder is empty</p>
             <div className="flex gap-3">
               <button
                 onClick={() => handleCreateItem('note')}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
               >
-                <FileText size={16} />
+                <FileText size={16} aria-hidden="true" />
                 Add Note
               </button>
               <button
                 onClick={() => handleCreateItem('board')}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
               >
-                <Kanban size={16} />
+                <Kanban size={16} aria-hidden="true" />
                 Add Board
               </button>
             </div>
@@ -406,30 +425,30 @@ export default function Dashboard() {
                 className="relative p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-left hover:border-neutral-300 dark:hover:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors cursor-pointer group"
               >
                 <div className="flex items-center gap-3 pr-16">
-                  {child.type === 'note' && <FileText size={18} className="text-neutral-400" />}
-                  {child.type === 'board' && <Kanban size={18} className="text-neutral-400" />}
-                  {child.type === 'folder' && <Folder size={18} className="text-neutral-400" />}
-                  {!child.type && <FileText size={18} className="text-neutral-400" />}
+                  {child.type === 'note' && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
+                  {child.type === 'board' && <Kanban size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
+                  {child.type === 'folder' && <Folder size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
+                  {!child.type && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   <p className="text-base text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 truncate">{child.name}</p>
                 </div>
-                <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-3 flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button
                     type="button"
                     onClick={(e) => handleChildRename(e, child)}
                     aria-label={`Rename ${child.name}`}
                     title="Rename"
-                    className="p-1.5 text-neutral-400 hover:text-neutral-700 bg-white rounded transition-colors"
+                    className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={14} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={(e) => handleChildDelete(e, child)}
                     aria-label={`Delete ${child.name}`}
                     title="Delete"
-                    className="p-1.5 text-neutral-400 hover:text-red-500 bg-white rounded transition-colors"
+                    className="p-1.5 text-neutral-400 hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 dark:focus-visible:ring-rose-800"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -448,7 +467,7 @@ export default function Dashboard() {
         actions={
           <>
             {!isMobile && !isOpen && (
-              <Button variant="ghost" size="icon" onClick={toggle}>
+              <Button variant="ghost" size="icon" onClick={toggle} aria-label="Open sidebar" title="Open sidebar (Ctrl+B)">
                 <Menu className="w-5 h-5" />
               </Button>
             )}
@@ -457,6 +476,7 @@ export default function Dashboard() {
               size="icon"
               onClick={() => setSearchOpen(true)}
               title="Search (Ctrl+K)"
+              aria-label="Search"
             >
               <Search className="w-5 h-5" />
             </Button>
@@ -468,34 +488,45 @@ export default function Dashboard() {
                   size="icon"
                   onClick={(e) => { e.stopPropagation(); setItemMenuOpen(!itemMenuOpen); }}
                   title="More actions"
+                  aria-label="More actions"
+                  aria-haspopup="menu"
+                  aria-expanded={itemMenuOpen}
                 >
                   <MoreVertical className="w-5 h-5" />
                 </Button>
                 {itemMenuOpen && (
                   <div
+                    role="menu"
+                    aria-label="More actions"
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-full mt-1 w-48 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20"
+                    className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-black/40 py-1 z-20"
                   >
                     <button
                       onClick={handleRename}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation"
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-100 dark:active:bg-neutral-700 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors touch-manipulation"
                     >
-                      <Pencil size={16} className="text-neutral-400" />
+                      <Pencil size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                       Rename
                     </button>
                     <button
                       onClick={handleDuplicate}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation"
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-100 dark:active:bg-neutral-700 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors touch-manipulation"
                     >
-                      <Copy size={16} className="text-neutral-400" />
+                      <Copy size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                       Duplicate
                     </button>
-                    <div className="border-t border-neutral-100 my-1" />
+                    <div role="separator" className="border-t border-neutral-100 dark:border-neutral-800 my-1" />
                     <button
                       onClick={handleDelete}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors touch-manipulation"
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 active:bg-rose-100 dark:active:bg-rose-950/60 focus:outline-none focus-visible:bg-rose-50 dark:focus-visible:bg-rose-950/40 transition-colors touch-manipulation"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={16} aria-hidden="true" />
                       Delete
                     </button>
                   </div>
@@ -506,12 +537,14 @@ export default function Dashboard() {
         }
       />
       )}
-      {renderContent()}
+      <Suspense fallback={<ViewSpinner />}>
+        {renderContent()}
+      </Suspense>
 
       {/* Command Palette */}
       <CommandPalette
         open={searchOpen}
-        onOpenChange={(v) => { setSearchOpen(v); if (!v) setSearchQuery(''); }}
+        onOpenChange={setSearchOpen}
         sections={sections}
         actions={[
           { id: 'add-note', label: 'New note', icon: FileText, keywords: 'create add', run: () => handleCreateItem('note') },
@@ -541,9 +574,10 @@ export default function Dashboard() {
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="Enter new name..."
+          placeholder="Enter new name…"
+          aria-label="New name"
           autoFocus
-          className="w-full px-4 py-3 text-base border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-300 focus:border-neutral-300 outline-none"
+          className="w-full px-4 py-3 text-base bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 focus:border-neutral-300 dark:focus:border-neutral-600 outline-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleRenameSubmit();
@@ -560,26 +594,6 @@ export default function Dashboard() {
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Delete Item"
-        size="sm"
-      >
-        <p className="text-neutral-600">
-          Are you sure you want to delete "{selectedItem?.name}"? This action cannot be undone.
-        </p>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDeleteConfirm}>
-            Delete
-          </Button>
-        </div>
-      </Modal>
-
       {/* Keyboard shortcuts help */}
       <Modal
         isOpen={shortcutsOpen}
@@ -587,7 +601,7 @@ export default function Dashboard() {
         title="Keyboard shortcuts"
         size="sm"
       >
-        <ul className="space-y-3">
+        <ul className="space-y-3" aria-label="Keyboard shortcuts">
           {[
             { keys: 'Ctrl + K', label: 'Open command palette' },
             { keys: 'Ctrl + B', label: 'Toggle sidebar' },
