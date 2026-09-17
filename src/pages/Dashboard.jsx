@@ -336,33 +336,42 @@ export default function Dashboard() {
           <h2 className="font-serif text-2xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight">{selectedItem.name}</h2>
           <div className="relative">
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); setIsCreating(!isCreating); }}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+              aria-haspopup="menu"
+              aria-expanded={isCreating}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
             >
-              <Plus size={16} />
+              <Plus size={16} aria-hidden="true" />
               Add
             </button>
             {isCreating && (
-              <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg py-1 z-10">
+              <div role="menu" aria-label="Add to folder" onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-black/40 py-1 z-10">
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleCreateItem('note')}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
                 >
-                  <FileText size={16} className="text-neutral-400" />
+                  <FileText size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Note
                 </button>
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleCreateItem('board')}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
                 >
-                  <Kanban size={16} className="text-neutral-400" />
+                  <Kanban size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Board
                 </button>
                 <button
+                  type="button"
+                  role="menuitem"
                   onClick={() => handleCreateItem('folder')}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors"
                 >
-                  <Folder size={16} className="text-neutral-400" />
+                  <Folder size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                   New Folder
                 </button>
               </div>
@@ -371,23 +380,23 @@ export default function Dashboard() {
         </div>
         {children.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
-              <Folder size={24} className="text-neutral-400" />
+            <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
+              <Folder size={24} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
             </div>
-            <p className="text-neutral-500 mb-4">This folder is empty</p>
+            <p className="text-neutral-500 dark:text-neutral-400 mb-4">This folder is empty</p>
             <div className="flex gap-3">
               <button
                 onClick={() => handleCreateItem('note')}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
               >
-                <FileText size={16} />
+                <FileText size={16} aria-hidden="true" />
                 Add Note
               </button>
               <button
                 onClick={() => handleCreateItem('board')}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
               >
-                <Kanban size={16} />
+                <Kanban size={16} aria-hidden="true" />
                 Add Board
               </button>
             </div>
@@ -409,30 +418,30 @@ export default function Dashboard() {
                 className="relative p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl text-left hover:border-neutral-300 dark:hover:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors cursor-pointer group"
               >
                 <div className="flex items-center gap-3 pr-16">
-                  {child.type === 'note' && <FileText size={18} className="text-neutral-400" />}
-                  {child.type === 'board' && <Kanban size={18} className="text-neutral-400" />}
-                  {child.type === 'folder' && <Folder size={18} className="text-neutral-400" />}
-                  {!child.type && <FileText size={18} className="text-neutral-400" />}
+                  {child.type === 'note' && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
+                  {child.type === 'board' && <Kanban size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
+                  {child.type === 'folder' && <Folder size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
+                  {!child.type && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   <p className="text-base text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 truncate">{child.name}</p>
                 </div>
-                <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-3 flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button
                     type="button"
                     onClick={(e) => handleChildRename(e, child)}
                     aria-label={`Rename ${child.name}`}
                     title="Rename"
-                    className="p-1.5 text-neutral-400 hover:text-neutral-700 bg-white rounded transition-colors"
+                    className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:focus-visible:ring-neutral-600"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={14} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={(e) => handleChildDelete(e, child)}
                     aria-label={`Delete ${child.name}`}
                     title="Delete"
-                    className="p-1.5 text-neutral-400 hover:text-red-500 bg-white rounded transition-colors"
+                    className="p-1.5 text-neutral-400 hover:text-rose-600 dark:text-neutral-500 dark:hover:text-rose-400 bg-white dark:bg-neutral-900 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 dark:focus-visible:ring-rose-800"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -471,34 +480,45 @@ export default function Dashboard() {
                   size="icon"
                   onClick={(e) => { e.stopPropagation(); setItemMenuOpen(!itemMenuOpen); }}
                   title="More actions"
+                  aria-label="More actions"
+                  aria-haspopup="menu"
+                  aria-expanded={itemMenuOpen}
                 >
                   <MoreVertical className="w-5 h-5" />
                 </Button>
                 {itemMenuOpen && (
                   <div
+                    role="menu"
+                    aria-label="More actions"
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-full mt-1 w-48 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 z-20"
+                    className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-black/40 py-1 z-20"
                   >
                     <button
                       onClick={handleRename}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation"
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-100 dark:active:bg-neutral-700 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors touch-manipulation"
                     >
-                      <Pencil size={16} className="text-neutral-400" />
+                      <Pencil size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                       Rename
                     </button>
                     <button
                       onClick={handleDuplicate}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 transition-colors touch-manipulation"
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:bg-neutral-100 dark:active:bg-neutral-700 focus:outline-none focus-visible:bg-neutral-50 dark:focus-visible:bg-neutral-800 transition-colors touch-manipulation"
                     >
-                      <Copy size={16} className="text-neutral-400" />
+                      <Copy size={16} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />
                       Duplicate
                     </button>
-                    <div className="border-t border-neutral-100 my-1" />
+                    <div role="separator" className="border-t border-neutral-100 dark:border-neutral-800 my-1" />
                     <button
                       onClick={handleDelete}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors touch-manipulation"
+                      type="button"
+                      role="menuitem"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 active:bg-rose-100 dark:active:bg-rose-950/60 focus:outline-none focus-visible:bg-rose-50 dark:focus-visible:bg-rose-950/40 transition-colors touch-manipulation"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={16} aria-hidden="true" />
                       Delete
                     </button>
                   </div>
@@ -544,9 +564,10 @@ export default function Dashboard() {
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="Enter new name..."
+          placeholder="Enter new name…"
+          aria-label="New name"
           autoFocus
-          className="w-full px-4 py-3 text-base border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-300 focus:border-neutral-300 outline-none"
+          className="w-full px-4 py-3 text-base bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 focus:border-neutral-300 dark:focus:border-neutral-600 outline-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleRenameSubmit();
@@ -570,7 +591,7 @@ export default function Dashboard() {
         title="Keyboard shortcuts"
         size="sm"
       >
-        <ul className="space-y-3">
+        <ul className="space-y-3" aria-label="Keyboard shortcuts">
           {[
             { keys: 'Ctrl + K', label: 'Open command palette' },
             { keys: 'Ctrl + B', label: 'Toggle sidebar' },
