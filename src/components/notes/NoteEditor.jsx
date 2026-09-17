@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNotes } from '../../hooks/useNotes';
-import { Cloud, CloudOff, Clock, Download, FileText, Trash2, Maximize2, Minimize2, BookOpen } from 'lucide-react';
+import { Trash2, Maximize2, BookOpen } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
 import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
 import { Packer } from "docx";
@@ -74,7 +74,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     if (editor) {
       try {
         editor.insertInlineContent([{ type: 'text', text: citation, styles: {} }]);
-      } catch (e) {
+      } catch {
         // Fallback: copy to clipboard if direct insert fails
         navigator.clipboard?.writeText(citation);
       }
@@ -85,15 +85,15 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     setCiteQuery('');
   };
 
-  // Sync local title draft when navigating to a different note or when name changes externally
-  useEffect(() => {
+  // Sync local title draft when navigating to a different note or when the name
+  // changes externally, and reset the word count when switching notes.
+  // Adjusting state during render avoids an extra effect-driven re-render.
+  const [syncedNote, setSyncedNote] = useState({ id: note?.id, name: note?.name });
+  if (syncedNote.id !== note?.id || syncedNote.name !== note?.name) {
+    if (syncedNote.id !== note?.id) setWordStats(countWords(note?.content));
+    setSyncedNote({ id: note?.id, name: note?.name });
     setTitleDraft(note?.name || '');
-  }, [note?.id, note?.name]);
-
-  // Reset word count when switching notes
-  useEffect(() => {
-    setWordStats(countWords(note?.content));
-  }, [note?.id]);
+  }
 
   const handleChange = useCallback((newContent) => {
     debouncedSave(newContent);
@@ -216,7 +216,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
 
   if (!note) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#fafafa] dark:bg-neutral-950">
+      <div className="flex-1 flex items-center justify-center bg-[var(--bg-page)]">
         <div className="text-center">
           <p className="text-sm text-neutral-400 dark:text-neutral-500">No note selected</p>
           <p className="text-xs text-neutral-300 dark:text-neutral-600 mt-1">Select a note from the sidebar to start editing</p>
@@ -229,13 +229,13 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
     <div className="flex-1 flex flex-col bg-white dark:bg-neutral-900 relative">
       {/* Minimal status bar */}
       {!focusMode && (
-        <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100 dark:border-neutral-800">
-          <span className="text-xs text-neutral-400 dark:text-neutral-500 tabular-nums">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-neutral-100 dark:border-neutral-800">
+          <span className="text-xs text-neutral-400 dark:text-neutral-500 tabular-nums whitespace-nowrap">
             {wordStats.words.toLocaleString()} {wordStats.words === 1 ? 'word' : 'words'}
             <span className="text-neutral-300 dark:text-neutral-600"> · </span>
             {wordStats.chars.toLocaleString()} {wordStats.chars === 1 ? 'char' : 'chars'}
           </span>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <button
               onClick={handleExportDocx}
               disabled={isExportingDocx || isExportingPdf}
@@ -254,7 +254,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
               {isSaving ? 'Saving...' : lastSaved ? `Saved ${formatLastSaved()}` : ''}
             </span>
             {error && (
-              <span className="text-xs text-red-500" title={error}>
+              <span className="text-xs text-red-600 dark:text-red-400" title={error} role="alert">
                 Save failed
               </span>
             )}
@@ -287,20 +287,20 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
           </div>
         </div>
       )}
-      {focusMode && (
-        <button
-          onClick={toggleFocusMode}
-          aria-label="Exit focus mode"
-          title="Exit focus mode (Esc or Ctrl+Shift+F)"
-          className="fixed top-4 right-4 z-30 text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-2 bg-white/80 dark:bg-neutral-900/80 rounded-lg backdrop-blur-sm"
+      {/* The exit-focus button lives in Layout; save errors must stay visible here */}
+      {focusMode && error && (
+        <div
+          role="alert"
+          title={error}
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 px-3 py-2 text-xs text-red-600 dark:text-red-400 bg-white/95 dark:bg-neutral-900/95 border border-red-200 dark:border-red-900 rounded-lg backdrop-blur-sm"
         >
-          <Minimize2 size={16} />
-        </button>
+          Save failed - your latest changes are not saved yet
+        </div>
       )}
 
       {/* Editor */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-10 pt-10 pb-2">
+        <div className="max-w-3xl mx-auto px-5 sm:px-10 pt-6 sm:pt-10 pb-2">
           <input
             type="text"
             value={titleDraft}
@@ -321,7 +321,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
             className="w-full font-serif text-3xl sm:text-4xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight bg-transparent focus:outline-none placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
           />
         </div>
-        <div className="max-w-3xl mx-auto px-10 pb-10">
+        <div className="max-w-3xl mx-auto px-5 sm:px-10 pb-10">
           <BlockNoteEditor key={note?.id} ref={editorRef} content={note?.content} onChange={handleChange} />
         </div>
       </div>

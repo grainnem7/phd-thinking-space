@@ -10,13 +10,13 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
+  arrayMove,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  BookOpen,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -53,7 +53,7 @@ import { useFirestore } from '../../hooks/useFirestore';
 import { useEink } from '../../contexts/EinkContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import SearchInput from '../common/SearchInput';
+import { defaultBoardColumns } from '../../lib/defaults';
 import Dropdown, { DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -76,25 +76,75 @@ function getIcon(iconName) {
   return iconMap[iconName] || FileText;
 }
 
-function SortableItem({ item, children }) {
+const ROOT_GROUP = 'root';
+
+function groupIdFor(parentId) {
+  return parentId == null ? ROOT_GROUP : `group-${parentId}`;
+}
+
+function sortableGroupOf(entry) {
+  return entry?.data?.current?.sortable?.containerId;
+}
+
+// Only let items collide with their siblings, so a drag never "lands" in a
+// different folder (moving between folders isn't supported by reordering).
+function siblingCollisionDetection(args) {
+  const group = sortableGroupOf(args.active);
+  return closestCenter({
+    ...args,
+    droppableContainers: args.droppableContainers.filter((c) => sortableGroupOf(c) === group),
+  });
+}
+
+// Same restriction for keyboard dragging (Space to pick up, arrows to move)
+function siblingKeyboardCoordinates(event, args) {
+  const { context } = args;
+  const group = sortableGroupOf(context.active);
+  const all = context.droppableContainers;
+  const scoped = {
+    getEnabled: () => all.getEnabled().filter((c) => sortableGroupOf(c) === group),
+    get: (id) => all.get(id),
+  };
+  return sortableKeyboardCoordinates(event, { ...args, context: { ...context, droppableContainers: scoped } });
+}
+
+const KEYBOARD_CODES = {
+  // Enter selects the row, so only Space picks an item up
+  start: ['Space'],
+  cancel: ['Escape'],
+  end: ['Space', 'Enter'],
+};
+
+// Shared class fragments
+const ROW_BASE = 'rounded-lg cursor-pointer transition-colors touch-manipulation focus-visible:-outline-offset-2';
+const ROW_SELECTED = 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium';
+const ROW_IDLE = 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/60 active:bg-neutral-100 dark:active:bg-neutral-800';
+const FOOTER_TEXT_BUTTON = 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-200 transition-colors';
+const INPUT_CLASS = 'w-full px-3 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-500 transition-colors placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100';
+
+function SortableItem({ id, disabled, children }) {
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({ id, disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 10 : undefined,
   };
 
+  // The node (incl. nested children) moves; only the row itself starts a drag
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style}>
+      {children({ activatorRef: setActivatorNodeRef, attributes, listeners, isDragging })}
     </div>
   );
 }
@@ -102,135 +152,197 @@ function SortableItem({ item, children }) {
 function TreeItem({
   item,
   level = 0,
-  sections,
+  childrenByParent,
   selectedId,
   onSelect,
   expandedIds,
   toggleExpanded,
   onContextMenu,
-  searchQuery,
+  searchVisibleIds,
 }) {
-  const Icon = getIcon(item.icon);
-  const children = sections.filter(s => s.parentId === item.id);
-  const hasChildren = children.length > 0;
-  const isExpanded = expandedIds.has(item.id);
+  const allChildren = childrenByParent.get(item.id) ?? [];
+  const isSearching = searchVisibleIds !== null;
+  const visibleChildren = isSearching
+    ? allChildren.filter((c) => searchVisibleIds.has(c.id))
+    : allChildren;
+  const hasChildren = allChildren.length > 0;
+  const isFolderLike = hasChildren || item.type === 'folder';
+  // While searching, folders containing matches are shown expanded
+  const isExpanded = isSearching ? visibleChildren.length > 0 : expandedIds.has(item.id);
   const isSelected = selectedId === item.id;
-
-  const matchesSearch = searchQuery
-    ? item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    : true;
-
-  if (!matchesSearch && children.length === 0) return null;
+  const name = item.name || 'Untitled';
 
   return (
-    <SortableItem item={item}>
-      <div>
-        <div
-          className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-colors mb-0.5 touch-manipulation ${
-            isSelected
-              ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
-              : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100'
-          }`}
-          style={{ paddingLeft: `${level * 12 + 12}px` }}
-          onClick={() => onSelect(item)}
-        >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            {hasChildren || item.type === 'folder' ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleExpanded(item.id);
-                }}
-                className="p-1.5 -ml-1 hover:bg-neutral-200 active:bg-neutral-300 rounded transition-colors touch-manipulation"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-neutral-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-neutral-400" />
-                )}
-              </button>
-            ) : (
-              <span className="w-5" />
-            )}
-            <span className="text-sm truncate">{item.name}</span>
-          </div>
-          <Dropdown
-            align="right"
-            trigger={
-              <button
-                onClick={(e) => e.stopPropagation()}
-                aria-label={`Actions for ${item.name}`}
-                title="Item actions"
-                className="p-2 -mr-1 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-600 active:text-neutral-800 dark:text-neutral-500 dark:hover:text-neutral-300 transition-opacity touch-manipulation"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </button>
-            }
+    <SortableItem id={item.id} disabled={isSearching}>
+      {({ activatorRef, attributes, listeners, isDragging }) => (
+        <>
+          <div
+            ref={activatorRef}
+            {...attributes}
+            {...listeners}
+            role="button"
+            tabIndex={0}
+            aria-current={isSelected ? 'page' : undefined}
+            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 mb-0.5 ${ROW_BASE} ${isSelected ? ROW_SELECTED : ROW_IDLE}`}
+            style={{ paddingLeft: `${level * 12 + 8}px` }}
+            onClick={() => onSelect(item)}
+            onKeyDown={(e) => {
+              listeners?.onKeyDown?.(e);
+              // Ignore keys from nested buttons/menus and while keyboard-dragging
+              if (e.defaultPrevented || isDragging || e.target !== e.currentTarget) return;
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onSelect(item);
+              } else if (e.key === 'ArrowRight' && isFolderLike && !isExpanded && !isSearching) {
+                e.preventDefault();
+                toggleExpanded(item.id);
+              } else if (e.key === 'ArrowLeft' && isFolderLike && isExpanded && !isSearching) {
+                e.preventDefault();
+                toggleExpanded(item.id);
+              }
+            }}
           >
-            {({ close }) => (
-              <>
-                {(item.type === 'folder' || hasChildren) && (
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {isFolderLike ? (
+                isSearching ? (
+                  <span className="p-1.5 flex-shrink-0 text-neutral-400 dark:text-neutral-500" aria-hidden="true">
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpanded(item.id);
+                    }}
+                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${name}`}
+                    aria-expanded={isExpanded}
+                    className="p-1.5 flex-shrink-0 rounded text-neutral-400 dark:text-neutral-500 hover:bg-neutral-200 active:bg-neutral-300 dark:hover:bg-neutral-700 dark:active:bg-neutral-600 transition-colors touch-manipulation"
+                  >
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </button>
+                )
+              ) : (
+                <span className="w-7 flex-shrink-0" />
+              )}
+              <span className="text-sm truncate py-1.5">{name}</span>
+            </div>
+            {/* Keep menu clicks/drags from selecting or dragging the row */}
+            <div
+              className="flex-shrink-0"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <Dropdown
+                align="right"
+                trigger={
+                  <button
+                    type="button"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Actions for ${name}`}
+                    aria-haspopup="menu"
+                    title="Item actions"
+                    className={`p-2 rounded text-neutral-400 hover:text-neutral-700 active:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-200 transition-opacity touch-manipulation focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 ${
+                      isSelected ? '' : '[@media(hover:hover)]:opacity-0'
+                    }`}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                }
+              >
+                {({ close }) => (
                   <>
-                    <DropdownItem onClick={() => { onContextMenu('add-note', item); close(); }}>
-                      <FileText className="w-4 h-4" /> Add Note
+                    {isFolderLike && (
+                      <>
+                        <DropdownItem onClick={() => { onContextMenu('add-note', item); close(); }}>
+                          <FileText className="w-4 h-4" /> Add Note
+                        </DropdownItem>
+                        <DropdownItem onClick={() => { onContextMenu('add-folder', item); close(); }}>
+                          <FolderPlus className="w-4 h-4" /> Add Subfolder
+                        </DropdownItem>
+                        <div className="border-t border-neutral-100 dark:border-neutral-800 my-1" />
+                      </>
+                    )}
+                    <DropdownItem onClick={() => { onContextMenu('rename', item); close(); }}>
+                      <Pencil className="w-4 h-4" /> Rename
                     </DropdownItem>
-                    <DropdownItem onClick={() => { onContextMenu('add-folder', item); close(); }}>
-                      <FolderPlus className="w-4 h-4" /> Add Subfolder
+                    <DropdownItem onClick={() => { onContextMenu('duplicate', item); close(); }}>
+                      <Copy className="w-4 h-4" /> Duplicate
                     </DropdownItem>
-                    <div className="border-t border-neutral-100 my-1" />
+                    <DropdownItem danger onClick={() => { onContextMenu('delete', item); close(); }}>
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </DropdownItem>
                   </>
                 )}
-                <DropdownItem onClick={() => { onContextMenu('rename', item); close(); }}>
-                  <Pencil className="w-4 h-4" /> Rename
-                </DropdownItem>
-                <DropdownItem onClick={() => { onContextMenu('duplicate', item); close(); }}>
-                  <Copy className="w-4 h-4" /> Duplicate
-                </DropdownItem>
-                <DropdownItem danger onClick={() => { onContextMenu('delete', item); close(); }}>
-                  <Trash2 className="w-4 h-4" /> Delete
-                </DropdownItem>
-              </>
-            )}
-          </Dropdown>
-        </div>
-        {isExpanded && hasChildren && (
-          <div>
-            {children
-              .sort((a, b) => a.order - b.order)
-              .map((child) => (
-                <TreeItem
-                  key={child.id}
-                  item={child}
-                  level={level + 1}
-                  sections={sections}
-                  selectedId={selectedId}
-                  onSelect={onSelect}
-                  expandedIds={expandedIds}
-                  toggleExpanded={toggleExpanded}
-                  onContextMenu={onContextMenu}
-                  searchQuery={searchQuery}
-                />
-              ))}
+              </Dropdown>
+            </div>
           </div>
-        )}
-      </div>
+          {isExpanded && visibleChildren.length > 0 && (
+            <div role="group" aria-label={name}>
+              <SortableContext
+                id={groupIdFor(item.id)}
+                items={visibleChildren.map((c) => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {visibleChildren.map((child) => (
+                  <TreeItem
+                    key={child.id}
+                    item={child}
+                    level={level + 1}
+                    childrenByParent={childrenByParent}
+                    selectedId={selectedId}
+                    onSelect={onSelect}
+                    expandedIds={expandedIds}
+                    toggleExpanded={toggleExpanded}
+                    onContextMenu={onContextMenu}
+                    searchVisibleIds={searchVisibleIds}
+                  />
+                ))}
+              </SortableContext>
+            </div>
+          )}
+        </>
+      )}
     </SortableItem>
   );
 }
 
+function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
+  const Icon = icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={isSelected ? 'page' : undefined}
+      aria-label={iconOnly ? label : undefined}
+      title={iconOnly ? label : undefined}
+      className={`w-full flex items-center ${iconOnly ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} mb-0.5 ${ROW_BASE} ${
+        isSelected ? ROW_SELECTED : ROW_IDLE
+      }`}
+    >
+      <Icon className="w-5 h-5 flex-shrink-0" />
+      {!iconOnly && <span className="text-sm">{label}</span>}
+    </button>
+  );
+}
+
 export default function Sidebar({ selectedId, onSelect }) {
-  const { isOpen, isCollapsed, close, isMobile, isTablet, effectiveWidth, isResizing, startResizing, toggleCollapsed, expand } = useSidebar();
-  const { user, logout, isDemo } = useAuth();
+  const { isOpen, isCollapsed, close, isMobile, effectiveWidth, isResizing, startResizing, toggleCollapsed } = useSidebar();
+  const { logout, isDemo } = useAuth();
   const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, resetToDefaults } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const { focusMode } = useFocusMode();
-  const { isDark, toggle: toggleTheme } = useTheme();
+  const { theme, preference: themePreference, setTheme, toggle: toggleTheme, isDarkSuppressed } = useTheme();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedIds, setExpandedIds] = useState(new Set());
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [modalState, setModalState] = useState({ type: null, item: null });
   const [newItemName, setNewItemName] = useState('');
+
+  const iconOnly = isCollapsed && !isMobile;
+  const isVisible = isOpen && !focusMode;
+  const darkChosen = theme === 'dark';
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -239,15 +351,52 @@ export default function Sidebar({ selectedId, onSelect }) {
       },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: siblingKeyboardCoordinates,
+      keyboardCodes: KEYBOARD_CODES,
     })
   );
 
-  const rootSections = useMemo(() => {
-    return sections
-      .filter(s => s.parentId === null)
-      .sort((a, b) => a.order - b.order);
+  // parentId -> children sorted by order
+  const childrenByParent = useMemo(() => {
+    const map = new Map();
+    for (const s of sections) {
+      const key = s.parentId ?? null;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(s);
+    }
+    for (const list of map.values()) list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    return map;
   }, [sections]);
+
+  const rootSections = useMemo(() => childrenByParent.get(null) ?? [], [childrenByParent]);
+
+  // While searching: ids of every item that matches or has a matching descendant
+  const query = searchQuery.trim().toLowerCase();
+  const searchVisibleIds = useMemo(() => {
+    if (!query) return null;
+    const visible = new Set();
+    const seen = new Set();
+    const visit = (parentId) => {
+      let anyVisible = false;
+      for (const child of childrenByParent.get(parentId) ?? []) {
+        if (seen.has(child.id)) continue; // guard against malformed parent cycles
+        seen.add(child.id);
+        const descendantMatches = visit(child.id);
+        const selfMatches = (child.name || '').toLowerCase().includes(query);
+        if (selfMatches || descendantMatches) {
+          visible.add(child.id);
+          anyVisible = true;
+        }
+      }
+      return anyVisible;
+    };
+    visit(null);
+    return visible;
+  }, [query, childrenByParent]);
+
+  const visibleRootSections = searchVisibleIds
+    ? rootSections.filter((s) => searchVisibleIds.has(s.id))
+    : rootSections;
 
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => {
@@ -260,6 +409,8 @@ export default function Sidebar({ selectedId, onSelect }) {
       return next;
     });
   };
+
+  const closeModal = () => setModalState({ type: null, item: null });
 
   const handleContextMenu = (action, item) => {
     switch (action) {
@@ -303,19 +454,14 @@ export default function Sidebar({ selectedId, onSelect }) {
         type: modalState.itemType,
         ...(modalState.itemType === 'note' && { content: '' }),
         ...(modalState.itemType === 'board' && {
-          columns: [
-            { id: 'backlog', name: 'Backlog', order: 0 },
-            { id: 'in-progress', name: 'In Progress', order: 1 },
-            { id: 'review', name: 'Review', order: 2 },
-            { id: 'done', name: 'Done', order: 3 },
-          ],
+          columns: defaultBoardColumns(),
           tasks: [],
         }),
       };
       await addSection(newSection);
     } else if (modalState.type === 'add-child' && newItemName.trim()) {
       // Add child item inside a folder
-      const siblings = sections.filter(s => s.parentId === modalState.parentItem.id);
+      const siblings = childrenByParent.get(modalState.parentItem.id) ?? [];
       const newSection = {
         name: newItemName.trim(),
         icon: modalState.itemType === 'folder' ? 'folder' : 'file-text',
@@ -333,21 +479,25 @@ export default function Sidebar({ selectedId, onSelect }) {
         onSelect(null);
       }
     }
-    setModalState({ type: null, item: null });
+    closeModal();
   };
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    if (active.id !== over?.id) {
-      const oldIndex = rootSections.findIndex(s => s.id === active.id);
-      const newIndex = rootSections.findIndex(s => s.id === over.id);
+  // Reorder within a sibling group (same parentId) only
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const activeItem = sections.find((s) => s.id === active.id);
+    const overItem = sections.find((s) => s.id === over.id);
+    if (!activeItem || !overItem) return;
 
-      const reordered = [...rootSections];
-      const [removed] = reordered.splice(oldIndex, 1);
-      reordered.splice(newIndex, 0, removed);
+    const parentId = activeItem.parentId ?? null;
+    if ((overItem.parentId ?? null) !== parentId) return;
 
-      reorderSections(reordered);
-    }
+    const siblings = childrenByParent.get(parentId) ?? [];
+    const oldIndex = siblings.findIndex((s) => s.id === active.id);
+    const newIndex = siblings.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    reorderSections(arrayMove(siblings, oldIndex, newIndex));
   };
 
   const handleLogout = async () => {
@@ -356,41 +506,52 @@ export default function Sidebar({ selectedId, onSelect }) {
   };
 
   const sidebarClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-transform duration-200 ${
-        isOpen && !focusMode ? 'translate-x-0' : '-translate-x-full'
+    ? `fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-transform duration-200 ${
+        isVisible ? 'translate-x-0' : '-translate-x-full'
       }`
-    : `bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex-shrink-0 relative transition-all duration-200 ${isOpen && !focusMode ? '' : 'hidden'}`;
+    : `bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex-shrink-0 relative transition-all duration-200 ${isVisible ? '' : 'hidden'}`;
 
   const sidebarStyle = isMobile ? {} : { width: `${effectiveWidth}px` };
 
+  const dividerClass = 'border-neutral-100 dark:border-neutral-800';
+
   return (
     <>
-      {isMobile && isOpen && (
+      {isMobile && isVisible && (
         <div
-          className="fixed inset-0 bg-black/20 z-40"
+          className="fixed inset-0 bg-black/20 dark:bg-black/60 z-40"
           onClick={close}
+          aria-hidden="true"
         />
       )}
 
-      <aside className={sidebarClasses} style={sidebarStyle}>
+      <aside
+        className={sidebarClasses}
+        style={sidebarStyle}
+        aria-label="Sidebar"
+        // Off-screen drawer shouldn't be reachable with Tab
+        inert={isMobile && !isVisible ? true : undefined}
+      >
         {/* Resize handle - only on desktop when expanded */}
         {!isMobile && isOpen && !isCollapsed && (
           <div
             onMouseDown={startResizing}
-            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-neutral-300 transition-colors ${
-              isResizing ? 'bg-neutral-400' : 'bg-transparent'
+            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors ${
+              isResizing ? 'bg-neutral-400 dark:bg-neutral-600' : 'bg-transparent'
             }`}
           />
         )}
         <div className="flex flex-col h-full">
           {/* Logo - serif typography, no icon badge */}
-          <div className={`border-b border-neutral-100 ${isCollapsed && !isMobile ? 'p-3' : 'p-4 sm:p-5'}`}>
+          <div className={`border-b ${dividerClass} ${iconOnly ? 'p-3' : 'p-4 sm:p-5'}`}>
             <div className="flex items-center justify-between">
-              {isCollapsed && !isMobile ? (
+              {iconOnly ? (
                 <button
+                  type="button"
                   onClick={toggleCollapsed}
-                  className="w-full flex items-center justify-center p-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-center p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
                   title="Expand sidebar"
+                  aria-label="Expand sidebar"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -398,17 +559,25 @@ export default function Sidebar({ selectedId, onSelect }) {
                 <>
                   <div className="flex-1 min-w-0">
                     <h1 className="font-serif text-lg sm:text-xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight truncate">Thinking Space</h1>
-                    <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">Your Workspace</p>
+                    <p className="text-xs sm:text-sm text-neutral-400 dark:text-neutral-500 mt-0.5">Your Workspace</p>
                   </div>
                   {isMobile ? (
-                    <button onClick={close} className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={close}
+                      aria-label="Close sidebar"
+                      title="Close sidebar"
+                      className={`p-2 flex-shrink-0 rounded-lg ${FOOTER_TEXT_BUTTON}`}
+                    >
                       <X className="w-5 h-5" />
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={toggleCollapsed}
-                      className="p-2 text-neutral-400 hover:text-neutral-600 transition-colors flex-shrink-0"
+                      className={`p-2 flex-shrink-0 rounded-lg ${FOOTER_TEXT_BUTTON}`}
                       title="Collapse sidebar"
+                      aria-label="Collapse sidebar"
                     >
                       <ChevronDown className="w-4 h-4 rotate-90" />
                     </button>
@@ -419,178 +588,182 @@ export default function Sidebar({ selectedId, onSelect }) {
           </div>
 
           {/* Search - minimal styling (hidden when collapsed) */}
-          {(!isCollapsed || isMobile) && (
+          {!iconOnly && (
             <div className="p-3 sm:p-4">
               <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300" />
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" aria-hidden="true" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && searchQuery) {
+                      e.stopPropagation();
+                      setSearchQuery('');
+                    }
+                  }}
                   placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:border-neutral-300 dark:focus:border-neutral-600 transition-colors placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-neutral-900 dark:text-neutral-100"
+                  aria-label="Search notes, boards and folders"
+                  className={`${INPUT_CLASS} pl-10 pr-4`}
                 />
               </div>
             </div>
           )}
 
           {/* Quick Navigation */}
-          <div className={`border-b border-neutral-100 mb-3 ${isCollapsed && !isMobile ? 'px-2 pb-3' : 'px-3 pb-3'}`}>
-            <button
-              onClick={() => onSelect(null)}
-              className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                selectedId === null
-                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
-                  : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
-              }`}
-              title={isCollapsed && !isMobile ? 'Dashboard' : undefined}
-            >
-              <Home className="w-5 h-5 flex-shrink-0" />
-              {(!isCollapsed || isMobile) && <span className="text-sm">Dashboard</span>}
-            </button>
-            <button
+          <div className={`border-b ${dividerClass} mb-3 ${iconOnly ? 'px-2 pb-3' : 'px-3 pb-3'}`}>
+            <QuickLink icon={Home} label="Dashboard" iconOnly={iconOnly} isSelected={selectedId == null} onClick={() => onSelect(null)} />
+            <QuickLink
+              icon={CalendarDays}
+              label="Calendar"
+              iconOnly={iconOnly}
+              isSelected={selectedId === 'calendar'}
               onClick={() => onSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' })}
-              className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                selectedId === 'calendar'
-                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
-                  : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
-              }`}
-              title={isCollapsed && !isMobile ? 'Calendar' : undefined}
-            >
-              <CalendarDays className="w-5 h-5 flex-shrink-0" />
-              {(!isCollapsed || isMobile) && <span className="text-sm">Calendar</span>}
-            </button>
-            <button
+            />
+            <QuickLink
+              icon={BookMarked}
+              label="Reading List"
+              iconOnly={iconOnly}
+              isSelected={selectedId === 'reading-list'}
               onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
-              className={`w-full flex items-center ${isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} rounded-lg cursor-pointer transition-colors mb-0.5 ${
-                selectedId === 'reading-list'
-                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium'
-                  : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
-              }`}
-              title={isCollapsed && !isMobile ? 'Reading List' : undefined}
-            >
-              <BookMarked className="w-5 h-5 flex-shrink-0" />
-              {(!isCollapsed || isMobile) && <span className="text-sm">Reading List</span>}
-            </button>
+            />
           </div>
 
           {/* Navigation Tree - collapsed shows icons only */}
-          <nav className={`flex-1 min-h-0 overflow-y-auto ${isCollapsed && !isMobile ? 'px-2' : 'px-3'}`}>
-            {isCollapsed && !isMobile ? (
+          <nav aria-label="Sections" className={`flex-1 min-h-0 overflow-y-auto ${iconOnly ? 'px-2' : 'px-3'}`}>
+            {iconOnly ? (
               // Collapsed view - show icons only
               <div className="space-y-1">
-                {rootSections.map((section) => {
-                  const Icon = getIcon(section.icon);
-                  const isSelected = selectedId === section.id;
-                  return (
-                    <button
-                      key={section.id}
-                      onClick={() => onSelect(section)}
-                      className={`w-full flex items-center justify-center p-3 rounded-lg cursor-pointer transition-colors ${
-                        isSelected
-                          ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
-                          : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
-                      }`}
-                      title={section.name}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </button>
-                  );
-                })}
+                {rootSections.map((section) => (
+                  <QuickLink
+                    key={section.id}
+                    icon={getIcon(section.icon)}
+                    label={section.name || 'Untitled'}
+                    iconOnly
+                    isSelected={selectedId === section.id}
+                    onClick={() => onSelect(section)}
+                  />
+                ))}
               </div>
             ) : (
               // Expanded view - full tree
               <DndContext
                 sensors={sensors}
-                collisionDetection={closestCenter}
+                collisionDetection={siblingCollisionDetection}
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={rootSections.map(s => s.id)}
+                  id={groupIdFor(null)}
+                  items={visibleRootSections.map((s) => s.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {rootSections.map((section) => (
+                  {visibleRootSections.map((section) => (
                     <TreeItem
                       key={section.id}
                       item={section}
-                      sections={sections}
+                      childrenByParent={childrenByParent}
                       selectedId={selectedId}
                       onSelect={onSelect}
                       expandedIds={expandedIds}
                       toggleExpanded={toggleExpanded}
                       onContextMenu={handleContextMenu}
-                      searchQuery={searchQuery}
+                      searchVisibleIds={searchVisibleIds}
                     />
                   ))}
                 </SortableContext>
+                {searchVisibleIds && visibleRootSections.length === 0 && (
+                  <p className="px-3 py-4 text-sm text-neutral-400 dark:text-neutral-500" role="status">
+                    No matches for “{searchQuery.trim()}”
+                  </p>
+                )}
               </DndContext>
             )}
           </nav>
 
           {/* Add section - simple text button */}
-          <div className={`flex-shrink-0 border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2' : 'p-3 sm:p-4'}`}>
+          <div className={`flex-shrink-0 border-t ${dividerClass} ${iconOnly ? 'p-2' : 'p-3 sm:p-4'}`}>
             <button
+              type="button"
               onClick={() => handleAddSection('folder')}
-              className={`w-full text-neutral-400 hover:text-neutral-600 transition-colors flex items-center ${
-                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'gap-2 text-left text-sm'
+              className={`w-full flex items-center ${FOOTER_TEXT_BUTTON} ${
+                iconOnly ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-left text-sm'
               }`}
-              title={isCollapsed && !isMobile ? 'Add section' : undefined}
+              title={iconOnly ? 'Add section' : undefined}
+              aria-label={iconOnly ? 'Add section' : undefined}
             >
               <Plus size={18} />
-              {(!isCollapsed || isMobile) && <span>Add section</span>}
+              {!iconOnly && <span>Add section</span>}
             </button>
           </div>
 
           {/* User & Logout */}
-          <div className={`flex-shrink-0 border-t border-neutral-100 ${isCollapsed && !isMobile ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-2'}`}>
+          <div className={`flex-shrink-0 border-t ${dividerClass} ${iconOnly ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-2'}`}>
             {/* Demo mode banner */}
-            {isDemo && (!isCollapsed || isMobile) && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2">
-                <p className="text-xs text-amber-700 font-medium">Demo Mode</p>
-                <p className="text-xs text-amber-600 mt-0.5">Changes are stored locally only</p>
+            {isDemo && !iconOnly && (
+              <div className="bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-900 rounded-lg p-3 mb-2">
+                <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">Demo Mode</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Changes are stored locally only</p>
               </div>
             )}
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleTheme}
-              className={`w-full text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex items-center ${
-                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'justify-between text-left text-sm'
-              }`}
-              title={isCollapsed && !isMobile ? (isDark ? 'Dark mode: On' : 'Dark mode: Off') : undefined}
-              aria-label="Toggle dark mode"
-            >
-              <div className="flex items-center gap-2">
-                {isDark ? <Moon size={16} className="text-neutral-200" /> : <Sun size={16} />}
-                {(!isCollapsed || isMobile) && <span>Dark mode</span>}
-              </div>
-              {(!isCollapsed || isMobile) && (
-                <span className={`text-xs ${isDark ? 'text-neutral-200 font-medium' : 'text-neutral-400'}`}>
-                  {isDark ? 'On' : 'Off'}
+            {/* Dark mode toggle (+ way back to following the system setting) */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className={`flex-1 min-w-0 flex items-center ${FOOTER_TEXT_BUTTON} ${
+                  iconOnly ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'justify-between text-left text-sm'
+                }`}
+                title={iconOnly ? `Dark mode: ${darkChosen ? 'On' : 'Off'}` : undefined}
+                aria-label={iconOnly ? 'Dark mode' : undefined}
+                aria-pressed={darkChosen}
+              >
+                <span className="flex items-center gap-2">
+                  {darkChosen ? <Moon size={16} className="text-neutral-700 dark:text-neutral-200" /> : <Sun size={16} />}
+                  {!iconOnly && <span>Dark mode</span>}
                 </span>
+                {!iconOnly && (
+                  <span className={`text-xs ${darkChosen ? 'text-neutral-900 dark:text-neutral-100 font-medium' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                    {isDarkSuppressed ? 'Paused' : darkChosen ? 'On' : 'Off'}
+                  </span>
+                )}
+              </button>
+              {!iconOnly && themePreference !== 'system' && (
+                <button
+                  type="button"
+                  onClick={() => setTheme('system')}
+                  className={`text-xs flex-shrink-0 ${FOOTER_TEXT_BUTTON}`}
+                  title="Follow the system light/dark setting"
+                >
+                  Auto
+                </button>
               )}
-            </button>
+            </div>
             {/* E-ink mode toggle */}
             <button
+              type="button"
               onClick={toggleEinkMode}
-              className={`w-full text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex items-center ${
-                isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'justify-between text-left text-sm'
+              className={`w-full flex items-center ${FOOTER_TEXT_BUTTON} ${
+                iconOnly ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'justify-between text-left text-sm'
               }`}
-              title={isCollapsed && !isMobile ? (einkMode ? 'E-reader mode: On' : 'E-reader mode: Off') : undefined}
+              title={iconOnly ? `E-reader mode: ${einkMode ? 'On' : 'Off'}` : 'High-contrast light theme for e-ink displays'}
+              aria-label={iconOnly ? 'E-reader mode' : undefined}
+              aria-pressed={einkMode}
             >
-              <div className="flex items-center gap-2">
+              <span className="flex items-center gap-2">
                 <Monitor size={16} className={einkMode ? 'text-neutral-900 dark:text-neutral-100' : ''} />
-                {(!isCollapsed || isMobile) && <span>E-reader mode</span>}
-              </div>
-              {(!isCollapsed || isMobile) && (
-                <span className={`text-xs ${einkMode ? 'text-neutral-900 dark:text-neutral-100 font-medium' : 'text-neutral-400'}`}>
+                {!iconOnly && <span>E-reader mode</span>}
+              </span>
+              {!iconOnly && (
+                <span className={`text-xs ${einkMode ? 'text-neutral-900 dark:text-neutral-100 font-medium' : 'text-neutral-400 dark:text-neutral-500'}`}>
                   {einkMode ? 'On' : 'Off'}
                 </span>
               )}
             </button>
-            {(!isCollapsed || isMobile) && (
+            {!iconOnly && (
               <button
+                type="button"
                 onClick={() => setModalState({ type: 'reset' })}
-                className="w-full text-left text-sm text-neutral-400 hover:text-neutral-600 transition-colors flex items-center gap-2"
+                className={`w-full text-left text-sm flex items-center gap-2 ${FOOTER_TEXT_BUTTON}`}
               >
                 <RotateCcw size={16} />
                 Reset to defaults
@@ -598,25 +771,29 @@ export default function Sidebar({ selectedId, onSelect }) {
             )}
             {isDemo ? (
               <button
+                type="button"
                 onClick={handleLogout}
-                className={`w-full text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 transition-colors flex items-center rounded-lg ${
-                  isCollapsed && !isMobile ? 'justify-center p-3' : 'gap-2 text-left text-sm px-3 py-2'
+                className={`w-full flex items-center rounded-lg transition-colors text-neutral-700 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 dark:text-neutral-200 dark:hover:text-neutral-50 dark:bg-neutral-800 dark:hover:bg-neutral-700 ${
+                  iconOnly ? 'justify-center p-3' : 'gap-2 text-left text-sm px-3 py-2'
                 }`}
-                title={isCollapsed && !isMobile ? 'Sign up' : undefined}
+                title={iconOnly ? 'Sign up' : undefined}
+                aria-label={iconOnly ? 'Sign up to save' : undefined}
               >
                 <UserPlus size={18} />
-                {(!isCollapsed || isMobile) && <span>Sign up to save</span>}
+                {!iconOnly && <span>Sign up to save</span>}
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleLogout}
-                className={`w-full text-neutral-400 hover:text-red-500 transition-colors flex items-center ${
-                  isCollapsed && !isMobile ? 'justify-center p-3 rounded-lg hover:bg-neutral-50' : 'gap-2 text-left text-sm'
+                className={`w-full flex items-center text-neutral-400 hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400 transition-colors ${
+                  iconOnly ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-left text-sm'
                 }`}
-                title={isCollapsed && !isMobile ? 'Sign out' : undefined}
+                title={iconOnly ? 'Sign out' : undefined}
+                aria-label={iconOnly ? 'Sign out' : undefined}
               >
                 <LogOut size={18} />
-                {(!isCollapsed || isMobile) && <span>Sign out</span>}
+                {!iconOnly && <span>Sign out</span>}
               </button>
             )}
           </div>
@@ -626,7 +803,7 @@ export default function Sidebar({ selectedId, onSelect }) {
       {/* Add/Rename Modal */}
       <Modal
         isOpen={modalState.type === 'add' || modalState.type === 'add-child' || modalState.type === 'rename'}
-        onClose={() => setModalState({ type: null, item: null })}
+        onClose={closeModal}
         title={
           modalState.type === 'add'
             ? `New ${modalState.itemType}`
@@ -636,33 +813,36 @@ export default function Sidebar({ selectedId, onSelect }) {
         }
         size="sm"
       >
-        <input
-          type="text"
-          value={newItemName}
-          onChange={(e) => setNewItemName(e.target.value)}
-          placeholder="Enter name..."
-          autoFocus
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleModalSubmit();
-            }
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleModalSubmit();
           }}
-        />
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => setModalState({ type: null, item: null })}>
-            Cancel
-          </Button>
-          <Button onClick={handleModalSubmit}>
-            {modalState.type === 'add' || modalState.type === 'add-child' ? 'Create' : 'Save'}
-          </Button>
-        </div>
+        >
+          <input
+            type="text"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            placeholder="Enter name..."
+            aria-label="Name"
+            autoFocus
+            className={INPUT_CLASS}
+          />
+          <div className="flex justify-end gap-2 mt-4">
+            <Button type="button" variant="secondary" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!newItemName.trim()}>
+              {modalState.type === 'add' || modalState.type === 'add-child' ? 'Create' : 'Save'}
+            </Button>
+          </div>
+        </form>
       </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={modalState.type === 'delete'}
-        onClose={() => setModalState({ type: null, item: null })}
+        onClose={closeModal}
         title="Delete Item"
         size="sm"
       >
@@ -671,17 +851,17 @@ export default function Sidebar({ selectedId, onSelect }) {
           if (!target) return null;
           // Recursively count descendants
           const countDescendants = (id) => {
-            const children = sections.filter(s => s.parentId === id);
+            const children = childrenByParent.get(id) ?? [];
             return children.reduce((acc, c) => acc + 1 + countDescendants(c.id), 0);
           };
           const descendantCount = countDescendants(target.id);
           return (
-            <p className="text-slate-600">
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
               Delete "{target.name}"?
               {descendantCount > 0 && (
                 <>
                   {' '}This will also delete{' '}
-                  <strong>{descendantCount} {descendantCount === 1 ? 'item' : 'items'}</strong>
+                  <strong className="font-medium text-neutral-900 dark:text-neutral-100">{descendantCount} {descendantCount === 1 ? 'item' : 'items'}</strong>
                   {' '}inside it (notes, boards, sub-folders).
                 </>
               )}
@@ -690,7 +870,7 @@ export default function Sidebar({ selectedId, onSelect }) {
           );
         })()}
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => setModalState({ type: null, item: null })}>
+          <Button variant="secondary" onClick={closeModal}>
             Cancel
           </Button>
           <Button variant="danger" onClick={handleModalSubmit}>
@@ -702,21 +882,21 @@ export default function Sidebar({ selectedId, onSelect }) {
       {/* Reset to Defaults Confirmation Modal */}
       <Modal
         isOpen={modalState.type === 'reset'}
-        onClose={() => setModalState({ type: null, item: null })}
+        onClose={closeModal}
         title="Reset all data"
         size="sm"
       >
-        <p className="text-slate-600">
-          This will <strong>permanently delete all your notes, boards, and folders</strong> ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
+        <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
+          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong> ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
         </p>
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => setModalState({ type: null, item: null })}>
+          <Button variant="secondary" onClick={closeModal}>
             Cancel
           </Button>
           <Button variant="danger" onClick={async () => {
             await resetToDefaults();
             onSelect(null);
-            setModalState({ type: null, item: null });
+            closeModal();
           }}>
             Delete all & reset
           </Button>

@@ -14,8 +14,8 @@ function PrivateRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-page)]" role="status" aria-label="Loading">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-neutral-200 dark:border-neutral-800 border-t-neutral-900 dark:border-t-neutral-100" />
       </div>
     );
   }
@@ -28,8 +28,8 @@ function PublicRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-page)]" role="status" aria-label="Loading">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-neutral-200 dark:border-neutral-800 border-t-neutral-900 dark:border-t-neutral-100" />
       </div>
     );
   }

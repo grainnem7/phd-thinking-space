@@ -23,6 +23,7 @@ export default function Header({ breadcrumbs = [], actions }) {
         {isTablet && isCollapsed && (
           <button
             onClick={toggleCollapsed}
+            aria-label="Expand sidebar"
             className="p-2 -ml-2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors touch-manipulation"
             title="Expand sidebar"
           >
