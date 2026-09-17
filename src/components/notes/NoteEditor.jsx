@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNotes } from '../../hooks/useNotes';
-import { Trash2, Maximize2, BookOpen } from 'lucide-react';
+import { Trash2, Maximize2, BookOpen, LayoutTemplate, FileText, CornerDownRight } from 'lucide-react';
 import BlockNoteEditor from '../editors/BlockNoteEditor';
+import { isLinkableNote, linksToNote, withNoteLinkMappings } from '../editors/noteLinks';
+import SaveAsTemplateModal from '../templates/SaveAsTemplateModal';
+import { useFirestore } from '../../hooks/useFirestore';
 import { useConfirm } from '../common/ConfirmDialog';
 import { useFocusMode } from '../../contexts/FocusModeContext';
 import { useReadingList } from '../../hooks/useReadingList';
@@ -16,11 +19,29 @@ function noteStats(content) {
   return { words: countWords(text), chars: text.length };
 }
 
-export default function NoteEditor({ note, updateSection, onDelete }) {
+export default function NoteEditor({ note, updateSection, onDelete, onOpenNote }) {
   const confirm = useConfirm();
   const { focusMode, toggle: toggleFocusMode } = useFocusMode();
   const { papers } = useReadingList();
+  const { sections, addSection } = useFirestore();
   const tagSuggestions = useTagSuggestions();
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+
+  // Notes that link to this one
+  const backlinks = useMemo(() => (
+    note ? sections.filter((s) => s.id !== note.id && isLinkableNote(s) && linksToNote(s.content, note.id)) : []
+  ), [sections, note]);
+
+  // "[[New name" -> create a note next to this one
+  const noteParentId = note?.parentId ?? null;
+  const handleCreateLinkedNote = useCallback(async (name) => {
+    const siblings = sections.filter((s) => (s.parentId ?? null) === noteParentId);
+    const order = siblings.length ? Math.max(...siblings.map((s) => s.order || 0)) + 1 : 0;
+    return addSection({ name, type: 'note', parentId: noteParentId, order, content: '' });
+  }, [sections, noteParentId, addSection]);
+
+  // Links are exported as the linked note's current name
+  const linkName = useCallback(({ noteId, name }) => sections.find((s) => s.id === noteId)?.name || name, [sections]);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [titleDraft, setTitleDraft] = useState(note?.name || '');
@@ -121,7 +142,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
         import('@blocknote/xl-docx-exporter'),
         import('docx'),
       ]);
-      const exporter = new DOCXExporter(editor.schema, docxDefaultSchemaMappings);
+      const exporter = new DOCXExporter(editor.schema, withNoteLinkMappings(docxDefaultSchemaMappings, linkName));
       const docxDocument = await exporter.toDocxJsDocument(editor.document);
 
       // Use toBlob for browser environments
@@ -173,7 +194,7 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
         import('@blocknote/xl-pdf-exporter'),
         import('@react-pdf/renderer'),
       ]);
-      const exporter = new PDFExporter(editor.schema, pdfDefaultSchemaMappings);
+      const exporter = new PDFExporter(editor.schema, withNoteLinkMappings(pdfDefaultSchemaMappings, linkName));
       const pdfDocument = await exporter.toReactPDFDocument(editor.document);
 
       // Use pdf().toBlob() for browser environments
@@ -240,6 +261,14 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
                 Save failed
               </span>
             )}
+            <button
+              onClick={() => setSaveTemplateOpen(true)}
+              aria-label="Save as template"
+              title="Save as template"
+              className="text-neutral-300 hover:text-neutral-600 dark:text-neutral-600 dark:hover:text-neutral-300 transition-colors p-1"
+            >
+              <LayoutTemplate size={16} />
+            </button>
             <button
               onClick={() => setCitePickerOpen(true)}
               aria-label="Cite a paper"
@@ -311,9 +340,51 @@ export default function NoteEditor({ note, updateSection, onDelete }) {
           />
         </div>
         <div className="max-w-3xl mx-auto px-5 sm:px-10 pb-10">
-          <BlockNoteEditor key={note?.id} ref={editorRef} content={note?.content} onChange={handleChange} />
+          <BlockNoteEditor
+            key={note?.id}
+            ref={editorRef}
+            content={note?.content}
+            onChange={handleChange}
+            notes={sections}
+            currentNoteId={note.id}
+            onOpenNote={onOpenNote}
+            onCreateNote={handleCreateLinkedNote}
+          />
+          {backlinks.length > 0 && !focusMode && (
+            <section aria-labelledby="backlinks-heading" className="mt-10 pt-6 border-t border-neutral-100 dark:border-neutral-800">
+              <h2 id="backlinks-heading" className="flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-medium mb-3">
+                <CornerDownRight size={12} aria-hidden="true" />
+                Linked from {backlinks.length} {backlinks.length === 1 ? 'note' : 'notes'}
+              </h2>
+              <ul className="flex flex-wrap gap-2">
+                {backlinks.map((source) => (
+                  <li key={source.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenNote?.(source.id)}
+                      disabled={!onOpenNote}
+                      className="inline-flex items-center gap-1.5 max-w-xs px-2.5 py-1.5 text-sm text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:border-neutral-300 hover:text-neutral-900 dark:hover:border-neutral-700 dark:hover:text-neutral-100 transition-colors"
+                    >
+                      <FileText size={13} aria-hidden="true" className="flex-shrink-0 text-neutral-400" />
+                      <span className="truncate">{source.name || 'Untitled'}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       </div>
+
+      <SaveAsTemplateModal
+        isOpen={saveTemplateOpen}
+        onClose={() => setSaveTemplateOpen(false)}
+        defaultName={note.name}
+        getContent={() => {
+          const editor = editorRef.current?.getEditor();
+          return editor ? JSON.stringify(editor.document) : (note.content || '');
+        }}
+      />
 
       <Modal
         isOpen={citePickerOpen}
