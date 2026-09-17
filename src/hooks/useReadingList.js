@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, createElement } from 'react';
 import {
   doc,
   collection,
@@ -193,7 +193,7 @@ function now() {
   return new Date().toISOString();
 }
 
-export function useReadingList() {
+function useReadingListState() {
   const { user, isDemo } = useAuth();
   const uid = user?.uid ?? null;
 
@@ -682,4 +682,19 @@ export function useReadingList() {
     getCounts,
     getStarredPapers,
   };
+}
+
+// One shared copy of the reading list for the whole signed-in app, so every
+// screen (and demo mode's sessionStorage copy) stays in sync.
+const ReadingListContext = createContext(null);
+
+export function ReadingListProvider({ children }) {
+  const value = useReadingListState();
+  return createElement(ReadingListContext.Provider, { value }, children);
+}
+
+export function useReadingList() {
+  const context = useContext(ReadingListContext);
+  if (!context) throw new Error('useReadingList must be used within a ReadingListProvider');
+  return context;
 }

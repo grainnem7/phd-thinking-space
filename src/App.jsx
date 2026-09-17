@@ -6,6 +6,7 @@ import { FocusModeProvider } from './contexts/FocusModeContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ConfirmProvider } from './components/common/ConfirmDialog';
 import { SectionsProvider } from './contexts/SectionsContext';
+import { ReadingListProvider } from './hooks/useReadingList';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
@@ -53,11 +54,13 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <SectionsProvider>
-              <SidebarProvider>
-                <FocusModeProvider>
-                  <Dashboard />
-                </FocusModeProvider>
-              </SidebarProvider>
+              <ReadingListProvider>
+                <SidebarProvider>
+                  <FocusModeProvider>
+                    <Dashboard />
+                  </FocusModeProvider>
+                </SidebarProvider>
+              </ReadingListProvider>
             </SectionsProvider>
           </PrivateRoute>
         }
