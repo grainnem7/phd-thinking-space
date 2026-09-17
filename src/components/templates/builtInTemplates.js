@@ -27,8 +27,8 @@ export const BUILT_IN_TEMPLATES = [
 -
 
 ## Action items
-- [ ]
-- [ ]
+- [ ] Send meeting notes to supervisor
+- [ ] Agree date of next meeting
 
 ## Questions for next time
 -
@@ -86,7 +86,7 @@ export const BUILT_IN_TEMPLATES = [
 -
 
 ## Follow-up reading
-- [ ]
+- [ ] Add cited sources to the reading list
 `,
   },
   {
@@ -116,7 +116,7 @@ export const BUILT_IN_TEMPLATES = [
 ## Reflections
 
 ## Next steps
-- [ ]
+- [ ] Back up the data from this session
 `,
   },
   {
@@ -172,7 +172,7 @@ export const BUILT_IN_TEMPLATES = [
 ## What I learned
 
 ## Progress on goals
-- [ ]
+- [ ] Goal for this week
 
 ## Priorities for next week
 1.
@@ -205,10 +205,10 @@ export const BUILT_IN_TEMPLATES = [
 -
 
 ## Papers to read
-- [ ]
+- [ ] Add papers mentioned in talks to the reading list
 
 ## Actions
-- [ ]
+- [ ] Email new contacts
 `,
   },
 ];

@@ -18,8 +18,8 @@ function previewLines(template) {
       if (heading) return { kind: heading[1].length === 1 ? 'h1' : 'h2', text: heading[2] };
       const check = line.match(/^\s*[-*]\s+\[[ xX]\]\s?(.*)/);
       if (check) return { kind: 'check', text: check[1] };
-      const bullet = line.match(/^\s*(?:[-*]|\d+\.)\s?(.*)/);
-      if (bullet) return { kind: 'li', text: bullet[1] };
+      const bullet = line.match(/^\s*(?:[-*]|\d+\.)(?:\s+(.*)|$)/);
+      if (bullet) return { kind: 'li', text: bullet[1] || '' };
       const quote = line.match(/^>\s?(.*)/);
       if (quote) return { kind: 'quote', text: quote[1] };
       return { kind: 'p', text: line.replace(/\*\*(.*?)\*\*/g, '$1') };
