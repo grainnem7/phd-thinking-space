@@ -21,7 +21,13 @@ export function dashboardCalendarRange(now = new Date()) {
   };
 }
 
-export const DEADLINE_STYLE = { dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200', bar: 'border-l-amber-500' };
+// Deadlines are red with an outline and a flag, so they read differently from events
+export const DEADLINE_STYLE = {
+  dot: 'bg-red-600 dark:bg-red-500',
+  chip: 'bg-red-50 text-red-800 font-semibold ring-1 ring-inset ring-red-300 dark:bg-red-950/60 dark:text-red-200 dark:ring-red-800',
+  bar: 'border-l-red-600 dark:border-l-red-500',
+  row: 'bg-red-50/80 dark:bg-red-950/30',
+};
 export const TASK_STYLE = { dot: 'bg-neutral-400', chip: 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-900 dark:text-neutral-300 dark:ring-neutral-700', bar: 'border-l-neutral-300' };
 export const GOOGLE_STYLE = { dot: '', chip: 'bg-neutral-50 text-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-200', bar: 'border-l-transparent' };
 

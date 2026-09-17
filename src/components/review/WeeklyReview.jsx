@@ -84,7 +84,7 @@ function EntryRow({ entry, onOpenDay, showDate }) {
         <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot || 'bg-neutral-400'}`} style={entry.source === 'google' ? { backgroundColor: entry.colorHex } : style.vars} />
         <span className="flex-1 min-w-0">
           <span className="block text-sm text-neutral-900 dark:text-neutral-100 truncate">
-            {entry.source === 'deadline' && <span className="text-amber-700 dark:text-amber-400">Deadline: </span>}
+            {entry.source === 'deadline' && <span className="text-red-700 dark:text-red-400 font-medium">Deadline: </span>}
             {entry.title}
           </span>
           {(showDate || time) && (
