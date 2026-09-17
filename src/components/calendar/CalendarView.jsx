@@ -4,12 +4,13 @@ import {
   eachDayOfInterval, format, isSameMonth, addDays,
 } from 'date-fns';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Tags } from 'lucide-react';
 import { useCalendar } from '../../hooks/useCalendar';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReadingList } from '../../hooks/useReadingList';
 import { useGoogleCalendar } from '../../hooks/useGoogleCalendar';
 import { useBoards } from '../../hooks/useBoards';
+import { useCalendarCategories } from '../../hooks/useCalendarCategories';
 import { useConfirm } from '../common/ConfirmDialog';
 import { parseLocalDate, toDateKey } from '../../utils/date';
 import { sameRecurrence } from '../../lib/recurrence';
@@ -19,10 +20,22 @@ import { useSeriesActions } from './useSeriesActions';
 import EventModal from './EventModal';
 import DayPanel from './DayPanel';
 import GoogleCalendarControl from './GoogleCalendarControl';
+import { CategoryManager } from './CategoryControls';
+import { colorVars } from './categoryColors';
 import MonthDayCell, { DragPreview } from './MonthDayCell';
 import { SeriesScopeDialog, MoveToDialog, UndoToast } from './CalendarDialogs';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const HIDDEN_CATEGORIES_KEY = 'calendar-hidden-categories';
+
+function loadHiddenCategories() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HIDDEN_CATEGORIES_KEY));
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
+}
 
 const shortDay = (key) => format(parseLocalDate(key), 'EEE d MMM');
 const longDay = (key) => format(parseLocalDate(key), 'EEEE d MMMM');
@@ -60,6 +73,8 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
   const [scopeRequest, setScopeRequest] = useState(null);
   const [moveTarget, setMoveTarget] = useState(null);
   const [toast, setToast] = useState(null);
+  const [manageCategories, setManageCategories] = useState(false);
+  const [hiddenCategories, setHiddenCategories] = useState(loadHiddenCategories);
   const [announcement, setAnnouncement] = useState('');
   const gridRef = useRef(null);
   const panelRef = useRef(null);
@@ -70,6 +85,17 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
   const { items, addItem, updateItem, deleteItem, moveItems } = useCalendar();
   const { deadlines, addDeadline, updateDeadline, deleteDeadline } = useDashboard();
   const { papers } = useReadingList();
+  const { categories } = useCalendarCategories();
+
+  const toggleCategory = (id) => {
+    setHiddenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try { localStorage.setItem(HIDDEN_CATEGORIES_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const { changeEvent, deleteEvent, duplicateEvent } = useSeriesActions({ items, addItem, updateItem, deleteItem });
   const sensors = useCalendarSensors();
 
@@ -89,11 +115,13 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
     deadlines,
     sections,
     googleEvents: google.events,
+    categories,
     range: {
       start: selectedDate < rangeStart ? selectedDate : rangeStart,
       end: selectedDate > rangeEnd ? selectedDate : rangeEnd,
     },
-  })), [items, deadlines, sections, google.events, rangeStart, rangeEnd, selectedDate]);
+  }).filter((e) => !(e.source === 'event' && e.category && hiddenCategories.has(e.category.id)))),
+  [items, deadlines, sections, google.events, categories, hiddenCategories, rangeStart, rangeEnd, selectedDate]);
   const todoMap = useMemo(() => todosByDate(items), [items]);
   const boardIds = useMemo(() => sections.filter((s) => s.type === 'board').map((s) => s.id), [sections]);
 
@@ -308,6 +336,41 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
           </div>
         </header>
 
+        {/* Category filter: tap a category to hide or show its events */}
+        <div className="flex flex-wrap items-center gap-1.5 -mt-2 mb-4" role="group" aria-label="Show or hide categories">
+          {categories.map((category) => {
+            const hidden = hiddenCategories.has(category.id);
+            return (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={!hidden}
+                onClick={() => toggleCategory(category.id)}
+                title={hidden ? `Show ${category.name}` : `Hide ${category.name}`}
+                style={colorVars(category.color)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring ${hidden
+                  ? 'bg-transparent text-neutral-400 dark:text-neutral-500 border border-dashed border-neutral-300 dark:border-neutral-700'
+                  : 'cat-chip border border-transparent'}`}
+              >
+                <span
+                  aria-hidden="true"
+                  style={colorVars(category.color)}
+                  className={`w-2 h-2 rounded-full ${hidden ? 'bg-neutral-300 dark:bg-neutral-600' : 'cat-dot'}`}
+                />
+                <span className={hidden ? 'line-through' : ''}>{category.name}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setManageCategories(true)}
+            className="inline-flex items-center gap-1.5 px-2 py-1 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+          >
+            <Tags size={13} aria-hidden="true" />
+            {categories.length ? 'Edit categories' : 'Add categories'}
+          </button>
+        </div>
+
         {google.error && (
           <p role="alert" className="mb-4 px-4 py-3 text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900 rounded-lg">
             {google.error}
@@ -388,6 +451,8 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
           </DragOverlay>
         </DndContext>
       </div>
+
+      <CategoryManager isOpen={manageCategories} onClose={() => setManageCategories(false)} />
 
       <EventModal
         isOpen={modal.open}

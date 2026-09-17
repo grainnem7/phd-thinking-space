@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { FileText, BookOpen, X, Trash2, Repeat } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
-import { EVENT_COLORS } from './calendarEntries';
+import { CategoryPicker, ColorSwatches, CategoryManager } from './CategoryControls';
 import { timeToMinutes } from '../../utils/date';
 import { weekdayOf } from '../../lib/recurrence';
 import RepeatFields from './RepeatFields';
@@ -21,6 +21,7 @@ function emptyForm(defaults) {
     startTime: d.startTime || '09:00',
     endTime: d.endTime || '10:00',
     color: 'sky',
+    categoryId: d.categoryId || null,
     notes: '',
     links: [],
     repeat: repeatFormFrom(null, d.date),
@@ -31,6 +32,7 @@ function emptyForm(defaults) {
 export default function EventModal({ isOpen, onClose, entry, defaults, sections = [], papers = [], onSave, onDelete }) {
   const [form, setForm] = useState(() => emptyForm(defaults));
   const [linkQuery, setLinkQuery] = useState('');
+  const [manageCategories, setManageCategories] = useState(false);
   const isEditing = Boolean(entry);
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
         startTime: entry.startTime || '09:00',
         endTime: entry.endTime || '10:00',
         color: entry.color || 'sky',
+        categoryId: entry.categoryId || null,
         notes: entry.notes || '',
         links: entry.links || [],
         repeat: repeatFormFrom(entry.recurrence, entry.date),
@@ -107,6 +110,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
           startTime: form.allDay ? null : form.startTime,
           endTime: form.allDay ? null : form.endTime,
           color: form.color,
+          categoryId: form.categoryId || null,
           notes: form.notes.trim(),
           links: form.links,
           // Edited single occurrences never repeat themselves
@@ -117,6 +121,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
   };
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? `Edit ${form.type}` : 'New'} size="md">
       <form
         className="space-y-4"
@@ -196,23 +201,18 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
             )}
 
             <div>
-              <span className={LABEL_CLASS}>Colour</span>
-              <div className="flex gap-2" role="radiogroup" aria-label="Colour">
-                {Object.entries(EVENT_COLORS).map(([key, c]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={form.color === key}
-                    aria-label={c.label}
-                    title={c.label}
-                    onClick={() => set({ color: key })}
-                    className={`w-7 h-7 rounded-full ${c.dot} transition-transform ${form.color === key
-                      ? 'ring-2 ring-offset-2 ring-neutral-800 dark:ring-neutral-200 dark:ring-offset-neutral-900 scale-110'
-                      : 'hover:scale-110'}`}
-                  />
-                ))}
-              </div>
+              <span className={LABEL_CLASS}>Category</span>
+              <CategoryPicker
+                value={form.categoryId}
+                onChange={(categoryId) => set({ categoryId })}
+                onManage={() => setManageCategories(true)}
+              />
+              {!form.categoryId && (
+                <div className="mt-3">
+                  <span className="block text-xs text-neutral-500 dark:text-neutral-400 mb-1.5">Or pick a colour</span>
+                  <ColorSwatches value={form.color} onChange={(color) => set({ color })} />
+                </div>
+              )}
             </div>
 
             <div>
@@ -297,5 +297,7 @@ export default function EventModal({ isOpen, onClose, entry, defaults, sections 
         </div>
       </form>
     </Modal>
+    <CategoryManager isOpen={manageCategories} onClose={() => setManageCategories(false)} />
+    </>
   );
 }

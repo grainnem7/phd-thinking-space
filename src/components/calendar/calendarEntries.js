@@ -2,6 +2,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-
 import { timeToMinutes, toDateKey } from '../../utils/date';
 import { isDoneColumn } from '../../hooks/useBoards';
 import { expandOccurrences, addDaysToKey } from '../../lib/recurrence';
+import { colorVars } from './categoryColors';
 
 // Window used to expand repeating events when a caller doesn't pass a range.
 export function defaultEntriesRange(now = new Date()) {
@@ -20,44 +21,38 @@ export function dashboardCalendarRange(now = new Date()) {
   };
 }
 
-// Tailwind needs literal class names, so every colour is spelled out here.
-export const EVENT_COLORS = {
-  neutral: { label: 'Grey', dot: 'bg-neutral-500', chip: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200', bar: 'border-l-neutral-400' },
-  sky: { label: 'Blue', dot: 'bg-sky-500', chip: 'bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200', bar: 'border-l-sky-500' },
-  violet: { label: 'Violet', dot: 'bg-violet-500', chip: 'bg-violet-50 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200', bar: 'border-l-violet-500' },
-  emerald: { label: 'Green', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200', bar: 'border-l-emerald-500' },
-  rose: { label: 'Pink', dot: 'bg-rose-500', chip: 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200', bar: 'border-l-rose-500' },
-  orange: { label: 'Orange', dot: 'bg-orange-500', chip: 'bg-orange-50 text-orange-800 dark:bg-orange-950/60 dark:text-orange-200', bar: 'border-l-orange-500' },
-};
-
 export const DEADLINE_STYLE = { dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200', bar: 'border-l-amber-500' };
 export const TASK_STYLE = { dot: 'bg-neutral-400', chip: 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200 dark:bg-neutral-900 dark:text-neutral-300 dark:ring-neutral-700', bar: 'border-l-neutral-300' };
 export const GOOGLE_STYLE = { dot: '', chip: 'bg-neutral-50 text-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-200', bar: 'border-l-transparent' };
 
+// Events use theme-aware category colours: apply `vars` as inline style
+// alongside the class names (see .cat-* in index.css).
 export function styleFor(entry) {
   if (entry.source === 'deadline') return DEADLINE_STYLE;
   if (entry.source === 'task') return TASK_STYLE;
   if (entry.source === 'google') return GOOGLE_STYLE;
-  return EVENT_COLORS[entry.color] || EVENT_COLORS.sky;
+  return { chip: 'cat-chip', dot: 'cat-dot', bar: 'cat-bar', vars: colorVars(entry.category?.color || entry.color) };
 }
 
 // Merge every dated thing in the app into one list of calendar entries.
 // Repeating events become one entry per occurrence within `range` ({ start, end }
 // date keys; defaults to 60 days back to 400 days ahead). Occurrence entries have
 // ids like `${seriesId}__${date}` plus `seriesId` and `occurrenceDate`.
-export function buildEntries({ items = [], deadlines = [], sections = [], googleEvents = [], range } = {}) {
+export function buildEntries({ items = [], deadlines = [], sections = [], googleEvents = [], categories = [], range } = {}) {
   const entries = [];
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
   const { start, end } = range?.start && range?.end ? range : defaultEntriesRange();
 
   for (const item of items) {
     if (item.kind !== 'event' || !item.date) continue;
     const allDay = Boolean(item.allDay || !item.startTime);
+    const category = item.categoryId ? categoryById.get(item.categoryId) || null : null;
     if (!item.recurrence?.freq) {
-      entries.push({ ...item, source: 'event', allDay });
+      entries.push({ ...item, source: 'event', allDay, category });
       continue;
     }
     for (const date of expandOccurrences(item, start, end)) {
-      entries.push({ ...item, id: `${item.id}__${date}`, date, seriesId: item.id, occurrenceDate: date, source: 'event', allDay });
+      entries.push({ ...item, id: `${item.id}__${date}`, date, seriesId: item.id, occurrenceDate: date, source: 'event', allDay, category });
     }
   }
 

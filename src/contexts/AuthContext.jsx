@@ -40,6 +40,7 @@ const DEMO_MIGRATION_MAP = {
   'demo-writingStats': 'writingStats',
   'demo-templates': 'templates',
   'demo-weeklyReviews': 'weeklyReviews',
+  'demo-calendarCategories': 'calendarCategories',
 };
 
 // Collections whose document id is meaningful (a date / week start) and must be kept
@@ -182,6 +183,9 @@ export function AuthProvider({ children }) {
         }
         if (collectionName === 'papers' && Array.isArray(data.collections)) {
           data.collections = data.collections.map((c) => remap('paperCollections', c));
+        }
+        if (collectionName === 'calendarItems' && data.categoryId) {
+          data.categoryId = remap('calendarCategories', data.categoryId);
         }
         if (collectionName === 'calendarItems' && Array.isArray(data.links)) {
           data.links = data.links.map((l) => ({

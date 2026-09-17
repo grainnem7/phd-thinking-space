@@ -32,11 +32,11 @@ function demoItems() {
   };
   return [
     {
-      id: 'demo-cal-1', kind: 'event', title: 'Supervision meeting', date: day(1), allDay: false, startTime: '10:00', endTime: '11:00', color: 'violet', notes: 'Bring chapter 3 outline', links: [],
+      id: 'demo-cal-1', kind: 'event', title: 'Supervision meeting', date: day(1), allDay: false, startTime: '10:00', endTime: '11:00', color: 'violet', categoryId: 'demo-cat-supervision', notes: 'Bring chapter 3 outline', links: [],
       recurrence: { freq: 'weekly', interval: 1, byWeekday: [weekdayOf(day(1))] }, exdates: [],
     },
-    { id: 'demo-cal-2', kind: 'event', title: 'Writing retreat', date: day(4), allDay: true, color: 'emerald', notes: '', links: [] },
-    { id: 'demo-cal-3', kind: 'event', title: 'Reading group', date: day(0), allDay: false, startTime: '15:00', endTime: '16:00', color: 'sky', notes: '', links: [] },
+    { id: 'demo-cal-2', kind: 'event', title: 'Writing retreat', date: day(4), allDay: true, color: 'emerald', categoryId: 'demo-cat-writing', notes: '', links: [] },
+    { id: 'demo-cal-3', kind: 'event', title: 'Reading group', date: day(0), allDay: false, startTime: '15:00', endTime: '16:00', color: 'sky', categoryId: 'demo-cat-reading', notes: '', links: [] },
     { id: 'demo-cal-4', kind: 'todo', title: 'Draft methods section intro', date: day(0), completed: false, order: 0 },
     { id: 'demo-cal-5', kind: 'todo', title: 'Reply to ethics committee', date: day(0), completed: true, order: 1 },
   ];

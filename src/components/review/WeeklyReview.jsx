@@ -12,6 +12,7 @@ import { useGoogleCalendar } from '../../hooks/useGoogleCalendar';
 import { toDateKey } from '../../utils/date';
 import WordsBarChart from '../writing/WordsBarChart';
 import { styleFor } from '../calendar/calendarEntries';
+import { useCalendarCategories } from '../../hooks/useCalendarCategories';
 import { useWeeklyReviews } from './useWeeklyReviews';
 import {
   REFLECTION_PROMPTS, mondayOf, weekInfo, formatWeekRange, dayLabel, buildWeekReview, entryTime, summaryMarkdown,
@@ -80,7 +81,7 @@ function EntryRow({ entry, onOpenDay, showDate }) {
   return (
     <li>
       <button type="button" onClick={() => onOpenDay(entry.date)} className={rowButton}>
-        <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot || 'bg-neutral-400'}`} />
+        <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot || 'bg-neutral-400'}`} style={entry.source === 'google' ? { backgroundColor: entry.colorHex } : style.vars} />
         <span className="flex-1 min-w-0">
           <span className="block text-sm text-neutral-900 dark:text-neutral-100 truncate">
             {entry.source === 'deadline' && <span className="text-amber-700 dark:text-amber-400">Deadline: </span>}
@@ -109,6 +110,7 @@ export default function WeeklyReview({ onSelect }) {
   const { papers } = useReadingList();
   const { writtenByDate, dailyGoal } = useWritingStats();
   const { items: calendarItems } = useCalendar();
+  const { categories } = useCalendarCategories();
   const { deadlines } = useDeadlines();
   const google = useGoogleCalendar(week.key, toDateKey(addDays(week.start, 13)));
   const { reviews, loaded: reviewsLoaded, saveReview } = useWeeklyReviews();
@@ -122,8 +124,9 @@ export default function WeeklyReview({ onSelect }) {
     calendarItems,
     deadlines,
     googleEvents: google.events,
+    categories,
     today: todayKey,
-  }), [week, sections, papers, writtenByDate, dailyGoal, calendarItems, deadlines, google.events, todayKey]);
+  }), [week, sections, papers, writtenByDate, dailyGoal, calendarItems, deadlines, google.events, categories, todayKey]);
 
   // --- Reflection: drafts per week, saved shortly after typing stops ---------
 

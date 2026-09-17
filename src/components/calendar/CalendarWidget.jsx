@@ -122,7 +122,7 @@ export default function CalendarWidget({ entriesByDate, todoMap, onOpenCalendar 
                             <span key={e.id} className="flex items-center gap-2 text-sm min-w-0">
                               <span
                                 className={`w-2 h-2 rounded-full flex-shrink-0 ${styleFor(e).dot}`}
-                                style={e.source === 'google' ? { backgroundColor: e.colorHex } : undefined}
+                                style={e.source === 'google' ? { backgroundColor: e.colorHex } : styleFor(e).vars}
                               />
                               <span className="w-14 flex-shrink-0 whitespace-nowrap tabular-nums text-neutral-400">{e.allDay ? 'All day' : e.startTime}</span>
                               <span className={`truncate text-neutral-700 dark:text-neutral-300 ${e.done ? 'line-through text-neutral-400' : ''}`}>{e.title}</span>

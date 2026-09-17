@@ -1388,3 +1388,74 @@ html.eink .text-black\/30 svg {
   color: var(--eink-gray) !important;
   stroke-width: 2.5px !important;
 }
+
+/* ========================================
+   CALENDAR CATEGORY COLOURS
+   Elements set --cat-h (hue) and --cat-chroma inline (see
+   components/calendar/categoryColors.js). Saturation and lightness are tuned
+   per scheme, light/dark and softness so categories sit comfortably in any
+   theme: muted and warm in Paper, cooler in Slate and Midnight, and so on.
+   ======================================== */
+
+:root {
+  --cat-shift: 0;   /* nudges every hue towards the scheme's own colour */
+  --cat-sat: 1;     /* overall saturation for the scheme */
+  --cat-bg-s: 70%;
+  --cat-bg-l: 93%;
+  --cat-ink-s: 55%;
+  --cat-ink-l: 30%;
+  --cat-dot-s: 62%;
+  --cat-dot-l: 52%;
+}
+
+html.dark {
+  --cat-bg-s: 32%;
+  --cat-bg-l: 21%;
+  --cat-ink-s: 65%;
+  --cat-ink-l: 80%;
+  --cat-dot-s: 58%;
+  --cat-dot-l: 62%;
+}
+
+/* Softer pages get slightly deeper chips so they don't wash out */
+html:not(.dark)[data-background="softer"] { --cat-bg-l: 90%; }
+html:not(.dark)[data-background="softest"] { --cat-bg-l: 87%; --cat-bg-s: 60%; }
+html.dark[data-background="softer"] { --cat-bg-l: 25%; }
+html.dark[data-background="softest"] { --cat-bg-l: 28%; --cat-bg-s: 28%; }
+
+html[data-scheme="paper"] { --cat-shift: 6; --cat-sat: 0.72; }
+html[data-scheme="sage"] { --cat-shift: 4; --cat-sat: 0.7; }
+html[data-scheme="slate"] { --cat-shift: -4; --cat-sat: 0.85; }
+html[data-scheme="midnight"] { --cat-shift: -6; --cat-sat: 0.92; }
+html.dark[data-scheme="midnight"] { --cat-sat: 1.05; }
+html[data-scheme="ocean"] { --cat-shift: -3; --cat-sat: 0.82; }
+html[data-scheme="blush"] { --cat-shift: 5; --cat-sat: 0.78; }
+html[data-scheme="lavender"] { --cat-shift: -5; --cat-sat: 0.75; }
+
+/* E-reader: categories become shades of grey */
+html.eink { --cat-sat: 0; }
+
+.cat-chip,
+.cat-dot,
+.cat-bar,
+.cat-text {
+  --cat-hue: calc(var(--cat-h, 205) + var(--cat-shift));
+  --cat-scale: calc(var(--cat-sat) * var(--cat-chroma, 1));
+}
+
+.cat-chip {
+  background-color: hsl(var(--cat-hue) calc(var(--cat-bg-s) * var(--cat-scale)) var(--cat-bg-l));
+  color: hsl(var(--cat-hue) calc(var(--cat-ink-s) * var(--cat-scale)) var(--cat-ink-l));
+}
+
+.cat-text {
+  color: hsl(var(--cat-hue) calc(var(--cat-ink-s) * var(--cat-scale)) var(--cat-ink-l));
+}
+
+.cat-dot {
+  background-color: hsl(var(--cat-hue) calc(var(--cat-dot-s) * var(--cat-scale)) var(--cat-dot-l));
+}
+
+.cat-bar {
+  border-left-color: hsl(var(--cat-hue) calc(var(--cat-dot-s) * var(--cat-scale)) var(--cat-dot-l));
+}

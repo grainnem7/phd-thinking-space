@@ -39,7 +39,7 @@ const within = (value, week) => {
 
 const byDateDesc = (field) => (a, b) => (parseDate(b[field])?.getTime() ?? 0) - (parseDate(a[field])?.getTime() ?? 0);
 
-export function buildWeekReview({ week, sections, papers, writtenByDate, dailyGoal, calendarItems, deadlines, googleEvents, today }) {
+export function buildWeekReview({ week, sections, papers, writtenByDate, dailyGoal, calendarItems, deadlines, googleEvents, categories, today }) {
   const next = weekInfo(addDays(week.start, 7));
 
   // Tasks completed, grouped by board
@@ -67,7 +67,7 @@ export function buildWeekReview({ week, sections, papers, writtenByDate, dailyGo
   const daysGoalMet = dailyGoal > 0 ? writing.filter((d) => d.words >= dailyGoal).length : 0;
 
   // Calendar: events and deadlines (tasks are covered above)
-  const entries = buildEntries({ items: calendarItems, deadlines, sections: [], googleEvents });
+  const entries = buildEntries({ items: calendarItems, deadlines, sections: [], googleEvents, categories });
   const byDate = groupByDate(entries.filter((e) => e.source !== 'task'));
   const calendarDays = week.days
     .map((date) => ({ date, entries: byDate.get(date) || [] }))

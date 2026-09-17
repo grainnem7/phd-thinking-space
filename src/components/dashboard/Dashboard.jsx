@@ -19,6 +19,7 @@ import { toDateKey } from '../../utils/date';
 import { useConfirm } from '../common/ConfirmDialog';
 import CalendarWidget from '../calendar/CalendarWidget';
 import { buildEntries, groupByDate, todosByDate, dashboardCalendarRange } from '../calendar/calendarEntries';
+import { useCalendarCategories } from '../../hooks/useCalendarCategories';
 import SortableWidget from './SortableWidget';
 import DeadlinesWidget from './widgets/DeadlinesWidget';
 import ScheduleWidget from './widgets/ScheduleWidget';
@@ -87,11 +88,12 @@ export default function Dashboard({ notes = [], sections = [], onSelect }) {
   }, [allSections]);
 
   const { items: calendarItems } = useCalendar();
+  const { categories } = useCalendarCategories();
   const { start: rangeStart, end: rangeEnd } = dashboardCalendarRange(currentTime);
   const google = useGoogleCalendar(rangeStart, rangeEnd);
   const entriesByDate = useMemo(
-    () => groupByDate(buildEntries({ items: calendarItems, deadlines, sections: allSections, googleEvents: google.events, range: { start: rangeStart, end: rangeEnd } })),
-    [calendarItems, deadlines, allSections, google.events, rangeStart, rangeEnd],
+    () => groupByDate(buildEntries({ items: calendarItems, deadlines, sections: allSections, googleEvents: google.events, categories, range: { start: rangeStart, end: rangeEnd } })),
+    [calendarItems, deadlines, allSections, google.events, categories, rangeStart, rangeEnd],
   );
   const todoMap = useMemo(() => todosByDate(calendarItems), [calendarItems]);
   const todayKey = toDateKey(currentTime);

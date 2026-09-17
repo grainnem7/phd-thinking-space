@@ -10,6 +10,8 @@ import { parseLocalDate, timeToMinutes, toDateKey } from '../../utils/date';
 import { styleFor } from './calendarEntries';
 import { canMoveEntry, canDragTodo } from './calendarDnd';
 import { INPUT_CLASS } from './EventModal';
+import { useCalendarCategories } from '../../hooks/useCalendarCategories';
+import { REPEAT_OPTIONS, repeatFormFrom, recurrenceFromForm } from './repeatForm';
 
 function relativeLabel(dateKey) {
   const diff = differenceInCalendarDays(parseLocalDate(dateKey), new Date());
@@ -56,7 +58,7 @@ function EntryRow({ entry, isNow, onOpen, onOpenLink, onMove, onDuplicate }) {
     <li
       ref={setNodeRef}
       className={`rounded-lg border-l-[3px] ${style.bar} ${isNow ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'} ${isDragging ? 'opacity-40' : ''}`}
-      style={entry.source === 'google' ? { borderLeftColor: entry.colorHex } : undefined}
+      style={entry.source === 'google' ? { borderLeftColor: entry.colorHex } : style.vars}
     >
       <div className="flex items-start">
         <button
@@ -73,6 +75,9 @@ function EntryRow({ entry, isNow, onOpen, onOpenLink, onMove, onDuplicate }) {
             <span className={`text-base text-neutral-900 dark:text-neutral-100 min-w-0 break-words ${entry.done ? 'line-through text-neutral-400 dark:text-neutral-500' : ''}`}>
               {entry.title}
             </span>
+            {entry.category && (
+              <span className="cat-chip px-1.5 py-px text-[11px] rounded" style={style.vars}>{entry.category.name}</span>
+            )}
             {entry.seriesId && <Repeat size={13} className="self-center text-neutral-400 flex-shrink-0" aria-label="Repeats" />}
             {isNow && <span className="ml-auto text-xs text-rose-500 font-medium uppercase flex-shrink-0">Now</span>}
           </span>
@@ -211,6 +216,7 @@ const DayPanel = forwardRef(function DayPanel({
 }, ref) {
   const [todoText, setTodoText] = useState('');
   const [quickAdd, setQuickAdd] = useState(null);
+  const { categories } = useCalendarCategories();
   const [now, setNow] = useState(() => new Date());
   const todayKey = toDateKey(now);
 
@@ -231,14 +237,22 @@ const DayPanel = forwardRef(function DayPanel({
     const lastEnd = timed.reduce((max, e) => Math.max(max, timeToMinutes(e.endTime) ?? 0), 0);
     let start = lastEnd || 9 * 60;
     if (isToday && start < nowMinutes) start = Math.ceil(nowMinutes / 30) * 30;
-    setQuickAdd({ title: '', startTime: minutesToTime(start), endTime: minutesToTime(start + 60) });
+    setQuickAdd({ title: '', startTime: minutesToTime(start), endTime: minutesToTime(start + 60), categoryId: '', repeat: 'never' });
   };
 
   const submitQuickAdd = (e) => {
     e.preventDefault();
     if (!quickAdd?.title.trim()) return;
     if ((timeToMinutes(quickAdd.endTime) ?? 0) < (timeToMinutes(quickAdd.startTime) ?? 0)) return;
-    onQuickAddEvent({ title: quickAdd.title.trim(), startTime: quickAdd.startTime, endTime: quickAdd.endTime });
+    onQuickAddEvent({
+      title: quickAdd.title.trim(),
+      startTime: quickAdd.startTime,
+      endTime: quickAdd.endTime,
+      categoryId: quickAdd.categoryId || null,
+      recurrence: quickAdd.repeat === 'never'
+        ? null
+        : recurrenceFromForm({ ...repeatFormFrom(null, dateKey), preset: quickAdd.repeat }, dateKey),
+    });
     setQuickAdd(null);
   };
 
@@ -331,6 +345,27 @@ const DayPanel = forwardRef(function DayPanel({
                 <input type="time" aria-label="Start time" value={quickAdd.startTime} onChange={(e) => setQuickAdd({ ...quickAdd, startTime: e.target.value })} className={INPUT_CLASS} />
                 <span className="text-neutral-400">–</span>
                 <input type="time" aria-label="End time" value={quickAdd.endTime} onChange={(e) => setQuickAdd({ ...quickAdd, endTime: e.target.value })} className={INPUT_CLASS} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  aria-label="Category"
+                  value={quickAdd.categoryId}
+                  onChange={(e) => setQuickAdd({ ...quickAdd, categoryId: e.target.value })}
+                  className={INPUT_CLASS}
+                >
+                  <option value="">No category</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <select
+                  aria-label="Repeat"
+                  value={quickAdd.repeat}
+                  onChange={(e) => setQuickAdd({ ...quickAdd, repeat: e.target.value })}
+                  className={INPUT_CLASS}
+                >
+                  {REPEAT_OPTIONS.map(([id, label]) => (
+                    <option key={id} value={id}>{id === 'never' ? 'Does not repeat' : `Repeats ${label.toLowerCase()}`}</option>
+                  ))}
+                </select>
               </div>
               {quickAddInvalid && <p className="text-sm text-rose-600">End time must be after the start time.</p>}
               <div className="flex justify-end gap-2">

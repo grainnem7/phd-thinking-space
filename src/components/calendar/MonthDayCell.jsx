@@ -33,7 +33,7 @@ export function DragPreview({ item }) {
     );
   }
   return (
-    <div className={`flex items-center gap-1 max-w-[220px] px-2 py-1 rounded-md text-xs shadow-lg cursor-grabbing ${styleFor(item.entry).chip}`}>
+    <div className={`flex items-center gap-1 max-w-[220px] px-2 py-1 rounded-md text-xs shadow-lg cursor-grabbing ${styleFor(item.entry).chip}`} style={styleFor(item.entry).vars}>
       <ChipBody entry={item.entry} />
     </div>
   );
@@ -56,6 +56,7 @@ function GridChip({ entry, onSelectDay, onOpenEntry }) {
       title={movable ? `${entry.title} — drag to another day` : entry.title}
       className={`flex items-center gap-1 px-1.5 py-px rounded text-[11px] leading-4 min-w-0 pointer-events-auto touch-manipulation select-none
         ${movable ? 'cursor-grab' : 'cursor-pointer'} ${style.chip} ${entry.done ? 'line-through opacity-60' : ''} ${isDragging ? 'opacity-40' : ''}`}
+      style={style.vars}
     >
       <ChipBody entry={entry} />
     </span>
@@ -103,7 +104,7 @@ export default function MonthDayCell({
         {(entries.length > 0 || todos.length > 0) && (
           <span className="sm:hidden flex justify-center flex-wrap gap-0.5 mt-1">
             {entries.slice(0, 4).map((e) => (
-              <span key={e.id} className={`w-1.5 h-1.5 rounded-full ${styleFor(e).dot}`} style={e.source === 'google' ? { backgroundColor: e.colorHex } : undefined} />
+              <span key={e.id} className={`w-1.5 h-1.5 rounded-full ${styleFor(e).dot}`} style={e.source === 'google' ? { backgroundColor: e.colorHex } : styleFor(e).vars} />
             ))}
             {todos.length > 0 && <span className="w-1.5 h-1.5 rounded-full border border-neutral-400" />}
           </span>
