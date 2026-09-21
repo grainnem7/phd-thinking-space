@@ -21,7 +21,7 @@
 - Day lists never scroll: cut off with "+N more". Empty days show "Nothing planned".
 - Use theme tokens and existing Tailwind colour classes only (`neutral-*`, `accent`, `red-*` via `styleFor`); no new colours, so e-reader mode styling applies automatically. No animations.
 - No new dependencies. The repo has no test runner: each task is verified with `npm run lint`, `npm run build` where noted, and checks in the browser pane against the dev server.
-- ESLint uses `eslint-plugin-react-hooks` 7 (`recommended`): no `setState` directly in an effect body (only in callbacks such as timers and listeners), no `Date.now()` during render (`new Date()` during render is fine and already used in `CalendarWidget.jsx`).
+- ESLint uses `eslint-plugin-react-hooks` 7 (`recommended`): no `setState` directly in an effect body (only in callbacks such as timers and listeners), no `Date.now()` anywhere in a component, including effects (the purity rule flags it); use `new Date()`, which is fine and already used in `CalendarWidget.jsx`.
 - Commit messages end with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
 ## Dev server and browser checks
@@ -519,11 +519,12 @@ export default function GlanceView({ sections = [], onClose }) {
   const [controlsOpen, setControlsOpen] = useState(false);
   const [barFocused, setBarFocused] = useState(false);
   const [hiddenCategories] = useState(loadHiddenCategories);
-  // Bumped by timers so the view re-reads the clock
-  const [, setTick] = useState(0);
+  // Dates come from `clock`, which timers move on; `renderedAt` is only for
+  // the "Updated" note, so it also moves when the data changes
+  const [clock, setClock] = useState(() => new Date());
+  const renderedAt = new Date();
 
-  const now = new Date();
-  const { today, days, range } = glanceDays(layout, now);
+  const { today, days, range } = glanceDays(layout, clock);
   const { start: rangeStart, end: rangeEnd } = range;
 
   const { items, isLoading } = useCalendar();
@@ -544,7 +545,7 @@ export default function GlanceView({ sections = [], onClose }) {
 
   // Refresh every 15 minutes and when the app comes back to the foreground
   useEffect(() => {
-    const refresh = () => setTick((t) => t + 1);
+    const refresh = () => setClock(new Date());
     const interval = setInterval(refresh, REFRESH_MS);
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh();
@@ -559,7 +560,7 @@ export default function GlanceView({ sections = [], onClose }) {
   // Move on to the new day just after midnight
   useEffect(() => {
     const nextDay = parseLocalDate(addDaysToKey(today, 1));
-    const timer = setTimeout(() => setTick((t) => t + 1), nextDay.getTime() - Date.now() + 1000);
+    const timer = setTimeout(() => setClock(new Date()), nextDay.getTime() - new Date().getTime() + 1000);
     return () => clearTimeout(timer);
   }, [today]);
 
@@ -591,7 +592,7 @@ export default function GlanceView({ sections = [], onClose }) {
     );
   }
 
-  const layoutProps = { today, days, entriesByDate, todoMap, now };
+  const layoutProps = { today, days, entriesByDate, todoMap, now: clock };
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-[var(--bg-page)] text-neutral-900 dark:text-neutral-100" onClick={() => setControlsOpen((open) => !open)}>
@@ -607,7 +608,7 @@ export default function GlanceView({ sections = [], onClose }) {
         <GlanceToday {...layoutProps} />
       </div>
       <p className="absolute bottom-2 right-4 text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
-        Updated {format(now, 'HH:mm')}
+        Updated {format(renderedAt, 'HH:mm')}
       </p>
     </div>
   );
