@@ -138,18 +138,35 @@ export function buildEntries({ items = [], deadlines = [], sections = [], google
 
 const SOURCE_ORDER = { deadline: 0, event: 1, google: 2, task: 3 };
 
-export function compareEntries(a, b) {
-  if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
-  // Multi-day events first, in start order, so they line up across days
+// Multi-day events first, in start order
+function compareSpans(a, b) {
   if (Boolean(a.span) !== Boolean(b.span)) return a.span ? -1 : 1;
   if (a.span && b.span && a.span.start !== b.span.start) return a.span.start < b.span.start ? -1 : 1;
-  if (!a.allDay) {
+  return 0;
+}
+
+// Order within a day for lists (dashboard, day panel, weekly review): all-day
+// entries first (multi-day ones leading), then timed entries by start time,
+// even when one of them runs past midnight.
+export function compareEntries(a, b) {
+  if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+  if (a.allDay) {
+    const span = compareSpans(a, b);
+    if (span !== 0) return span;
+  } else {
     const diff = (timeToMinutes(a.startTime) ?? 0) - (timeToMinutes(b.startTime) ?? 0);
     if (diff !== 0) return diff;
   }
   const s = (SOURCE_ORDER[a.source] ?? 9) - (SOURCE_ORDER[b.source] ?? 9);
   if (s !== 0) return s;
   return (a.title || '').localeCompare(b.title || '');
+}
+
+// Order within a month-grid cell: every multi-day event leads, timed ones too,
+// so its chips sit in the same slot on each day and join up across the week.
+export function compareGridEntries(a, b) {
+  if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+  return compareSpans(a, b) || compareEntries(a, b);
 }
 
 // Map of 'YYYY-MM-DD' -> sorted entries
