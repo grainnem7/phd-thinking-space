@@ -11,6 +11,7 @@ import { readGlanceLayout, writeGlanceLayout } from './glanceSettings';
 import GlanceControls from './GlanceControls';
 import GlanceToday from './GlanceToday';
 import GlanceWeek from './GlanceWeek';
+import GlanceMonth from './GlanceMonth';
 
 const REFRESH_MS = 15 * 60 * 1000;
 const CONTROLS_HIDE_MS = 5000;
@@ -108,7 +109,9 @@ export default function GlanceView({ sections = [], onClose }) {
         onFocusChange={setBarFocused}
       />
       <div className="flex-1 min-h-0 p-5 sm:p-8">
-        {layout === 'week' ? <GlanceWeek {...layoutProps} /> : <GlanceToday {...layoutProps} />}
+        {layout === 'week' ? <GlanceWeek {...layoutProps} />
+          : layout === 'month' ? <GlanceMonth {...layoutProps} />
+            : <GlanceToday {...layoutProps} />}
       </div>
       <p className="absolute bottom-2 right-4 text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
         Updated {format(renderedAt, 'HH:mm')}
