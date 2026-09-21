@@ -65,10 +65,11 @@ scrolling: the screen must make sense as a still image.
   Dashboard / Glance calendar", stored per device (`localStorage` key
   `start-page`, default `dashboard`). When set to glance, the app opens
   straight into the glance view after sign-in.
-- **Controls:** the view is full-screen with no sidebar or header. Tapping
-  anywhere shows a small bar with Today · Week · Month · Close; it hides again
-  after 5 seconds without interaction, so the sleeping screen shows only the
-  calendar. The bar stays visible while it has keyboard focus. Escape closes
+- **Controls:** the view is full-screen with no sidebar or header. A small
+  bar with Today · Week · Month · Close shows when the view opens and whenever
+  you tap; it hides again after 5 seconds without interaction, so the sleeping
+  screen shows only the calendar. A small "Tap for options" note beside the
+  "Updated" time says how to bring it back. The bar stays visible while it has keyboard focus. Escape closes
   the view.
 - **Close** goes to the Calendar page.
 

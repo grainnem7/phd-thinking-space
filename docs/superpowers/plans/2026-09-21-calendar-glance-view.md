@@ -563,6 +563,8 @@ import { buildEntries, groupByDate, todosByDate, glanceDays, loadHiddenCategorie
 import { readGlanceLayout, writeGlanceLayout } from './glanceSettings';
 import GlanceControls from './GlanceControls';
 import GlanceToday from './GlanceToday';
+import GlanceWeek from './GlanceWeek';
+import GlanceMonth from './GlanceMonth';
 
 const REFRESH_MS = 15 * 60 * 1000;
 const CONTROLS_HIDE_MS = 5000;
@@ -571,7 +573,8 @@ const CONTROLS_HIDE_MS = 5000;
 // Transparent screensaver). Tap to show the controls; Escape or Close leaves.
 export default function GlanceView({ sections = [], onClose }) {
   const [layout, setLayout] = useState(readGlanceLayout);
-  const [controlsOpen, setControlsOpen] = useState(false);
+  // Shown on opening so the options are easy to find, then hidden after a few seconds
+  const [controlsOpen, setControlsOpen] = useState(true);
   const [barFocused, setBarFocused] = useState(false);
   const [hiddenCategories] = useState(loadHiddenCategories);
   // Dates come from `clock`, which timers move on; `renderedAt` is only for
@@ -660,10 +663,12 @@ export default function GlanceView({ sections = [], onClose }) {
         onFocusChange={setBarFocused}
       />
       <div className="flex-1 min-h-0 p-5 sm:p-8">
-        <GlanceToday {...layoutProps} />
+        {layout === 'week' ? <GlanceWeek {...layoutProps} />
+          : layout === 'month' ? <GlanceMonth {...layoutProps} />
+            : <GlanceToday {...layoutProps} />}
       </div>
       <p className="absolute bottom-2 right-4 text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
-        Updated {format(renderedAt, 'HH:mm')}
+        Tap for options · Updated {format(renderedAt, 'HH:mm')}
       </p>
     </div>
   );
