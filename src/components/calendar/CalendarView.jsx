@@ -14,7 +14,7 @@ import { useCalendarCategories } from '../../hooks/useCalendarCategories';
 import { useConfirm } from '../common/ConfirmDialog';
 import { parseLocalDate, toDateKey } from '../../utils/date';
 import { sameRecurrence, addDaysToKey } from '../../lib/recurrence';
-import { buildEntries, groupByDate, todosByDate, spanBase } from './calendarEntries';
+import { buildEntries, groupByDate, todosByDate, spanBase, HIDDEN_CATEGORIES_KEY, loadHiddenCategories } from './calendarEntries';
 import { useCalendarSensors, dayCollision } from './calendarDnd';
 import { useSeriesActions } from './useSeriesActions';
 import EventModal from './EventModal';
@@ -26,17 +26,6 @@ import MonthDayCell, { DragPreview } from './MonthDayCell';
 import { SeriesScopeDialog, MoveToDialog, UndoToast } from './CalendarDialogs';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const HIDDEN_CATEGORIES_KEY = 'calendar-hidden-categories';
-
-function loadHiddenCategories() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(HIDDEN_CATEGORIES_KEY));
-    return new Set(Array.isArray(saved) ? saved : []);
-  } catch {
-    return new Set();
-  }
-}
-
 const shortDay = (key) => format(parseLocalDate(key), 'EEE d MMM');
 const longDay = (key) => format(parseLocalDate(key), 'EEEE d MMMM');
 const dragName = (data) => (data?.kind === 'todo' ? `to-do ${data.todo.title}` : data?.entry?.title || 'item');
