@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 export default function WidgetHeader({ title, onAdd, addLabel, actions }) {
   const label = addLabel || `Add to ${title}`;
   return (
-    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between flex-shrink-0">
+    <div className="widget-header px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between flex-shrink-0">
       <h2 className="text-sm text-neutral-500 dark:text-neutral-400 uppercase tracking-widest font-medium">{title}</h2>
       <div className="flex items-center gap-2">
         {actions}

@@ -91,7 +91,7 @@ export default function PdfViewer({ url, onClose, onAddQuote }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 bg-neutral-950/90 dark:bg-black/95 flex flex-col"
+      className="pdf-viewer fixed inset-0 z-40 bg-neutral-950/90 dark:bg-black/95 flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label="PDF viewer"

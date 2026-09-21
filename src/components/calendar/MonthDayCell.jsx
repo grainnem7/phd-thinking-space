@@ -1,7 +1,7 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { format } from 'date-fns';
 import { CheckSquare, Repeat, Check, Flag } from 'lucide-react';
-import { styleFor } from './calendarEntries';
+import { styleFor, compareGridEntries } from './calendarEntries';
 import { canMoveEntry, dayDropId } from './calendarDnd';
 
 const MAX_CHIPS = 3;
@@ -69,9 +69,11 @@ function GridChip({ entry, onSelectDay, onOpenEntry }) {
 
 // One day of the month grid: a selectable button, draggable chips and a drop target.
 export default function MonthDayCell({
-  day, dateKey, inMonth, isToday, isSelected, tabbable, entries, todos, borderClass,
+  day, dateKey, inMonth, isToday, isSelected, tabbable, entries: dayEntries, todos, borderClass,
   onSelect, onOpenNew, onOpenEntry,
 }) {
+  // Entries arrive in list order (by time); the grid keeps multi-day events on top
+  const entries = [...dayEntries].sort(compareGridEntries);
   const { setNodeRef, isOver, active } = useDroppable({ id: dayDropId(dateKey), data: { date: dateKey } });
   const hidden = entries.length - MAX_CHIPS;
   const doneTodos = todos.filter((t) => t.completed).length;

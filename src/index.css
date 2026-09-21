@@ -1060,10 +1060,15 @@ html[data-accent]:not([data-accent="graphite"]) .bn-editor a {
 }
 
 /* ========================================
-   E-INK MODE OPTIMIZATIONS
+   E-INK MODE
+   Tuned for e-paper, including colour screens (Kaleido, e.g. the Boox Note
+   Air C models). Their colour filter dims the whole panel, so light greys and
+   pale tints all but vanish: lines come in two clear strengths, fills are
+   deeper, and colour is kept only where it means something (categories,
+   deadlines, status) in stronger shades.
    ======================================== */
 
-/* Disable all transitions and animations */
+/* No transitions or animations: every frame costs a screen refresh */
 html.eink *,
 html.eink *::before,
 html.eink *::after {
@@ -1081,22 +1086,39 @@ html.eink.dark {
   --eink-black: #000000;
   --eink-dark: #1a1a1a;
   --eink-gray: #404040;
-  --eink-light: #e0e0e0;
   --eink-white: #ffffff;
+
+  /* Outlines: cards, columns, panels, pop-ups, buttons, sidebar and header */
+  --eink-line: #1f1f1f;
+  /* Lines between rows inside a card, and between calendar days */
+  --eink-divider: #7a7a7a;
+  /* Surround for full-screen views such as the PDF viewer */
+  --eink-fill: #e2e2e2;
+
+  /* Status colours, deeper and more saturated than the normal theme */
+  --eink-red: #c8001e;
+  --eink-red-fill: #ffd0d6;
+  --eink-orange: #c05000;
+  --eink-orange-fill: #ffdca3;
+  --eink-green: #00753a;
+  --eink-green-fill: #c2f0d2;
+  --eink-blue: #0050c8;
 
   --bg-page: #ffffff;
   --bg-card: #ffffff;
   --bg-hover: #ffffff;
-  --bg-active: #e0e0e0;
+  --bg-active: #cccccc;
 
-  --border-default: #e0e0e0;
-  --border-subtle: #e0e0e0;
+  --border-default: var(--eink-line);
+  --border-subtle: var(--eink-divider);
 
   --text-primary: #000000;
   --text-secondary: #1a1a1a;
   --text-tertiary: #404040;
   --text-muted: #404040;
 
+  --accent-urgent: var(--eink-orange);
+  --accent-now: var(--eink-red);
   --accent-hover: #000000;
   --surface: #ffffff;
 
@@ -1104,29 +1126,32 @@ html.eink.dark {
 }
 
 /* E-ink ignores the colour scheme and accent: pure greys, black accent.
+   The light end is deeper than usual so chips, tracks and selected items
+   still register. Borders don't use this scale in e-ink (see Lines below),
+   so darkening it doesn't darken them.
    The repeated class outranks every scheme/accent selector above
    (at most html.dark[data-…] / html:not(.dark)[data-…]). */
 html.eink.eink.eink {
   --neutral-white: 255 255 255;
   --neutral-black: 0 0 0;
   --neutral-50: 250 250 250;
-  --neutral-100: 245 245 245;
-  --neutral-200: 229 229 229;
-  --neutral-300: 212 212 212;
-  --neutral-400: 163 163 163;
-  --neutral-500: 115 115 115;
-  --neutral-600: 82 82 82;
-  --neutral-700: 64 64 64;
+  --neutral-100: 226 226 226;
+  --neutral-200: 204 204 204;
+  --neutral-300: 176 176 176;
+  --neutral-400: 140 140 140;
+  --neutral-500: 100 100 100;
+  --neutral-600: 72 72 72;
+  --neutral-700: 56 56 56;
   --neutral-800: 38 38 38;
   --neutral-900: 23 23 23;
   --neutral-950: 10 10 10;
   --editor-dark-bg: 255 255 255;
 
   --accent-50: 250 250 250;
-  --accent-100: 245 245 245;
-  --accent-200: 229 229 229;
-  --accent-300: 212 212 212;
-  --accent-400: 163 163 163;
+  --accent-100: 226 226 226;
+  --accent-200: 204 204 204;
+  --accent-300: 176 176 176;
+  --accent-400: 140 140 140;
   --accent-500: 64 64 64;
   --accent-600: 23 23 23;
   --accent-700: 0 0 0;
@@ -1138,8 +1163,9 @@ html.eink.eink.eink {
   --accent-on-solid: 255 255 255;
   --accent-ink: 0 0 0;
   --accent-ring: 0 0 0;
+  /* Selected items (current page, active row): a clear grey, not a tint */
   --accent-soft: 0 0 0;
-  --accent-soft-alpha: 0.08;
+  --accent-soft-alpha: 0.2;
 
   accent-color: #000000;
 }
@@ -1154,6 +1180,8 @@ html.eink.eink.eink.eink .bn-editor a {
 html.eink body {
   background-color: var(--eink-white) !important;
   color: var(--eink-black) !important;
+  /* Slightly heavier text reads better on e-paper */
+  font-weight: 450;
 }
 
 /* Remove all shadows */
@@ -1183,12 +1211,8 @@ html.eink .text-neutral-600 {
   color: var(--eink-dark) !important;
 }
 
-/* Solid borders instead of faint ones */
-html.eink .border-black\/5,
-html.eink .border-black\/10,
-html.eink .border-neutral-100,
-html.eink .border-neutral-200 {
-  border-color: var(--eink-light) !important;
+html.eink .font-medium {
+  font-weight: 600 !important;
 }
 
 /* Remove opacity effects */
@@ -1197,27 +1221,128 @@ html.eink .opacity-60 {
   opacity: 1 !important;
 }
 
-/* Larger touch targets for e-ink (often used with fingers) */
-html.eink button,
-html.eink a,
-html.eink [role="button"],
-html.eink input[type="checkbox"],
-html.eink input[type="radio"] {
-  min-height: 44px;
-  min-width: 44px;
+/* ---- Lines: two strengths ---- */
+
+/* Every border starts as an outline. Tailwind's base layer gives all
+   elements neutral-200 borders; :where() keeps this at zero specificity so
+   coloured and transparent border utilities still win over it. */
+:where(html.eink) *,
+:where(html.eink) *::before,
+:where(html.eink) *::after {
+  border-color: var(--eink-line);
 }
 
-/* Make clickable areas more obvious */
-html.eink button:not(:disabled),
-html.eink a,
-html.eink [role="button"] {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+/* Grey border utilities: -200 and darker are outlines (cards, columns,
+   pop-ups, buttons, the sidebar)… */
+html.eink .border-neutral-200,
+html.eink .border-neutral-300,
+html.eink .border-neutral-400,
+html.eink .border-neutral-500,
+html.eink .border-l-neutral-300 {
+  border-color: var(--eink-line);
 }
 
-html.eink button:not(:disabled):hover,
-html.eink a:hover {
-  text-decoration: underline;
+/* …-100 and the faint black ones are lines between rows */
+html.eink .border-neutral-100,
+html.eink .border-black\/5,
+html.eink .border-black\/10,
+html.eink .divide-neutral-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--eink-divider);
+}
+
+/* Headers of cards and panels get a solid rule under them */
+html.eink .widget-header,
+html.eink header.border-b {
+  border-bottom-color: var(--eink-line);
+}
+
+/* ---- Colour where it means something ---- */
+
+html.eink .text-rose-500,
+html.eink .text-rose-600,
+html.eink .text-rose-700,
+html.eink .text-red-600,
+html.eink .text-red-700,
+html.eink .text-red-800 {
+  color: var(--eink-red);
+}
+
+html.eink .text-amber-500,
+html.eink .text-amber-600,
+html.eink .text-amber-700,
+html.eink .text-amber-800 {
+  color: var(--eink-orange);
+}
+
+html.eink .text-emerald-600,
+html.eink .text-emerald-700,
+html.eink .text-emerald-800 {
+  color: var(--eink-green);
+}
+
+html.eink .bg-rose-500,
+html.eink .bg-rose-600,
+html.eink .bg-red-600 {
+  background-color: var(--eink-red);
+}
+
+html.eink .bg-amber-500,
+html.eink .bg-amber-600 {
+  background-color: var(--eink-orange);
+}
+
+/* Pale tints disappear on colour e-ink: use fills that still read */
+html.eink .bg-rose-50,
+html.eink .bg-red-50,
+html.eink .bg-red-50\/80 {
+  background-color: var(--eink-red-fill);
+}
+
+html.eink .bg-amber-50,
+html.eink .bg-amber-100 {
+  background-color: var(--eink-orange-fill);
+}
+
+html.eink .bg-emerald-50,
+html.eink .bg-emerald-100 {
+  background-color: var(--eink-green-fill);
+}
+
+html.eink .border-rose-100,
+html.eink .border-rose-200,
+html.eink .border-red-200 {
+  border-color: var(--eink-red);
+}
+
+html.eink .border-amber-200 {
+  border-color: var(--eink-orange);
+}
+
+html.eink .border-emerald-200 {
+  border-color: var(--eink-green);
+}
+
+/* Small status dots (priorities, calendar markers) a touch larger, since
+   colour e-ink shows colour at a lower resolution than black */
+html.eink .w-1\.5.h-1\.5.rounded-full {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+/* ---- Interaction ---- */
+
+/* Comfortable tap targets for icon buttons (finger or stylus). Buttons with
+   a text label keep their own size so rows aren't squeezed. */
+html.eink button:has(> svg:only-child),
+html.eink [role="button"]:has(> svg:only-child) {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* Round and square tick boxes a little bigger */
+html.eink [role="checkbox"] {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
 }
 
 /* Remove hover backgrounds (e-ink doesn't show these well) */
@@ -1240,25 +1365,10 @@ html.eink .overflow-y-auto {
   margin-top: -4px !important;
 }
 
-/* Increase font weight slightly for better readability */
-html.eink body {
-  font-weight: 450;
-}
-
-html.eink .font-medium {
-  font-weight: 600 !important;
-}
-
-/* Increase line height for readability */
-html.eink p,
-html.eink li,
-html.eink span {
-  line-height: 1.7 !important;
-}
-
-/* Make form inputs more visible */
-html.eink input,
-html.eink textarea,
+/* Make form inputs more visible. Fields drawn without a box on purpose (note
+   titles, tag entry) are transparent and stay that way. */
+html.eink input:not(.bg-transparent),
+html.eink textarea:not(.bg-transparent),
 html.eink select {
   border: 2px solid var(--eink-gray) !important;
   background: var(--eink-white) !important;
@@ -1268,13 +1378,6 @@ html.eink input:focus,
 html.eink textarea:focus,
 html.eink select:focus {
   border-color: var(--eink-black) !important;
-}
-
-/* Simplify cards */
-html.eink .bg-white,
-html.eink .bg-neutral-50 {
-  background-color: var(--eink-white) !important;
-  border: 1px solid var(--eink-light) !important;
 }
 
 /* Ensure icons are visible */
@@ -1289,8 +1392,12 @@ html.eink .text-black\/40 svg {
   color: var(--eink-gray) !important;
 }
 
-/* BlockNote editor adjustments */
+/* ---- Reading text ---- */
+
+/* Roomier line spacing for text you read (notes, paper notes, summaries),
+   not for labels and buttons */
 html.eink .bn-container {
+  --bn-colors-editor-text: #000000;
   font-size: 16px !important;
   line-height: 1.8 !important;
 }
@@ -1299,14 +1406,8 @@ html.eink .bn-editor {
   background: var(--eink-white) !important;
 }
 
-/* Page background */
-html.eink .bg-\[\#fafafa\] {
-  background-color: var(--eink-white) !important;
-}
-
-/* Sidebar adjustments */
-html.eink aside {
-  border-right: 2px solid var(--eink-light) !important;
+html.eink textarea {
+  line-height: 1.7;
 }
 
 /* Modal backdrop */
@@ -1314,20 +1415,24 @@ html.eink .bg-black\/20 {
   background-color: rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Kanban board columns */
-html.eink .bg-neutral-100 {
-  background-color: var(--eink-white) !important;
-  border: 1px solid var(--eink-light) !important;
+/* PDF viewer: a light surround instead of near-black (large dark areas look
+   muddy and leave ghosting on e-paper), and an outline instead of a shadow */
+html.eink .pdf-viewer {
+  background-color: var(--eink-fill) !important;
+}
+
+html.eink .pdf-viewer .react-pdf__Page {
+  outline: 1px solid var(--eink-line);
 }
 
 /* ========================================
    READING LIST E-INK OPTIMIZATIONS
    ======================================== */
 
-/* Reading list container - pure white background */
+/* Paper note tabs: an outlined box */
 html.eink .reading-list-editor {
   background: var(--eink-white) !important;
-  border: 1px solid var(--eink-light) !important;
+  border: 1px solid var(--eink-line) !important;
 }
 
 /* Paper title serif font - ensure readability */
@@ -1363,19 +1468,6 @@ html.eink input.border-b {
 
 html.eink input.border-b:focus {
   border-bottom: 2px solid var(--eink-black) !important;
-}
-
-/* Summary textarea */
-html.eink textarea.resize-none {
-  border: 2px solid var(--eink-gray) !important;
-}
-
-/* Delete button - make it clearly different */
-html.eink button.text-red-500,
-html.eink button.text-red-600 {
-  color: var(--eink-black) !important;
-  text-decoration: underline !important;
-  text-decoration-style: double !important;
 }
 
 /* External link icon visibility */
@@ -1432,8 +1524,18 @@ html[data-scheme="ocean"] { --cat-shift: -3; --cat-sat: 0.82; }
 html[data-scheme="blush"] { --cat-shift: 5; --cat-sat: 0.78; }
 html[data-scheme="lavender"] { --cat-shift: -5; --cat-sat: 0.75; }
 
-/* E-reader: categories become shades of grey */
-html.eink { --cat-sat: 0; }
+/* E-reader: categories keep their colour, deeper and fully saturated so they
+   stay distinct on colour e-ink (and become clear greys on black-and-white) */
+html.eink.eink.eink {
+  --cat-shift: 0;
+  --cat-sat: 1;
+  --cat-bg-s: 90%;
+  --cat-bg-l: 80%;
+  --cat-ink-s: 85%;
+  --cat-ink-l: 24%;
+  --cat-dot-s: 90%;
+  --cat-dot-l: 42%;
+}
 
 .cat-chip,
 .cat-dot,
