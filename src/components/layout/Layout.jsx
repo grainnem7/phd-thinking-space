@@ -8,7 +8,9 @@ export default function Layout({ children, selectedId, onSelect, onOpenSettings 
   const { focusMode, exit: exitFocusMode } = useFocusMode();
 
   return (
-    <div className="flex h-screen bg-[var(--bg-page)] overflow-hidden">
+    // h-dvh: the visible height, so mobile browser toolbars don't push the
+    // bottom of the sidebar off-screen (h-screen is the fallback)
+    <div className="flex h-screen h-dvh bg-[var(--bg-page)] overflow-hidden">
       <Sidebar selectedId={selectedId} onSelect={onSelect} onOpenSettings={onOpenSettings} />
       <main className={`flex-1 flex flex-col min-h-0 overflow-auto ${!isMobile && !isOpen ? 'w-full' : ''}`}>
         {children}
