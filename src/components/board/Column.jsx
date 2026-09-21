@@ -53,7 +53,7 @@ export default function Column({
       }`}
     >
       {/* Column Header */}
-      <div className="flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-neutral-100 dark:border-neutral-800">
+      <div className="widget-header flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-neutral-100 dark:border-neutral-800">
         {isRenaming ? (
           <>
             <label htmlFor={`column-name-${column.id}`} className="sr-only">Column name</label>
