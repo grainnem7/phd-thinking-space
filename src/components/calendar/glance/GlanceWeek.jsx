@@ -2,8 +2,10 @@ import { format } from 'date-fns';
 import { parseLocalDate } from '../../../utils/date';
 import { GlanceEntryList, Nothing } from './GlanceEntry';
 
-// Five fit a portrait row (a seventh of the height) with the to-do count
-const MAX_ENTRIES = 5;
+const MAX_ENTRIES = 6;
+// A portrait row is a seventh of the height: three entries, "+N more" and
+// the to-do count fit
+const MAX_ENTRIES_PORTRAIT = 3;
 
 function WeekDay({ dateKey, isToday, entries, todos }) {
   const date = parseLocalDate(dateKey);
@@ -26,7 +28,7 @@ function WeekDay({ dateKey, isToday, entries, todos }) {
       <div className="flex-1 min-w-0 landscape:mt-2">
         {entries.length === 0 && todos.length === 0
           ? <Nothing />
-          : <GlanceEntryList entries={entries} max={MAX_ENTRIES} variant="cell" />}
+          : <GlanceEntryList entries={entries} max={MAX_ENTRIES} portraitMax={MAX_ENTRIES_PORTRAIT} variant="cell" />}
         {todos.length > 0 && (
           <p className="mt-1 text-sm tabular-nums text-neutral-500 dark:text-neutral-400">{done} of {todos.length} to-dos</p>
         )}

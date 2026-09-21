@@ -44,10 +44,10 @@ function RepeatMark({ entry }) {
 
 // One calendar entry: colour dot, time, title. `cell` (narrow week columns)
 // puts the time on its own line in landscape so the title gets the width.
-export default function GlanceEntry({ entry, variant = 'list' }) {
+export default function GlanceEntry({ entry, variant = 'list', className = '' }) {
   if (variant === 'cell') {
     return (
-      <li className="min-w-0 text-sm leading-snug portrait:flex portrait:items-baseline portrait:gap-2">
+      <li className={`min-w-0 text-sm leading-snug portrait:flex portrait:items-baseline portrait:gap-2 ${className}`}>
         <span className="flex items-center gap-1.5 flex-shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400 landscape:text-xs">
           <Dot entry={entry} className="w-1.5 h-1.5" />
           {timeLabel(entry)}
@@ -59,7 +59,7 @@ export default function GlanceEntry({ entry, variant = 'list' }) {
   }
   const v = VARIANTS[variant];
   return (
-    <li className={`flex items-baseline min-w-0 ${v.row}`}>
+    <li className={`flex items-baseline min-w-0 ${v.row} ${className}`}>
       <Dot entry={entry} className={v.dot} />
       <span className={`${v.time} flex-shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400`}>{timeLabel(entry)}</span>
       <Title entry={entry} className="truncate" />
@@ -68,18 +68,31 @@ export default function GlanceEntry({ entry, variant = 'list' }) {
   );
 }
 
-// A day's entries, cut off with "+N more" so the screen works as a still image
-export function GlanceEntryList({ entries, max, variant = 'list' }) {
+export function MoreLine({ count, className = '' }) {
+  if (count <= 0) return null;
+  return <p className={`mt-1 text-sm text-neutral-500 dark:text-neutral-400 ${className}`}>+{count} more</p>;
+}
+
+// A day's entries, cut off with "+N more" so the screen works as a still image.
+// `portraitMax` shows fewer when the screen is upright; it's done in CSS so the
+// count is right the moment the tablet is turned.
+export function GlanceEntryList({ entries, max, portraitMax = max, variant = 'list' }) {
   if (entries.length === 0) return null;
-  const hidden = entries.length - max;
   return (
     <>
       <ul className="space-y-1.5">
-        {entries.slice(0, max).map((entry) => (
-          <GlanceEntry key={entry.id} entry={entry} variant={variant} />
+        {entries.slice(0, max).map((entry, i) => (
+          <GlanceEntry key={entry.id} entry={entry} variant={variant} className={i >= portraitMax ? 'portrait:hidden' : ''} />
         ))}
       </ul>
-      {hidden > 0 && <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">+{hidden} more</p>}
+      {portraitMax === max ? (
+        <MoreLine count={entries.length - max} />
+      ) : (
+        <>
+          <MoreLine count={entries.length - max} className="portrait:hidden" />
+          <MoreLine count={entries.length - portraitMax} className="landscape:hidden" />
+        </>
+      )}
     </>
   );
 }

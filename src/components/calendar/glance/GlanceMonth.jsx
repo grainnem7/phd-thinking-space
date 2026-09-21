@@ -5,14 +5,18 @@ import { ChipBody } from '../MonthDayCell';
 import { TodayDetails } from './GlanceToday';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MAX_CHIPS = 3;
+// Chips that fit a cell (with the date and "+N more"), by number of weeks in
+// the grid. Upright cells are shorter: the grid shares the height with today.
+const CHIPS = {
+  landscape: { 4: 3, 5: 3, 6: 2 },
+  portrait: { 4: 3, 5: 2, 6: 1 },
+};
 // Full class names so Tailwind keeps them
 const ROWS = { 4: 'grid-rows-4', 5: 'grid-rows-5', 6: 'grid-rows-6' };
 
-function MonthCell({ dateKey, inMonth, isToday, entries, borderClass }) {
+function MonthCell({ dateKey, inMonth, isToday, entries, borderClass, maxChips, portraitMaxChips }) {
   const date = parseLocalDate(dateKey);
   const sorted = [...entries].sort(compareGridEntries);
-  const hidden = sorted.length - MAX_CHIPS;
   return (
     <div
       aria-label={`${format(date, 'EEEE d MMMM')}${entries.length ? `, ${entries.length} item${entries.length === 1 ? '' : 's'}` : ''}`}
@@ -26,12 +30,12 @@ function MonthCell({ dateKey, inMonth, isToday, entries, borderClass }) {
         {date.getDate()}
       </span>
       <ul className="mt-1 space-y-0.5" aria-hidden="true">
-        {sorted.slice(0, MAX_CHIPS).map((entry) => {
+        {sorted.slice(0, maxChips).map((entry, i) => {
           const style = styleFor(entry);
           return (
             <li
               key={entry.id}
-              className={`flex items-center gap-1 px-1.5 rounded text-xs leading-5 min-w-0 ${style.chip} ${entry.done ? 'line-through opacity-60' : ''}`}
+              className={`flex items-center gap-1 px-1.5 rounded text-xs leading-5 min-w-0 ${style.chip} ${entry.done ? 'line-through opacity-60' : ''} ${i >= portraitMaxChips ? 'portrait:hidden' : ''}`}
               style={style.vars}
             >
               <ChipBody entry={entry} />
@@ -39,9 +43,15 @@ function MonthCell({ dateKey, inMonth, isToday, entries, borderClass }) {
           );
         })}
       </ul>
-      {hidden > 0 && <p className="px-1 text-[11px] text-neutral-500 dark:text-neutral-400">+{hidden} more</p>}
+      <CellMore count={sorted.length - maxChips} className="portrait:hidden" />
+      <CellMore count={sorted.length - portraitMaxChips} className="landscape:hidden" />
     </div>
   );
+}
+
+function CellMore({ count, className }) {
+  if (count <= 0) return null;
+  return <p className={`px-1 text-[11px] text-neutral-500 dark:text-neutral-400 ${className}`}>+{count} more</p>;
 }
 
 // The month grid with today's details beside it (landscape) or below (portrait)
@@ -63,12 +73,14 @@ export default function GlanceMonth({ today, days, entriesByDate, todoMap, now }
               isToday={key === today}
               entries={entriesByDate.get(key) || []}
               borderClass={`${(i + 1) % 7 !== 0 ? 'border-r' : ''} ${i < days.length - 7 ? 'border-b' : ''}`}
+              maxChips={CHIPS.landscape[weeks] ?? 2}
+              portraitMaxChips={CHIPS.portrait[weeks] ?? 1}
             />
           ))}
         </div>
       </section>
       <div className="min-h-0 overflow-hidden border-neutral-200 dark:border-neutral-800 landscape:border-l landscape:pl-6 portrait:border-t portrait:pt-4">
-        <TodayDetails dateKey={today} entries={entriesByDate.get(today) || []} todos={todoMap.get(today) || []} />
+        <TodayDetails dateKey={today} entries={entriesByDate.get(today) || []} todos={todoMap.get(today) || []} compactInPortrait />
       </div>
     </div>
   );

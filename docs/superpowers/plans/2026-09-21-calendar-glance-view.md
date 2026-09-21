@@ -338,10 +338,10 @@ function RepeatMark({ entry }) {
 
 // One calendar entry: colour dot, time, title. `cell` (narrow week columns)
 // puts the time on its own line in landscape so the title gets the width.
-export default function GlanceEntry({ entry, variant = 'list' }) {
+export default function GlanceEntry({ entry, variant = 'list', className = '' }) {
   if (variant === 'cell') {
     return (
-      <li className="min-w-0 text-sm leading-snug portrait:flex portrait:items-baseline portrait:gap-2">
+      <li className={`min-w-0 text-sm leading-snug portrait:flex portrait:items-baseline portrait:gap-2 ${className}`}>
         <span className="flex items-center gap-1.5 flex-shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400 landscape:text-xs">
           <Dot entry={entry} className="w-1.5 h-1.5" />
           {timeLabel(entry)}
@@ -353,7 +353,7 @@ export default function GlanceEntry({ entry, variant = 'list' }) {
   }
   const v = VARIANTS[variant];
   return (
-    <li className={`flex items-baseline min-w-0 ${v.row}`}>
+    <li className={`flex items-baseline min-w-0 ${v.row} ${className}`}>
       <Dot entry={entry} className={v.dot} />
       <span className={`${v.time} flex-shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400`}>{timeLabel(entry)}</span>
       <Title entry={entry} className="truncate" />
@@ -362,18 +362,31 @@ export default function GlanceEntry({ entry, variant = 'list' }) {
   );
 }
 
-// A day's entries, cut off with "+N more" so the screen works as a still image
-export function GlanceEntryList({ entries, max, variant = 'list' }) {
+export function MoreLine({ count, className = '' }) {
+  if (count <= 0) return null;
+  return <p className={`mt-1 text-sm text-neutral-500 dark:text-neutral-400 ${className}`}>+{count} more</p>;
+}
+
+// A day's entries, cut off with "+N more" so the screen works as a still image.
+// `portraitMax` shows fewer when the screen is upright; it's done in CSS so the
+// count is right the moment the tablet is turned.
+export function GlanceEntryList({ entries, max, portraitMax = max, variant = 'list' }) {
   if (entries.length === 0) return null;
-  const hidden = entries.length - max;
   return (
     <>
       <ul className="space-y-1.5">
-        {entries.slice(0, max).map((entry) => (
-          <GlanceEntry key={entry.id} entry={entry} variant={variant} />
+        {entries.slice(0, max).map((entry, i) => (
+          <GlanceEntry key={entry.id} entry={entry} variant={variant} className={i >= portraitMax ? 'portrait:hidden' : ''} />
         ))}
       </ul>
-      {hidden > 0 && <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">+{hidden} more</p>}
+      {portraitMax === max ? (
+        <MoreLine count={entries.length - max} />
+      ) : (
+        <>
+          <MoreLine count={entries.length - max} className="portrait:hidden" />
+          <MoreLine count={entries.length - portraitMax} className="landscape:hidden" />
+        </>
+      )}
     </>
   );
 }
@@ -443,6 +456,7 @@ import { parseLocalDate } from '../../../utils/date';
 import { GlanceEntryList, Nothing } from './GlanceEntry';
 
 const MAX_TODAY_ENTRIES = 8;
+const COMPACT_TODAY_ENTRIES = 4;
 const MAX_TODAY_TODOS = 6;
 const MAX_DAY_ENTRIES = 3;
 
@@ -452,20 +466,30 @@ function TodoCount({ todos }) {
   return <span className="text-sm tabular-nums text-neutral-500 dark:text-neutral-400">{done} of {todos.length} to-dos</span>;
 }
 
-// Today's date, entries and to-dos (also used beside the month grid)
-export function TodayDetails({ dateKey, entries, todos }) {
+// Today's date, entries and to-dos (also used beside the month grid).
+// `compactInPortrait`: under the month grid there's less room, so upright it
+// shows fewer entries and a to-do count instead of the list.
+export function TodayDetails({ dateKey, entries, todos, compactInPortrait = false }) {
   const hiddenTodos = todos.length - MAX_TODAY_TODOS;
   return (
     <section aria-labelledby="glance-today" className="min-w-0">
       <p className="text-sm uppercase tracking-widest text-neutral-500 dark:text-neutral-400">Today</p>
-      <h2 id="glance-today" className="mt-1 font-serif text-4xl sm:text-5xl tracking-tight text-neutral-900 dark:text-neutral-100">
+      <h2
+        id="glance-today"
+        className={`mt-1 font-serif tracking-tight text-neutral-900 dark:text-neutral-100 ${compactInPortrait ? 'text-3xl landscape:text-5xl' : 'text-4xl sm:text-5xl'}`}
+      >
         {format(parseLocalDate(dateKey), 'EEEE d MMMM')}
       </h2>
-      <div className="mt-6">
-        {entries.length === 0 && todos.length === 0 ? <Nothing /> : <GlanceEntryList entries={entries} max={MAX_TODAY_ENTRIES} variant="large" />}
+      <div className={compactInPortrait ? 'mt-6 portrait:mt-3' : 'mt-6'}>
+        {entries.length === 0 && todos.length === 0
+          ? <Nothing />
+          : <GlanceEntryList entries={entries} max={MAX_TODAY_ENTRIES} portraitMax={compactInPortrait ? COMPACT_TODAY_ENTRIES : MAX_TODAY_ENTRIES} variant="large" />}
       </div>
+      {compactInPortrait && todos.length > 0 && (
+        <p className="mt-3 landscape:hidden"><TodoCount todos={todos} /></p>
+      )}
       {todos.length > 0 && (
-        <div className="mt-6">
+        <div className={`mt-6 ${compactInPortrait ? 'portrait:hidden' : ''}`}>
           <h3 className="mb-2 text-sm uppercase tracking-widest text-neutral-500 dark:text-neutral-400">To-do</h3>
           <ul className="space-y-1.5">
             {todos.slice(0, MAX_TODAY_TODOS).map((todo) => (
@@ -487,7 +511,7 @@ export function TodayDetails({ dateKey, entries, todos }) {
 
 function UpcomingDay({ dateKey, entries, todos }) {
   return (
-    <li className="py-3 first:pt-0">
+    <li className="w-full py-3 first:pt-0">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-base font-medium text-neutral-900 dark:text-neutral-100">{format(parseLocalDate(dateKey), 'EEEE d MMM')}</h3>
         <TodoCount todos={todos} />
@@ -507,9 +531,11 @@ export default function GlanceToday({ today, days, entriesByDate, todoMap }) {
       <TodayDetails dateKey={today} entries={entriesByDate.get(today) || []} todos={todoMap.get(today) || []} />
       <section
         aria-label="Next six days"
-        className="min-h-0 overflow-hidden border-t border-neutral-200 dark:border-neutral-800 pt-6 landscape:border-t-0 landscape:border-l landscape:pt-0 landscape:pl-8"
+        className="min-h-0 overflow-hidden flex flex-col border-t border-neutral-200 dark:border-neutral-800 pt-6 landscape:border-t-0 landscape:border-l landscape:pt-0 landscape:pl-8"
       >
-        <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
+        {/* Days that don't fit wrap into a second column out of sight, so a
+            busy week shows whole days only, never one cut in half */}
+        <ul className="flex-1 min-h-0 flex flex-col flex-wrap overflow-hidden divide-y divide-neutral-100 dark:divide-neutral-800">
           {upcoming.map((key) => (
             <UpcomingDay key={key} dateKey={key} entries={entriesByDate.get(key) || []} todos={todoMap.get(key) || []} />
           ))}
@@ -726,8 +752,10 @@ import { format } from 'date-fns';
 import { parseLocalDate } from '../../../utils/date';
 import { GlanceEntryList, Nothing } from './GlanceEntry';
 
-// Five fit a portrait row (a seventh of the height) with the to-do count
-const MAX_ENTRIES = 5;
+const MAX_ENTRIES = 6;
+// A portrait row is a seventh of the height: three entries, "+N more" and
+// the to-do count fit
+const MAX_ENTRIES_PORTRAIT = 3;
 
 function WeekDay({ dateKey, isToday, entries, todos }) {
   const date = parseLocalDate(dateKey);
@@ -750,7 +778,7 @@ function WeekDay({ dateKey, isToday, entries, todos }) {
       <div className="flex-1 min-w-0 landscape:mt-2">
         {entries.length === 0 && todos.length === 0
           ? <Nothing />
-          : <GlanceEntryList entries={entries} max={MAX_ENTRIES} variant="cell" />}
+          : <GlanceEntryList entries={entries} max={MAX_ENTRIES} portraitMax={MAX_ENTRIES_PORTRAIT} variant="cell" />}
         {todos.length > 0 && (
           <p className="mt-1 text-sm tabular-nums text-neutral-500 dark:text-neutral-400">{done} of {todos.length} to-dos</p>
         )}
@@ -840,14 +868,18 @@ import { ChipBody } from '../MonthDayCell';
 import { TodayDetails } from './GlanceToday';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MAX_CHIPS = 3;
+// Chips that fit a cell (with the date and "+N more"), by number of weeks in
+// the grid. Upright cells are shorter: the grid shares the height with today.
+const CHIPS = {
+  landscape: { 4: 3, 5: 3, 6: 2 },
+  portrait: { 4: 3, 5: 2, 6: 1 },
+};
 // Full class names so Tailwind keeps them
 const ROWS = { 4: 'grid-rows-4', 5: 'grid-rows-5', 6: 'grid-rows-6' };
 
-function MonthCell({ dateKey, inMonth, isToday, entries, borderClass }) {
+function MonthCell({ dateKey, inMonth, isToday, entries, borderClass, maxChips, portraitMaxChips }) {
   const date = parseLocalDate(dateKey);
   const sorted = [...entries].sort(compareGridEntries);
-  const hidden = sorted.length - MAX_CHIPS;
   return (
     <div
       aria-label={`${format(date, 'EEEE d MMMM')}${entries.length ? `, ${entries.length} item${entries.length === 1 ? '' : 's'}` : ''}`}
@@ -861,12 +893,12 @@ function MonthCell({ dateKey, inMonth, isToday, entries, borderClass }) {
         {date.getDate()}
       </span>
       <ul className="mt-1 space-y-0.5" aria-hidden="true">
-        {sorted.slice(0, MAX_CHIPS).map((entry) => {
+        {sorted.slice(0, maxChips).map((entry, i) => {
           const style = styleFor(entry);
           return (
             <li
               key={entry.id}
-              className={`flex items-center gap-1 px-1.5 rounded text-xs leading-5 min-w-0 ${style.chip} ${entry.done ? 'line-through opacity-60' : ''}`}
+              className={`flex items-center gap-1 px-1.5 rounded text-xs leading-5 min-w-0 ${style.chip} ${entry.done ? 'line-through opacity-60' : ''} ${i >= portraitMaxChips ? 'portrait:hidden' : ''}`}
               style={style.vars}
             >
               <ChipBody entry={entry} />
@@ -874,9 +906,15 @@ function MonthCell({ dateKey, inMonth, isToday, entries, borderClass }) {
           );
         })}
       </ul>
-      {hidden > 0 && <p className="px-1 text-[11px] text-neutral-500 dark:text-neutral-400">+{hidden} more</p>}
+      <CellMore count={sorted.length - maxChips} className="portrait:hidden" />
+      <CellMore count={sorted.length - portraitMaxChips} className="landscape:hidden" />
     </div>
   );
+}
+
+function CellMore({ count, className }) {
+  if (count <= 0) return null;
+  return <p className={`px-1 text-[11px] text-neutral-500 dark:text-neutral-400 ${className}`}>+{count} more</p>;
 }
 
 // The month grid with today's details beside it (landscape) or below (portrait)
@@ -898,12 +936,14 @@ export default function GlanceMonth({ today, days, entriesByDate, todoMap, now }
               isToday={key === today}
               entries={entriesByDate.get(key) || []}
               borderClass={`${(i + 1) % 7 !== 0 ? 'border-r' : ''} ${i < days.length - 7 ? 'border-b' : ''}`}
+              maxChips={CHIPS.landscape[weeks] ?? 2}
+              portraitMaxChips={CHIPS.portrait[weeks] ?? 1}
             />
           ))}
         </div>
       </section>
       <div className="min-h-0 overflow-hidden border-neutral-200 dark:border-neutral-800 landscape:border-l landscape:pl-6 portrait:border-t portrait:pt-4">
-        <TodayDetails dateKey={today} entries={entriesByDate.get(today) || []} todos={todoMap.get(today) || []} />
+        <TodayDetails dateKey={today} entries={entriesByDate.get(today) || []} todos={todoMap.get(today) || []} compactInPortrait />
       </div>
     </div>
   );
