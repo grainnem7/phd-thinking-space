@@ -11,6 +11,7 @@ import MoveToModal from '../components/sections/MoveToModal';
 import TemplatePickerModal from '../components/templates/TemplatePickerModal';
 import WritingStatsRecorder from '../components/writing/WritingStatsRecorder';
 import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
+import { readStartPage } from '../components/calendar/glance/glanceSettings';
 
 // Heavier views load on first use to keep the initial download small
 const NoteEditor = lazy(() => import('../components/notes/NoteEditor'));
@@ -57,7 +58,8 @@ export default function Dashboard() {
   const confirm = useConfirm();
   // What's open: a section id, or a special view (reading list / calendar).
   // The section itself is always read from live data so it never goes stale.
-  const [selection, setSelectedItem] = useState(null);
+  // Devices set to start on the glance calendar (Settings → Appearance) open on it
+  const [selection, setSelectedItem] = useState(() => (readStartPage() === 'glance' ? viewItem('glance') : null));
   const isSpecialView = Boolean(selection && SPECIAL_VIEWS[selection.type]);
   const selectedItem = !selection ? null : isSpecialView ? selection : (sections.find(s => s.id === selection.id) || null);
   // One-shot navigation details: which paper, task or calendar day to open

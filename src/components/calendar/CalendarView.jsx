@@ -4,7 +4,7 @@ import {
   eachDayOfInterval, format, isSameMonth, addDays,
 } from 'date-fns';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, Plus, Tags } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Plus, Tags } from 'lucide-react';
 import { useCalendar } from '../../hooks/useCalendar';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReadingList } from '../../hooks/useReadingList';
@@ -315,6 +315,14 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onSelect?.({ id: 'glance', type: 'glance', name: 'Glance' })}
+              title="Full-screen calendar to leave on display"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-900"
+            >
+              <Maximize2 size={15} aria-hidden="true" /> Glance
+            </button>
             <button type="button" onClick={() => selectDate(todayKey)} className="px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-900">
               Today
             </button>
