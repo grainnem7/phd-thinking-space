@@ -959,6 +959,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Add `tap-area` to each element in the table** (template-literal classNames: put `tap-area ` at the start inside the backticks).
 
+  As built: a `tap-area` inside an element that clips (`truncate`) or a sideways-scrolling row is cut off, and rows of chips 6 px apart overlap, so these also get real phone padding to reach 32 px: header breadcrumbs `max-md:py-2.5` (no `tap-area`, it truncates); Reading List and paper note tabs `max-md:py-2.5` (no `tap-area`, scrolling rows); calendar filter chips `max-md:py-2`; event category chips and Edit categories `max-md:py-1.5`; colour swatches `max-md:w-8 max-md:h-8`; paper collection chips `max-md:py-1.5`; Copy buttons, review day headings, DOCX/PDF `max-md:py-2`. Check with a hit test (`document.elementFromPoint` 5 px above and below each `.tap-area`).
+
 - [ ] **Step 2: Lint and check**
 
 `npm run lint` → clean. Browser `375×812`, `__audit()` on Dashboard, Calendar (+ New event dialog), Reading List, a paper, a board, a note, Weekly Review, Tags, Trash, Settings, the Menu page and the Add sheet: `under32` lists only items inside the note editor's text, if any. Screenshots at 375 px of Dashboard, Calendar and a paper look the same as before apart from icon-button spacing.

@@ -25,7 +25,7 @@ export function ColorSwatches({ value, onChange, label = 'Colour', size = 'md' }
             title={color.label}
             onClick={() => onChange(color.id)}
             style={colorVars(color.id)}
-            className={`cat-dot ${dim} rounded-full flex items-center justify-center transition-transform motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-900 ${checked
+            className={`tap-area cat-dot ${dim} max-md:w-8 max-md:h-8 rounded-full flex items-center justify-center transition-transform motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-900 ${checked
               ? 'ring-2 ring-offset-2 ring-neutral-700 dark:ring-neutral-300 ring-offset-white dark:ring-offset-neutral-900'
               : 'hover:scale-110 motion-reduce:hover:scale-100'}`}
           >
@@ -40,7 +40,7 @@ export function ColorSwatches({ value, onChange, label = 'Colour', size = 'md' }
 // Category chips for choosing an event's category ("None" first)
 export function CategoryPicker({ value, onChange, onManage }) {
   const { categories } = useCalendarCategories();
-  const chip = (checked) => `inline-flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring ${checked
+  const chip = (checked) => `tap-area inline-flex items-center gap-1.5 px-2.5 py-1 max-md:py-1.5 text-sm rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring ${checked
     ? 'border-neutral-400 dark:border-neutral-500 ring-1 ring-neutral-400 dark:ring-neutral-500'
     : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-600'}`;
 
@@ -64,7 +64,7 @@ export function CategoryPicker({ value, onChange, onManage }) {
         </button>
       ))}
       {onManage && (
-        <button type="button" onClick={onManage} className="px-2 py-1 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 underline-offset-2 hover:underline">
+        <button type="button" onClick={onManage} className="tap-area px-2 py-1 max-md:py-1.5 text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 underline-offset-2 hover:underline">
           {categories.length ? 'Edit categories…' : 'Add categories…'}
         </button>
       )}

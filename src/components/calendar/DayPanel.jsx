@@ -158,7 +158,7 @@ function TodoRow({ todo, todayKey, onToggle, onDelete, onMove }) {
         aria-checked={Boolean(todo.completed)}
         aria-label={todo.title}
         onClick={() => onToggle(todo)}
-        className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${todo.completed
+        className={`tap-area w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${todo.completed
           ? 'bg-neutral-700 border-neutral-700 dark:bg-neutral-300 dark:border-neutral-300'
           : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-500'}`}
       >

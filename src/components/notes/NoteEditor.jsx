@@ -242,14 +242,14 @@ export default function NoteEditor({ note, updateSection, onDelete, onOpenNote }
             <button
               onClick={handleExportDocx}
               disabled={isExportingDocx || isExportingPdf}
-              className="text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
+              className="tap-area max-md:py-2 text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
             >
               {isExportingDocx ? 'Exporting...' : 'DOCX'}
             </button>
             <button
               onClick={handleExportPdf}
               disabled={isExportingDocx || isExportingPdf}
-              className="text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
+              className="tap-area max-md:py-2 text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
             >
               {isExportingPdf ? 'Exporting...' : 'PDF'}
             </button>

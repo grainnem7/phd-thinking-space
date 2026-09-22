@@ -30,7 +30,7 @@ export default function Header({ breadcrumbs = [], actions }) {
               {crumb.onClick ? (
                 <button
                   onClick={crumb.onClick}
-                  className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors truncate touch-manipulation py-1"
+                  className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors truncate touch-manipulation py-1 max-md:py-2.5"
                 >
                   {crumb.label}
                 </button>
