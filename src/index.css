@@ -1613,8 +1613,9 @@ html.eink.eink.eink {
 
   /* Icon-only buttons (an icon, plus at most a hidden or screen-reader label)
      get a finger-sized box; the icon stays the same size. Swatches and tick boxes draw their look on the button itself, and the
-     editor has its own toolbars, so they're left alone. */
-  :where(button, a[href], [role="button"]):has(> svg):not(:has(> :not(svg, .sr-only, .hidden))):not([role="checkbox"], [role="radio"], .bn-container *) {
+     editor has its own toolbars, so they're left alone. Zero specificity, so
+     a component's own min-width/min-height always wins. */
+  :where(button, a[href], [role="button"]):where(:has(> svg):not(:has(> :not(svg, .sr-only, .hidden)))):where(:not([role="checkbox"], [role="radio"], .bn-container *)) {
     min-width: 40px;
     min-height: 40px;
   }

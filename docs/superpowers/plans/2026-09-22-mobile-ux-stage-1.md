@@ -265,8 +265,9 @@ At `375×812`, paste the audit script and run `__audit()` on Dashboard, Calendar
 
   /* Icon-only buttons (an icon, plus at most a hidden or screen-reader label)
      get a finger-sized box; the icon stays the same size. Swatches and tick boxes draw their look on the button itself, and the
-     editor has its own toolbars, so they're left alone. */
-  :where(button, a[href], [role="button"]):has(> svg):not(:has(> :not(svg, .sr-only, .hidden))):not([role="checkbox"], [role="radio"], .bn-container *) {
+     editor has its own toolbars, so they're left alone. Zero specificity, so
+     a component's own min-width/min-height always wins. */
+  :where(button, a[href], [role="button"]):where(:has(> svg):not(:has(> :not(svg, .sr-only, .hidden)))):where(:not([role="checkbox"], [role="radio"], .bn-container *)) {
     min-width: 40px;
     min-height: 40px;
   }
@@ -626,7 +627,7 @@ Delete the phone backdrop (`{isMobile && isVisible && ( <div className="fixed in
 
 - [ ] **Step 2: No duplicate quick links, bigger rows**
 
-Wrap the Dashboard, Calendar and Reading List `<QuickLink …/>` elements in `{!isMobile && ( <> … </> )}` (Weekly Review and Tags stay). In `QuickLink`, change `'gap-2 px-3 py-2.5'` to `'gap-2 px-3 py-2.5 max-md:py-3'` and its label `className="text-sm"` to `className="text-sm max-md:text-base"`. In `TreeItem`, change the row's `py-1.5 mb-0.5` to `py-1.5 max-md:py-2.5 mb-0.5` and the name span's `text-sm truncate py-1.5` to `text-sm max-md:text-base truncate py-1.5`.
+Wrap the Dashboard, Calendar and Reading List `<QuickLink …/>` elements in `{!isMobile && ( <> … </> )}` (Weekly Review and Tags stay). In `QuickLink`, change `'gap-2 px-3 py-2.5'` to `'gap-2 px-3 py-2.5 max-md:py-3'` and its label `className="text-sm"` to `className="text-sm max-md:text-base"`. In `TreeItem`, change the row's `py-1.5 mb-0.5` to `py-1.5 max-md:py-2.5 mb-0.5` and the name span's `text-sm truncate py-1.5` to `text-sm max-md:text-base truncate py-1.5`. On the "Add section" button, the non-collapsed branch `'gap-2 text-left text-sm'` becomes `'gap-2 text-left text-sm max-md:py-2.5 max-md:text-base'`.
 
 - [ ] **Step 3: Tiles instead of small links at the bottom**
 
