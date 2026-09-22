@@ -118,8 +118,8 @@ rows **Deadline, Paper to read**, as in mockup B2. Each uses what exists:
   (`overflow-x: clip`) and set `overscroll-behavior-x: none`.
 - **Drag only on purpose**: the board switches to the calendar's sensors
   (mouse drag after 6 px; touch drag after a 300 ms press-and-hold within
-  8 px), so swipes scroll. Day panel schedule rows start a drag only from
-  their grip handle.
+  8 px), so swipes scroll; the sidebar tree (the Menu page) gets the same.
+  Day panel entries already drag only from their grip handle.
 - **Hover-only controls** (the four above) are hidden only when the device
   can hover (`@media (hover: hover)`), so touch tablets always see them.
 
