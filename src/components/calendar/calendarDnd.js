@@ -1,7 +1,6 @@
-import {
-  PointerSensor, TouchSensor, KeyboardSensor, KeyboardCode, useSensor, useSensors, pointerWithin, closestCenter,
-} from '@dnd-kit/core';
+import { KeyboardCode, pointerWithin, closestCenter } from '@dnd-kit/core';
 import { addDaysToKey } from '../../lib/recurrence';
+import { useTouchFriendlySensors } from '../../lib/dndSensors';
 
 // Drag-and-drop plumbing for moving calendar items between days.
 // Droppables are month cells with id `day:YYYY-MM-DD` and data { date }.
@@ -14,18 +13,6 @@ export const canMoveEntry = (entry) => ['event', 'deadline', 'task'].includes(en
 
 // To-dos on days that have already passed stay put (they're a record of that day).
 export const canDragTodo = (todo, todayKey) => Boolean(todo?.date) && todo.date >= todayKey;
-
-// Mouse and pen only; touch goes through TouchSensor so a swipe still scrolls.
-class MousePointerSensor extends PointerSensor {
-  static activators = [{
-    eventName: 'onPointerDown',
-    handler: ({ nativeEvent: event }, { onActivation }) => {
-      if (event.pointerType === 'touch' || !event.isPrimary || event.button !== 0) return false;
-      onActivation?.({ event });
-      return true;
-    },
-  }];
-}
 
 const OFFSETS = {
   [KeyboardCode.Left]: -1,
@@ -57,11 +44,7 @@ function dayCellCoordinates(event, { context, currentCoordinates }) {
 }
 
 export function useCalendarSensors() {
-  return useSensors(
-    useSensor(MousePointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: dayCellCoordinates }),
-  );
+  return useTouchFriendlySensors({ coordinateGetter: dayCellCoordinates });
 }
 
 function centerInside(rect, container) {

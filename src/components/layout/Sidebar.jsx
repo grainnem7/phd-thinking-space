@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   MeasuringStrategy,
-  PointerSensor,
   useDroppable,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
+import { useTouchFriendlySensors } from '../../lib/dndSensors';
 import {
   SortableContext,
   arrayMove,
@@ -427,17 +424,7 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const isVisible = isOpen && !focusMode;
   const darkChosen = theme === 'dark';
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: siblingKeyboardCoordinates,
-      keyboardCodes: KEYBOARD_CODES,
-    })
-  );
+  const sensors = useTouchFriendlySensors({ coordinateGetter: siblingKeyboardCoordinates, keyboardCodes: KEYBOARD_CODES });
 
   // parentId -> children sorted by order
   const childrenByParent = useMemo(() => {
