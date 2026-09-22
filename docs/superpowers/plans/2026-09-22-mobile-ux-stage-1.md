@@ -202,7 +202,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `src/index.css` (append a PHONES section at the end)
 - Modify: `index.html:6`
 - Modify: `src/components/common/Modal.jsx` (panel className)
-- Modify: `src/components/board/TaskCard.jsx:120`, `src/components/calendar/DayPanel.jsx:170`, `src/components/templates/TemplatePickerModal.jsx:95`, `src/pages/Dashboard.jsx:488`
+- Modify: `src/components/board/TaskCard.jsx:120`, `src/components/calendar/DayPanel.jsx:170`, `src/components/templates/TemplatePickerModal.jsx:95`, `src/pages/Dashboard.jsx:488`, `src/components/dashboard/widgets/styles.js:44` (`revealOnHover`, shared by the dashboard row actions)
 
 **Interfaces:**
 - Produces: CSS variable `--bottom-nav-h`; CSS class `.tap-area` (phones: invisible 44 px hit area; element must not be `absolute`/`fixed`/`sticky`).
@@ -263,10 +263,10 @@ At `375×812`, paste the audit script and run `__audit()` on Dashboard, Calendar
     overscroll-behavior-x: none;
   }
 
-  /* Icon-only buttons get a finger-sized box (the icon stays the same size).
-     Swatches and tick boxes draw their look on the button itself, and the
+  /* Icon-only buttons (an icon, plus at most a hidden or screen-reader label)
+     get a finger-sized box; the icon stays the same size. Swatches and tick boxes draw their look on the button itself, and the
      editor has its own toolbars, so they're left alone. */
-  :where(button, [role="button"]):has(> svg:only-child):not([role="checkbox"], [role="radio"], .bn-container *) {
+  :where(button, a[href], [role="button"]):has(> svg):not(:has(> :not(svg, .sr-only, .hidden))):not([role="checkbox"], [role="radio"], .bn-container *) {
     min-width: 40px;
     min-height: 40px;
   }
@@ -949,6 +949,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 | `src/components/reading-list/PaperDetail.jsx` (646, 239, 771) | collection chips; Copy buttons; note tab buttons |
 | `src/components/review/WeeklyReview.jsx` (367) | day heading buttons |
 | `src/components/dashboard/widgets/PomodoroWidget.jsx` (37) | Start / Reset button class constant |
+| `src/components/notes/NoteEditor.jsx` | DOCX and PDF text buttons (Stage 2 moves them into the ⋮ menu) |
+| `src/components/calendar/CategoryControls.jsx` | round colour swatches (`role="radio"`, 28 px) |
 
 - [ ] **Step 1: Add `tap-area` to each element in the table** (template-literal classNames: put `tap-area ` at the start inside the backticks).
 

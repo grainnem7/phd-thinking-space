@@ -117,7 +117,7 @@ export default function TaskCard({ task, done = false, onEdit, onDelete }) {
   const actions = (
     // Keep clicks and key presses on the menu from opening the card or starting a keyboard drag
     <div
-      className="flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity"
+      className="flex-shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}

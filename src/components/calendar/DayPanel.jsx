@@ -167,7 +167,7 @@ function TodoRow({ todo, todayKey, onToggle, onDelete, onMove }) {
       <span className={`flex-1 min-w-0 break-words text-base ${todo.completed ? 'text-neutral-400 line-through' : 'text-neutral-700 dark:text-neutral-200'}`}>
         {todo.title}
       </span>
-      <div className="flex items-center sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+      <div className="flex items-center [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-within:opacity-100 transition-opacity">
         <button
           type="button"
           onClick={() => onMove(todo)}

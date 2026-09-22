@@ -92,7 +92,7 @@ function TemplateButton({ template, selected, onSelect, onCreate, onDelete }) {
           onClick={() => onDelete(template)}
           aria-label={`Delete template ${template.name}`}
           title="Delete template"
-          className="absolute top-2.5 right-2.5 p-1 rounded text-neutral-300 hover:text-rose-600 dark:text-neutral-600 dark:hover:text-rose-400 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+          className="absolute top-2.5 right-2.5 p-1 rounded text-neutral-300 hover:text-rose-600 dark:text-neutral-600 dark:hover:text-rose-400 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus:opacity-100 transition-opacity"
         >
           <Trash2 size={14} aria-hidden="true" />
         </button>

@@ -1561,3 +1561,77 @@ html.eink.eink.eink {
 .cat-bar {
   border-left-color: hsl(var(--cat-hue) calc(var(--cat-dot-s) * var(--cat-scale)) var(--cat-dot-l));
 }
+
+/* ========================================
+   PHONES
+   Touch-first fixes below the phone breakpoint (767.98px, the same as
+   SidebarContext's MOBILE_QUERY and Tailwind's max-md). Tablets and
+   desktops are unaffected.
+   ======================================== */
+
+:root {
+  /* Height of the phone bottom bar, including the iPhone home-bar area */
+  --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 767.98px) {
+  /* iPhones zoom into fields with text under 16px; large title fields keep their size */
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]):not(.text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl),
+  select,
+  textarea:not(.text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl) {
+    font-size: 16px !important;
+  }
+
+  /* iOS draws date and time fields at a fixed minimum width; let them shrink
+     so two side by side can't push a form wider than the screen */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    display: block;
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="date"]::-webkit-date-and-time-value,
+  input[type="time"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
+  form .grid > *,
+  [role="dialog"] .grid > * {
+    min-width: 0;
+  }
+
+  /* Pages and dialogs never scroll sideways */
+  html,
+  body {
+    overflow-x: clip;
+  }
+  [role="dialog"] {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
+  /* Icon-only buttons (an icon, plus at most a hidden or screen-reader label)
+     get a finger-sized box; the icon stays the same size. Swatches and tick boxes draw their look on the button itself, and the
+     editor has its own toolbars, so they're left alone. */
+  :where(button, a[href], [role="button"]):has(> svg):not(:has(> :not(svg, .sr-only, .hidden))):not([role="checkbox"], [role="radio"], .bn-container *) {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* Small text buttons and chips: an invisible tap area at least 44px tall
+     around them, without changing how they look. Only on elements that
+     aren't already absolutely positioned. */
+  .tap-area {
+    position: relative;
+  }
+  .tap-area::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}

@@ -128,7 +128,7 @@ function ModalPanel({ onClose, title, children, size = 'md' }) {
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
-        className={`w-full ${sizes[size] || sizes.md} bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-t-xl sm:rounded-xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto focus:outline-none`}
+        className={`w-full ${sizes[size] || sizes.md} bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-t-xl sm:rounded-xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto overflow-x-hidden overscroll-contain focus:outline-none`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-100 dark:border-neutral-800 sticky top-0 bg-white dark:bg-neutral-900 z-10">

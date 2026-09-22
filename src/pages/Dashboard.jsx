@@ -485,7 +485,7 @@ export default function Dashboard() {
                   {!child.type && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   <p className="text-base text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 truncate">{child.name}</p>
                 </div>
-                <div className="absolute top-3 right-3 flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-3 flex items-center gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button
                     type="button"
                     onClick={(e) => handleChildRename(e, child)}
