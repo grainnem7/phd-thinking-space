@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [renameTarget, setRenameTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [, setQuickAddOpen] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -523,7 +524,7 @@ export default function Dashboard() {
   };
 
   return (
-    <Layout selectedId={selectedItem?.id} onSelect={handleSelect} onOpenSettings={() => setSettingsOpen(true)}>
+    <Layout selectedId={selectedItem?.id} onSelect={handleSelect} onOpenSettings={() => setSettingsOpen(true)} onQuickAdd={() => setQuickAddOpen(true)}>
       <WritingStatsRecorder />
       <GoogleCalendarSync />
       {!focusMode && (

@@ -303,7 +303,7 @@ export default function NoteEditor({ note, updateSection, onDelete, onOpenNote }
         <div
           role="alert"
           title={error}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 px-3 py-2 text-xs text-red-600 dark:text-red-400 bg-white/95 dark:bg-neutral-900/95 border border-red-200 dark:border-red-900 rounded-lg backdrop-blur-sm"
+          className="fixed bottom-[calc(var(--bottom-nav-h)+1rem)] md:bottom-4 left-1/2 -translate-x-1/2 z-40 px-3 py-2 text-xs text-red-600 dark:text-red-400 bg-white/95 dark:bg-neutral-900/95 border border-red-200 dark:border-red-900 rounded-lg backdrop-blur-sm"
         >
           Save failed - your latest changes are not saved yet
         </div>

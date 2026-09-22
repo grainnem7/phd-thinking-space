@@ -18,7 +18,7 @@
 - Layers: phone menu (`Sidebar`) `z-30`; bottom bar `z-[35]`; glance view, PDF viewer, toasts `z-40`; dialogs, command palette, dropdowns `z-50`.
 - `localStorage` key for the quick-add board: `quick-add-board`.
 - No new dependencies. No test runner: verify with `npm run lint`, `npm run build` and the browser checks below.
-- ESLint `react-hooks` 7: no `setState` directly in an effect body (callbacks only), no `Date.now()` anywhere in components (use `new Date()`), no manual memo the compiler can't preserve.
+- ESLint: destructured props used only as JSX (`icon: Icon`) count as unused; write `({ icon })` then `const Icon = icon;`, as the codebase does. `react-hooks` 7: no `setState` directly in an effect body (callbacks only), no `Date.now()` anywhere in components (use `new Date()`), no manual memo the compiler can't preserve.
 - Commit messages end with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
 ## Dev server, demo data and the audit
@@ -466,7 +466,8 @@ export function useEditingFocus() {
 ```jsx
 import { BookOpen, CalendarDays, Home, Menu, Plus } from 'lucide-react';
 
-function Tab({ icon: Icon, label, active, onClick }) {
+function Tab({ icon, label, active, onClick }) {
+  const Icon = icon;
   return (
     <button
       type="button"
@@ -563,7 +564,7 @@ and directly after `</main>` add:
 
 - [ ] **Step 4: Header: no ☰ on phones, clear the status bar**
 
-In `Header.jsx`, delete the `{/* Mobile menu toggle */} {isMobile && ( <button … aria-label="Open sidebar" …><Menu size={20} /></button> )}` block; remove `Menu` from the lucide import and `toggle`, `isMobile` from `useSidebar()` if now unused. Change the header's `h-12 sm:h-14` to `h-12 sm:h-14 box-content pt-[env(safe-area-inset-top)]`.
+In `Header.jsx`, delete the `{/* Mobile menu toggle */} {isMobile && ( <button … aria-label="Open sidebar" …><Menu size={20} /></button> )}` block; remove `Menu` from the lucide import and `toggle`, `isMobile` from `useSidebar()` if now unused. Change the header's `h-12 sm:h-14` to `h-[calc(3rem+env(safe-area-inset-top))] sm:h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]` (keeps the header exactly 48/56 px where there's no inset; `box-content` would add the 1 px border).
 
 - [ ] **Step 5: Lift toasts above the bar on phones**
 
@@ -572,7 +573,7 @@ In `Header.jsx`, delete the `{/* Mobile menu toggle */} {isMobile && ( <button �
 
 - [ ] **Step 6: Quick add state in `pages/Dashboard.jsx`**
 
-Add `const [quickAddOpen, setQuickAddOpen] = useState(false);` with the other state, and pass `onQuickAdd={() => setQuickAddOpen(true)}` to `<Layout …>`. (Task 6 renders the sheet; until then the + does nothing.)
+Add `const [, setQuickAddOpen] = useState(false);` with the other state (Task 6 names `quickAddOpen` when it uses it), and pass `onQuickAdd={() => setQuickAddOpen(true)}` to `<Layout …>`. (Task 6 renders the sheet; until then the + does nothing.)
 
 - [ ] **Step 7: Lint and check**
 
@@ -633,7 +634,8 @@ Add above `export default function Sidebar`:
 
 ```jsx
 // Large footer buttons in the phone menu
-function MenuTile({ icon: Icon, label, pressed, onClick }) {
+function MenuTile({ icon, label, pressed, onClick }) {
+  const Icon = icon;
   return (
     <button
       type="button"
@@ -779,7 +781,8 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useReadingList } from '../../hooks/useReadingList';
 import { toDateKey } from '../../utils/date';
 
-function AddTile({ icon: Icon, label, hint, onClick }) {
+function AddTile({ icon, label, hint, onClick }) {
+  const Icon = icon;
   return (
     <button
       type="button"
@@ -795,7 +798,8 @@ function AddTile({ icon: Icon, label, hint, onClick }) {
   );
 }
 
-function AddRow({ icon: Icon, label, onClick }) {
+function AddRow({ icon, label, onClick }) {
+  const Icon = icon;
   return (
     <button type="button" onClick={onClick} className="w-full min-h-[52px] flex items-center gap-3.5 px-4 text-left text-base text-neutral-900 dark:text-neutral-100 touch-manipulation">
       <Icon size={22} className="text-neutral-500 dark:text-neutral-400" aria-hidden="true" />
@@ -894,7 +898,7 @@ export default function QuickAdd({ open, onClose, sections, onCreateNote, onCrea
 
 - [ ] **Step 4: Render it from `pages/Dashboard.jsx`**
 
-Add `import QuickAdd from '../components/layout/QuickAdd';` and, next to `<CommandPalette …/>`, add:
+Change the state to `const [quickAddOpen, setQuickAddOpen] = useState(false);`, add `import QuickAdd from '../components/layout/QuickAdd';` and, next to `<CommandPalette …/>`, add:
 
 ```jsx
       <QuickAdd
