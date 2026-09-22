@@ -46,6 +46,7 @@ import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Tra
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import CommandPalette from '../components/common/CommandPalette';
+import QuickAdd from '../components/layout/QuickAdd';
 import { useTheme } from '../contexts/ThemeContext';
 import { defaultBoardColumns } from '../lib/defaults';
 import { subtreeIds } from '../lib/sectionTree';
@@ -75,7 +76,7 @@ export default function Dashboard() {
   const [renameTarget, setRenameTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [, setQuickAddOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -615,6 +616,15 @@ export default function Dashboard() {
       <Suspense fallback={<ViewSpinner />}>
         {renderContent()}
       </Suspense>
+
+      {/* Phone quick add (the bottom bar's + button) */}
+      <QuickAdd
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        sections={sections}
+        onCreateNote={() => handleCreateItem('note')}
+        onCreateBoard={() => handleCreateItem('board')}
+      />
 
       {/* Command Palette */}
       <CommandPalette

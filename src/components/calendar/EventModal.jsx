@@ -14,7 +14,7 @@ const LABEL_CLASS = 'block text-xs text-neutral-400 dark:text-neutral-500 upperc
 function emptyForm(defaults) {
   const d = defaults || {};
   return {
-    type: 'event',
+    type: d.type === 'deadline' ? 'deadline' : 'event',
     title: '',
     date: d.date || '',
     endDate: d.date || '',
