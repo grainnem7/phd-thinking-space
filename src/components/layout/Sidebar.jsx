@@ -43,7 +43,6 @@ import {
   Tag,
   Settings,
   Home,
-  RotateCcw,
   Monitor,
   Sun,
   Moon,
@@ -404,7 +403,7 @@ function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
 export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const { isOpen, isCollapsed, close, isMobile, effectiveWidth, isResizing, startResizing, toggleCollapsed } = useSidebar();
   const { logout, isDemo } = useAuth();
-  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, moveSection, resetToDefaults } = useFirestore();
+  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, moveSection } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const { focusMode } = useFocusMode();
   const { theme, preference: themePreference, setTheme, toggle: toggleTheme, isDarkSuppressed } = useTheme();
@@ -942,16 +941,6 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
                 </span>
               )}
             </button>
-            {!iconOnly && (
-              <button
-                type="button"
-                onClick={() => setModalState({ type: 'reset' })}
-                className={`w-full text-left text-sm flex items-center gap-2 ${FOOTER_TEXT_BUTTON}`}
-              >
-                <RotateCcw size={16} />
-                Reset to defaults
-              </button>
-            )}
             {isDemo ? (
               <button
                 type="button"
@@ -1053,30 +1042,6 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
           </Button>
           <Button onClick={handleModalSubmit} autoFocus>
             Move to Trash
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Reset to Defaults Confirmation Modal */}
-      <Modal
-        isOpen={modalState.type === 'reset'}
-        onClose={closeModal}
-        title="Reset all data"
-        size="sm"
-      >
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong>, including anything in Trash ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
-        </p>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={closeModal}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={async () => {
-            await resetToDefaults();
-            onSelect(null);
-            closeModal();
-          }}>
-            Delete all & reset
           </Button>
         </div>
       </Modal>
