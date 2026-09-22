@@ -1,4 +1,4 @@
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, eachDayOfInterval } from 'date-fns';
 import { timeToMinutes, toDateKey } from '../../utils/date';
 import { isDoneColumn } from '../../hooks/useBoards';
 import { expandOccurrences, addDaysToKey } from '../../lib/recurrence';
@@ -19,6 +19,38 @@ export function dashboardCalendarRange(now = new Date()) {
     start: toDateKey(gridStart),
     end: toDateKey(weekEnd > gridEnd ? weekEnd : gridEnd),
   };
+}
+
+// Days a glance-view layout shows, in display order, and the range to load.
+// Today: today and the next six days. Week: Monday to Sunday of this week.
+// Month: the month grid (Monday before the 1st to Sunday after the last day).
+export function glanceDays(layout, now = new Date()) {
+  const today = toDateKey(now);
+  let days;
+  if (layout === 'week') {
+    const monday = startOfWeek(now, { weekStartsOn: 1 });
+    days = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(monday, i)));
+  } else if (layout === 'month') {
+    days = eachDayOfInterval({
+      start: startOfWeek(startOfMonth(now), { weekStartsOn: 1 }),
+      end: endOfWeek(endOfMonth(now), { weekStartsOn: 1 }),
+    }).map(toDateKey);
+  } else {
+    days = Array.from({ length: 7 }, (_, i) => addDaysToKey(today, i));
+  }
+  return { today, days, range: { start: days[0], end: days[days.length - 1] } };
+}
+
+// Calendar categories hidden on the Calendar page (remembered per device)
+export const HIDDEN_CATEGORIES_KEY = 'calendar-hidden-categories';
+
+export function loadHiddenCategories() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HIDDEN_CATEGORIES_KEY));
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
 }
 
 // Deadlines are red with an outline and a flag, so they read differently from events

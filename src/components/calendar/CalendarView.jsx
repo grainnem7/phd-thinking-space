@@ -4,7 +4,7 @@ import {
   eachDayOfInterval, format, isSameMonth, addDays,
 } from 'date-fns';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, Plus, Tags } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Plus, Tags } from 'lucide-react';
 import { useCalendar } from '../../hooks/useCalendar';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useReadingList } from '../../hooks/useReadingList';
@@ -14,7 +14,7 @@ import { useCalendarCategories } from '../../hooks/useCalendarCategories';
 import { useConfirm } from '../common/ConfirmDialog';
 import { parseLocalDate, toDateKey } from '../../utils/date';
 import { sameRecurrence, addDaysToKey } from '../../lib/recurrence';
-import { buildEntries, groupByDate, todosByDate, spanBase } from './calendarEntries';
+import { buildEntries, groupByDate, todosByDate, spanBase, HIDDEN_CATEGORIES_KEY, loadHiddenCategories } from './calendarEntries';
 import { useCalendarSensors, dayCollision } from './calendarDnd';
 import { useSeriesActions } from './useSeriesActions';
 import EventModal from './EventModal';
@@ -26,17 +26,6 @@ import MonthDayCell, { DragPreview } from './MonthDayCell';
 import { SeriesScopeDialog, MoveToDialog, UndoToast } from './CalendarDialogs';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const HIDDEN_CATEGORIES_KEY = 'calendar-hidden-categories';
-
-function loadHiddenCategories() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(HIDDEN_CATEGORIES_KEY));
-    return new Set(Array.isArray(saved) ? saved : []);
-  } catch {
-    return new Set();
-  }
-}
-
 const shortDay = (key) => format(parseLocalDate(key), 'EEE d MMM');
 const longDay = (key) => format(parseLocalDate(key), 'EEEE d MMMM');
 const dragName = (data) => (data?.kind === 'todo' ? `to-do ${data.todo.title}` : data?.entry?.title || 'item');
@@ -326,6 +315,14 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onSelect?.({ id: 'glance', type: 'glance', name: 'Glance' })}
+              title="Full-screen calendar to leave on display"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-900"
+            >
+              <Maximize2 size={15} aria-hidden="true" /> Glance
+            </button>
             <button type="button" onClick={() => selectDate(todayKey)} className="px-3 py-2 text-sm text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-900">
               Today
             </button>

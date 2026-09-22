@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { BookOpenText, Check, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useEink } from '../../contexts/EinkContext';
@@ -15,11 +15,17 @@ import {
   setAppearance,
   useAppearance,
 } from '../../lib/appearance';
+import { readStartPage, writeStartPage } from '../calendar/glance/glanceSettings';
 
 const MODES = [
   { id: 'light', label: 'Light', icon: Sun },
   { id: 'dark', label: 'Dark', icon: Moon },
   { id: 'system', label: 'System', icon: Monitor },
+];
+
+const START_PAGES = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'glance', label: 'Glance calendar' },
 ];
 
 const HEADING_SAMPLE_FONT = {
@@ -180,6 +186,11 @@ export default function AppearanceSettings() {
   const { isDemo } = useAuth();
   const confirm = useConfirm();
   const einkLabelId = useId();
+  const [startPage, setStartPage] = useState(readStartPage);
+  const chooseStartPage = (page) => {
+    setStartPage(page);
+    writeStartPage(page);
+  };
 
   const update = (key) => (id) => setAppearance({ [key]: id });
 
@@ -244,9 +255,20 @@ export default function AppearanceSettings() {
 
       {einkMode && (
         <p className="text-xs text-neutral-600 dark:text-neutral-300 px-3 py-2 rounded-lg bg-neutral-100 dark:bg-neutral-800">
-          E-reader mode uses its own black-and-white palette. Your colour choices apply again when you turn it off.
+          E-reader mode uses its own high-contrast palette, keeping colour only for categories and status. Your colour scheme applies again when you turn it off.
         </p>
       )}
+
+      <ChoiceGroup
+        legend="Open the app on"
+        hint="Remembered on this device only, so a Boox can open on the calendar while your phone opens the dashboard."
+        value={startPage}
+        options={START_PAGES}
+        onChange={chooseStartPage}
+        className={SEGMENTED}
+        optionClassName={segmentClass}
+        renderOption={(page) => page.label}
+      />
 
       <ChoiceGroup
         legend="Colour scheme"

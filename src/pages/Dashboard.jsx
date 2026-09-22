@@ -11,6 +11,7 @@ import MoveToModal from '../components/sections/MoveToModal';
 import TemplatePickerModal from '../components/templates/TemplatePickerModal';
 import WritingStatsRecorder from '../components/writing/WritingStatsRecorder';
 import GoogleCalendarSync from '../components/calendar/GoogleCalendarSync';
+import { readStartPage } from '../components/calendar/glance/glanceSettings';
 
 // Heavier views load on first use to keep the initial download small
 const NoteEditor = lazy(() => import('../components/notes/NoteEditor'));
@@ -20,6 +21,7 @@ const CalendarView = lazy(() => import('../components/calendar/CalendarView'));
 const WeeklyReview = lazy(() => import('../components/review/WeeklyReview'));
 const TagsView = lazy(() => import('../components/tags/TagsView'));
 const TrashView = lazy(() => import('../components/trash/TrashView'));
+const GlanceView = lazy(() => import('../components/calendar/glance/GlanceView'));
 
 // Views that aren't a note/board/folder
 const SPECIAL_VIEWS = {
@@ -28,6 +30,7 @@ const SPECIAL_VIEWS = {
   review: 'Weekly Review',
   tags: 'Tags',
   trash: 'Trash',
+  glance: 'Glance',
 };
 
 const viewItem = (type, extra = {}) => ({ id: type, type, name: SPECIAL_VIEWS[type], ...extra });
@@ -55,7 +58,8 @@ export default function Dashboard() {
   const confirm = useConfirm();
   // What's open: a section id, or a special view (reading list / calendar).
   // The section itself is always read from live data so it never goes stale.
-  const [selection, setSelectedItem] = useState(null);
+  // Devices set to start on the glance calendar (Settings → Appearance) open on it
+  const [selection, setSelectedItem] = useState(() => (readStartPage() === 'glance' ? viewItem('glance') : null));
   const isSpecialView = Boolean(selection && SPECIAL_VIEWS[selection.type]);
   const selectedItem = !selection ? null : isSpecialView ? selection : (sections.find(s => s.id === selection.id) || null);
   // One-shot navigation details: which paper, task or calendar day to open
@@ -327,6 +331,10 @@ export default function Dashboard() {
 
     if (selectedItem.type === 'trash') {
       return <TrashView onSelect={handleSelect} />;
+    }
+
+    if (selectedItem.type === 'glance') {
+      return <GlanceView sections={sections} onClose={() => handleSelect(viewItem('calendar'))} />;
     }
 
     if (selectedItem.type === 'calendar') {
@@ -618,6 +626,7 @@ export default function Dashboard() {
           { id: 'add-folder', label: 'New folder', icon: Folder, keywords: 'create add', run: () => handleCreateItem('folder') },
           { id: 'add-from-template', label: 'New note from template', icon: LayoutTemplate, keywords: 'create add template supervision meeting summary', run: () => setTemplateParentId(null) },
           { id: 'calendar', label: 'Open Calendar', icon: CalendarDays, keywords: 'schedule events agenda todo day week month google', run: () => handleSelect(viewItem('calendar')) },
+          { id: 'glance', label: 'Open glance calendar', icon: CalendarDays, keywords: 'full screen screensaver e-ink boox today week month', run: () => handleSelect(viewItem('glance')) },
           { id: 'reading-list', label: 'Open Reading List', icon: BookOpen, keywords: 'papers references', run: () => handleSelect(viewItem('reading-list')) },
           { id: 'review', label: 'Open Weekly Review', icon: ClipboardList, keywords: 'progress summary supervision week', run: () => handleSelect(viewItem('review')) },
           { id: 'tags', label: 'Open Tags', icon: Tag, keywords: 'labels filter', run: () => handleSelect(viewItem('tags')) },
