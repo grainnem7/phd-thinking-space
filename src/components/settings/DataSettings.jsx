@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { Download, FileArchive, Info } from 'lucide-react';
+import { Download, FileArchive, Info, RotateCcw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useFirestore } from '../../hooks/useFirestore';
+import { useConfirm } from '../common/ConfirmDialog';
+import Button from '../common/Button';
 
 const lastBackupKey = (uid) => `last-backup:${uid || 'anonymous'}`;
 
@@ -50,7 +52,8 @@ function ActionCard({ icon, title, description, buttonLabel, busyLabel, busy, di
 // Export-only backup of all data (no import/restore).
 export default function DataSettings() {
   const { user, isDemo } = useAuth();
-  const { sections } = useFirestore();
+  const { sections, resetToDefaults } = useFirestore();
+  const confirm = useConfirm();
   const uid = user?.uid;
   const [lastBackup, setLastBackup] = useState(() => readLastBackup(uid));
   const [busy, setBusy] = useState(null); // 'backup' | 'markdown'
@@ -92,6 +95,19 @@ export default function DataSettings() {
     }
   };
 
+  const handleReset = async () => {
+    const count = sections.length;
+    const ok = await confirm({
+      title: 'Reset all data',
+      body: `This permanently deletes all your notes, boards and folders, including anything in Trash (${count} ${count === 1 ? 'item' : 'items'} in total), and brings back the starter sections. It can’t be undone, so download a backup first.`,
+      confirmLabel: 'Delete all & reset',
+      danger: true,
+    });
+    if (!ok) return;
+    await resetToDefaults();
+    setMessage({ text: 'Everything has been reset to the starter sections.' });
+  };
+
   const noteCount = sections.filter((s) => s.type === 'note' || !s.type).length;
 
   return (
@@ -121,6 +137,20 @@ export default function DataSettings() {
             disabled={Boolean(busy) || noteCount === 0}
             onClick={handleMarkdown}
           />
+        </div>
+      </section>
+
+      <section aria-labelledby="reset-heading">
+        <h3 id="reset-heading" className="text-xs text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-medium mb-3">Start over</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border border-rose-200 dark:border-rose-900/60 rounded-xl">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <RotateCcw size={18} className="mt-0.5 flex-shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Reset to defaults</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">Deletes all notes, boards and folders and restores the starter sections.</p>
+            </div>
+          </div>
+          <Button variant="danger" onClick={handleReset}>Reset…</Button>
         </div>
       </section>
 

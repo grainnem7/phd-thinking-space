@@ -39,9 +39,9 @@ export const iconButton =
 export const dangerIconButton =
   'p-1.5 text-neutral-300 hover:text-rose-600 dark:text-neutral-600 dark:hover:text-rose-400 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 dark:focus-visible:ring-rose-800';
 
-/** Row actions: always visible on touch/small screens, revealed on hover or focus from sm up */
+/** Row actions: always visible on touch screens; on devices that can hover, revealed on hover or focus */
 export const revealOnHover =
-  'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity';
+  '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity';
 
 /** Settings/number field label */
 export const labelClass = 'text-xs text-neutral-400 dark:text-neutral-500 mb-1.5 block';

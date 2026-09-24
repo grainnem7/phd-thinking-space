@@ -285,7 +285,7 @@ export default function ReadingList({ initialPaperId = null, onOpenNote }) {
                     type="button"
                     onClick={() => setActiveFilter(filter.id)}
                     aria-pressed={active}
-                    className={`font-medium whitespace-nowrap transition-colors ${active
+                    className={`max-md:py-2.5 font-medium whitespace-nowrap transition-colors ${active
                       ? 'text-neutral-900 dark:text-neutral-100'
                       : 'text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300'}`}
                   >

@@ -1,23 +1,13 @@
-import { Menu, ChevronRight, PanelLeftOpen } from 'lucide-react';
+import { ChevronRight, PanelLeftOpen } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 
 export default function Header({ breadcrumbs = [], actions }) {
-  const { toggle, isMobile, isTablet, isCollapsed, toggleCollapsed } = useSidebar();
+  const { isTablet, isCollapsed, toggleCollapsed } = useSidebar();
 
+  // On phones the bottom bar's Menu tab opens the sidebar, so there's no menu button here
   return (
-    <header className="h-12 sm:h-14 flex items-center justify-between px-4 sm:px-6 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+    <header className="h-[calc(3rem+env(safe-area-inset-top))] sm:h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center justify-between px-4 sm:px-6 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        {/* Mobile menu toggle */}
-        {isMobile && (
-          <button
-            onClick={toggle}
-            aria-label="Open sidebar"
-            title="Open sidebar"
-            className="p-2 -ml-2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors touch-manipulation"
-          >
-            <Menu size={20} />
-          </button>
-        )}
 
         {/* Tablet sidebar expand button (when collapsed) */}
         {isTablet && isCollapsed && (
@@ -40,7 +30,7 @@ export default function Header({ breadcrumbs = [], actions }) {
               {crumb.onClick ? (
                 <button
                   onClick={crumb.onClick}
-                  className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors truncate touch-manipulation py-1"
+                  className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors truncate touch-manipulation py-1 max-md:py-2.5"
                 >
                   {crumb.label}
                 </button>

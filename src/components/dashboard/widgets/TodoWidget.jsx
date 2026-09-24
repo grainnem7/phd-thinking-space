@@ -132,7 +132,7 @@ export default function TodoWidget({ todos = [], boards = [], onAddTodo, onToggl
               <Plus size={16} aria-hidden="true" /> Add a task
             </button>
             {boardTasks.length > 0 && (
-              <button type="button" onClick={() => setShowBoardPicker(true)} className={`text-sm ${linkButton}`}>
+              <button type="button" onClick={() => setShowBoardPicker(true)} className={`tap-area text-sm ${linkButton}`}>
                 or import from boards
               </button>
             )}
@@ -149,7 +149,7 @@ export default function TodoWidget({ todos = [], boards = [], onAddTodo, onToggl
                     aria-checked={!!todo.completed}
                     aria-labelledby={labelId}
                     onClick={() => onToggleTodo?.(todo.id)}
-                    className={`w-5 h-5 rounded-full border-2 flex-shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 dark:focus-visible:ring-offset-neutral-900 ${
+                    className={`tap-area w-5 h-5 rounded-full border-2 flex-shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-neutral-400 dark:focus-visible:ring-neutral-500 dark:focus-visible:ring-offset-neutral-900 ${
                       todo.completed
                         ? 'bg-neutral-700 border-neutral-700 dark:bg-neutral-300 dark:border-neutral-300'
                         : 'border-neutral-300 hover:border-neutral-400 dark:border-neutral-600 dark:hover:border-neutral-500'
@@ -187,7 +187,7 @@ export default function TodoWidget({ todos = [], boards = [], onAddTodo, onToggl
         {/* Import from boards button */}
         {todos.length > 0 && !isAdding && !showBoardPicker && boardTasks.length > 0 && (
           <div className="px-4 sm:px-6 py-3 border-t border-neutral-100 dark:border-neutral-800">
-            <button type="button" onClick={() => setShowBoardPicker(true)} className={`text-sm ${linkButton}`}>
+            <button type="button" onClick={() => setShowBoardPicker(true)} className={`tap-area text-sm ${linkButton}`}>
               + Import from boards
             </button>
           </div>

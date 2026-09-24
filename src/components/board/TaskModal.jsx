@@ -19,7 +19,7 @@ function initialForm(task) {
 
 // Mounted fresh each time the dialog opens (Modal renders nothing while
 // closed), so the form starts from the task without syncing in an effect.
-function TaskForm({ task, columnId, onSave, onClose }) {
+export function TaskForm({ task, columnId, onSave, onClose }) {
   const id = useId();
   const [formData, setFormData] = useState(() => initialForm(task));
   const tagSuggestions = useTagSuggestions();

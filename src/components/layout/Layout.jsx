@@ -1,20 +1,44 @@
 import { Minimize2 } from 'lucide-react';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useFocusMode } from '../../contexts/FocusModeContext';
+import { useEditingFocus } from '../../hooks/useEditingFocus';
 import Sidebar from './Sidebar';
+import BottomNav from './BottomNav';
 
-export default function Layout({ children, selectedId, onSelect, onOpenSettings }) {
-  const { isOpen, isMobile } = useSidebar();
+// Which bottom-bar tab a view belongs to (notes, boards, review, tags and trash are reached from Menu)
+function tabFor(selectedId) {
+  if (selectedId == null) return 'home';
+  if (selectedId === 'calendar') return 'calendar';
+  if (selectedId === 'reading-list') return 'reading';
+  return 'menu';
+}
+
+export default function Layout({ children, selectedId, onSelect, onOpenSettings, onQuickAdd }) {
+  const { isOpen, isMobile, open: openMenu, close: closeMenu } = useSidebar();
   const { focusMode, exit: exitFocusMode } = useFocusMode();
+  const typing = useEditingFocus();
+  // Phones only; out of the way in full-screen views and while typing
+  const showBottomNav = isMobile && !focusMode && selectedId !== 'glance' && !typing;
 
   return (
     // h-dvh: the visible height, so mobile browser toolbars don't push the
     // bottom of the sidebar off-screen (h-screen is the fallback)
     <div className="flex h-screen h-dvh bg-[var(--bg-page)] overflow-hidden">
       <Sidebar selectedId={selectedId} onSelect={onSelect} onOpenSettings={onOpenSettings} />
-      <main className={`flex-1 flex flex-col min-h-0 overflow-auto ${!isMobile && !isOpen ? 'w-full' : ''}`}>
+      <main className={`flex-1 flex flex-col min-h-0 overflow-auto ${!isMobile && !isOpen ? 'w-full' : ''} ${showBottomNav ? 'pb-[var(--bottom-nav-h)]' : ''}`}>
         {children}
       </main>
+
+      {showBottomNav && (
+        <BottomNav
+          current={isOpen ? 'menu' : tabFor(selectedId)}
+          onHome={() => onSelect(null)}
+          onCalendar={() => onSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' })}
+          onReading={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
+          onAdd={onQuickAdd}
+          onMenu={isOpen ? closeMenu : openMenu}
+        />
+      )}
 
       {/* Always-available way out of focus mode, whatever view is showing */}
       {focusMode && (

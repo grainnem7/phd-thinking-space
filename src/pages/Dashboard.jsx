@@ -46,6 +46,7 @@ import { Menu, Search, Plus, FileText, Kanban, Folder, MoreVertical, Pencil, Tra
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import CommandPalette from '../components/common/CommandPalette';
+import QuickAdd from '../components/layout/QuickAdd';
 import { useTheme } from '../contexts/ThemeContext';
 import { defaultBoardColumns } from '../lib/defaults';
 import { subtreeIds } from '../lib/sectionTree';
@@ -75,6 +76,7 @@ export default function Dashboard() {
   const [renameTarget, setRenameTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -485,7 +487,7 @@ export default function Dashboard() {
                   {!child.type && <FileText size={18} aria-hidden="true" className="text-neutral-400 dark:text-neutral-500" />}
                   <p className="text-base text-neutral-900 dark:text-neutral-100 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 truncate">{child.name}</p>
                 </div>
-                <div className="absolute top-3 right-3 flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
+                <div className="absolute top-3 right-3 flex items-center gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button
                     type="button"
                     onClick={(e) => handleChildRename(e, child)}
@@ -523,7 +525,7 @@ export default function Dashboard() {
   };
 
   return (
-    <Layout selectedId={selectedItem?.id} onSelect={handleSelect} onOpenSettings={() => setSettingsOpen(true)}>
+    <Layout selectedId={selectedItem?.id} onSelect={handleSelect} onOpenSettings={() => setSettingsOpen(true)} onQuickAdd={() => setQuickAddOpen(true)}>
       <WritingStatsRecorder />
       <GoogleCalendarSync />
       {!focusMode && (
@@ -614,6 +616,15 @@ export default function Dashboard() {
       <Suspense fallback={<ViewSpinner />}>
         {renderContent()}
       </Suspense>
+
+      {/* Phone quick add (the bottom bar's + button) */}
+      <QuickAdd
+        open={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        sections={sections}
+        onCreateNote={() => handleCreateItem('note')}
+        onCreateBoard={() => handleCreateItem('board')}
+      />
 
       {/* Command Palette */}
       <CommandPalette

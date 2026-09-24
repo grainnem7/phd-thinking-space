@@ -91,7 +91,7 @@ export function UndoToast({ toast, onUndo, onDismiss }) {
 
   if (!toast) return null;
   return (
-    <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 pointer-events-none">
+    <div className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+1rem)] md:bottom-4 z-40 flex justify-center px-4 pointer-events-none">
       <div className="pointer-events-auto flex items-center gap-3 max-w-md w-full sm:w-auto pl-4 pr-2 py-2 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 rounded-xl shadow-lg">
         <p className="text-sm min-w-0 flex-1 truncate">{toast.message}</p>
         {toast.undo && (

@@ -349,7 +349,7 @@ export default function CalendarView({ initialDate, sections = [], onSelect }) {
                 onClick={() => toggleCategory(category.id)}
                 title={hidden ? `Show ${category.name}` : `Hide ${category.name}`}
                 style={colorVars(category.color)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring ${hidden
+                className={`tap-area inline-flex items-center gap-1.5 px-2.5 py-1 max-md:py-2 text-xs rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring ${hidden
                   ? 'bg-transparent text-neutral-400 dark:text-neutral-500 border border-dashed border-neutral-300 dark:border-neutral-700'
                   : 'cat-chip border border-transparent'}`}
               >

@@ -364,7 +364,7 @@ export default function WeeklyReview({ onSelect }) {
                         <button
                           type="button"
                           onClick={() => openDay(day.date)}
-                          className={`text-xs uppercase tracking-widest rounded hover:text-neutral-700 dark:hover:text-neutral-200 ${day.date === todayKey ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400 dark:text-neutral-500'} ${focusRing}`}
+                          className={`tap-area max-md:py-2 text-xs uppercase tracking-widest rounded hover:text-neutral-700 dark:hover:text-neutral-200 ${day.date === todayKey ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400 dark:text-neutral-500'} ${focusRing}`}
                         >
                           {dayLabel(day.date, 'EEEE d MMM')}
                         </button>

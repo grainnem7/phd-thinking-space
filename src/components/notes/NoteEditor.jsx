@@ -242,14 +242,14 @@ export default function NoteEditor({ note, updateSection, onDelete, onOpenNote }
             <button
               onClick={handleExportDocx}
               disabled={isExportingDocx || isExportingPdf}
-              className="text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
+              className="tap-area max-md:py-2 text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
             >
               {isExportingDocx ? 'Exporting...' : 'DOCX'}
             </button>
             <button
               onClick={handleExportPdf}
               disabled={isExportingDocx || isExportingPdf}
-              className="text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
+              className="tap-area max-md:py-2 text-xs text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors disabled:opacity-50"
             >
               {isExportingPdf ? 'Exporting...' : 'PDF'}
             </button>
@@ -303,7 +303,7 @@ export default function NoteEditor({ note, updateSection, onDelete, onOpenNote }
         <div
           role="alert"
           title={error}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 px-3 py-2 text-xs text-red-600 dark:text-red-400 bg-white/95 dark:bg-neutral-900/95 border border-red-200 dark:border-red-900 rounded-lg backdrop-blur-sm"
+          className="fixed bottom-[calc(var(--bottom-nav-h)+1rem)] md:bottom-4 left-1/2 -translate-x-1/2 z-40 px-3 py-2 text-xs text-red-600 dark:text-red-400 bg-white/95 dark:bg-neutral-900/95 border border-red-200 dark:border-red-900 rounded-lg backdrop-blur-sm"
         >
           Save failed - your latest changes are not saved yet
         </div>

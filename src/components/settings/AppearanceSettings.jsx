@@ -137,7 +137,7 @@ function SoftnessSlider({ value, onChange }) {
             type="button"
             tabIndex={-1}
             onClick={() => onChange(level.id)}
-            className={`${i === 0 ? 'text-left' : i === SOFTNESS_LEVELS.length - 1 ? 'text-right' : 'text-center'} ${level.id === current.id
+            className={`max-md:py-2 ${i === 0 ? 'text-left' : i === SOFTNESS_LEVELS.length - 1 ? 'text-right' : 'text-center'} ${level.id === current.id
               ? 'text-neutral-900 dark:text-neutral-100 font-medium'
               : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
           >
@@ -244,7 +244,7 @@ export default function AppearanceSettings() {
             aria-checked={einkMode}
             aria-labelledby={einkLabelId}
             onClick={() => setEinkMode(!einkMode)}
-            className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-900 ${einkMode ? 'bg-accent' : 'bg-neutral-200 dark:bg-neutral-700'}`}
+            className={`tap-area relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-900 ${einkMode ? 'bg-accent' : 'bg-neutral-200 dark:bg-neutral-700'}`}
           >
             <span
               className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${einkMode ? 'translate-x-[1.375rem]' : 'translate-x-0.5'}`}

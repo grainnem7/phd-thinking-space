@@ -236,7 +236,7 @@ function ReferenceSection({ paper }) {
       type="button"
       onClick={() => copyToClipboard(text, type)}
       aria-label={label}
-      className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-100 shrink-0 transition-colors"
+      className="tap-area flex items-center gap-1 max-md:py-2 text-xs text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-100 shrink-0 transition-colors"
     >
       {copied === type ? <Check size={12} /> : <Copy size={12} />}
       <span aria-live="polite">{copied === type ? 'Copied!' : 'Copy'}</span>
@@ -643,7 +643,7 @@ export default function PaperDetail({
                         key={col.id}
                         onClick={() => toggleCollection(col.id)}
                         aria-pressed={active}
-                        className={`px-2 py-0.5 rounded-full text-xs transition-colors ${active
+                        className={`tap-area px-2 py-0.5 max-md:py-1.5 rounded-full text-xs transition-colors ${active
                           ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
                           : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700'}`}
                       >
@@ -768,7 +768,7 @@ export default function PaperDetail({
                             onKeyDown={(e) => {
                               if (e.key === 'F2') startRename(tab);
                             }}
-                            className={`py-1 transition-colors ${isActive
+                            className={`py-1 max-md:py-2.5 transition-colors ${isActive
                               ? 'text-neutral-900 dark:text-neutral-100 font-medium'
                               : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300'}`}
                           >

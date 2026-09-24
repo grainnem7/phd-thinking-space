@@ -2,12 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   closestCenter, pointerWithin, rectIntersection,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
   DragOverlay,
 } from '@dnd-kit/core';
+import { useTouchFriendlySensors } from '../../lib/dndSensors';
 import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
@@ -51,16 +48,7 @@ export default function KanbanBoard({ board, initialTaskId, onRename, onDelete }
   const { updateSection } = useFirestore();
   const tagSuggestions = useTagSuggestions();
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const sensors = useTouchFriendlySensors({ coordinateGetter: sortableKeyboardCoordinates });
 
   const columns = board?.columns || EMPTY;
   const storedTasks = board?.tasks || EMPTY;

@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   MeasuringStrategy,
-  PointerSensor,
   useDroppable,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
+import { useTouchFriendlySensors } from '../../lib/dndSensors';
 import {
   SortableContext,
   arrayMove,
@@ -46,7 +43,6 @@ import {
   Tag,
   Settings,
   Home,
-  RotateCcw,
   Monitor,
   Sun,
   Moon,
@@ -254,7 +250,7 @@ function TreeItem({
             role="button"
             tabIndex={0}
             aria-current={isSelected ? 'page' : undefined}
-            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 mb-0.5 ${ROW_BASE} ${
+            className={`group flex items-center justify-between gap-1 pr-1 py-1.5 max-md:py-2.5 mb-0.5 ${ROW_BASE} ${
               isDropTarget
                 ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 ring-2 ring-inset ring-neutral-400 dark:ring-neutral-500'
                 : isSelected ? ROW_SELECTED : ROW_IDLE
@@ -300,7 +296,7 @@ function TreeItem({
               ) : (
                 <span className="w-7 flex-shrink-0" />
               )}
-              <span className="text-sm truncate py-1.5">{name}</span>
+              <span className="text-sm max-md:text-base truncate py-1.5">{name}</span>
             </div>
             {/* Keep menu clicks/drags from selecting or dragging the row */}
             <div
@@ -394,12 +390,30 @@ function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
       aria-current={isSelected ? 'page' : undefined}
       aria-label={iconOnly ? label : undefined}
       title={iconOnly ? label : undefined}
-      className={`w-full flex items-center ${iconOnly ? 'justify-center p-3' : 'gap-2 px-3 py-2.5'} mb-0.5 ${ROW_BASE} ${
+      className={`w-full flex items-center ${iconOnly ? 'justify-center p-3' : 'gap-2 px-3 py-2.5 max-md:py-3'} mb-0.5 ${ROW_BASE} ${
         isSelected ? ROW_SELECTED : ROW_IDLE
       }`}
     >
       <Icon className="w-5 h-5 flex-shrink-0" />
-      {!iconOnly && <span className="text-sm">{label}</span>}
+      {!iconOnly && <span className="text-sm max-md:text-base">{label}</span>}
+    </button>
+  );
+}
+
+// Large footer buttons in the phone menu
+function MenuTile({ icon, label, pressed, onClick }) {
+  const Icon = icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed}
+      className={`flex flex-col items-center justify-center gap-1 min-h-16 px-1 rounded-xl text-xs text-center touch-manipulation transition-colors ${pressed
+        ? 'bg-accent-soft text-accent-ink font-medium'
+        : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'}`}
+    >
+      <Icon size={20} aria-hidden="true" />
+      {label}
     </button>
   );
 }
@@ -407,7 +421,7 @@ function QuickLink({ icon, label, isSelected, iconOnly, onClick }) {
 export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const { isOpen, isCollapsed, close, isMobile, effectiveWidth, isResizing, startResizing, toggleCollapsed } = useSidebar();
   const { logout, isDemo } = useAuth();
-  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, moveSection, resetToDefaults } = useFirestore();
+  const { sections, addSection, updateSection, deleteSection, duplicateSection, reorderSections, moveSection } = useFirestore();
   const { einkMode, toggleEinkMode } = useEink();
   const { focusMode } = useFocusMode();
   const { theme, preference: themePreference, setTheme, toggle: toggleTheme, isDarkSuppressed } = useTheme();
@@ -427,17 +441,7 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   const isVisible = isOpen && !focusMode;
   const darkChosen = theme === 'dark';
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: siblingKeyboardCoordinates,
-      keyboardCodes: KEYBOARD_CODES,
-    })
-  );
+  const sensors = useTouchFriendlySensors({ coordinateGetter: siblingKeyboardCoordinates, keyboardCodes: KEYBOARD_CODES });
 
   // parentId -> children sorted by order
   const childrenByParent = useMemo(() => {
@@ -658,7 +662,8 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
   };
 
   const sidebarClasses = isMobile
-    ? `fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform transition-transform duration-200 ${
+    // Phones: the Menu page, full screen above the bottom bar
+    ? `fixed inset-0 z-30 w-full pb-[var(--bottom-nav-h)] bg-white dark:bg-neutral-900 transform transition-transform duration-200 ${
         isVisible ? 'translate-x-0' : '-translate-x-full'
       }`
     : `bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex-shrink-0 relative transition-all duration-200 ${isVisible ? '' : 'hidden'}`;
@@ -669,14 +674,6 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
 
   return (
     <>
-      {isMobile && isVisible && (
-        <div
-          className="fixed inset-0 bg-black/20 dark:bg-black/60 z-40"
-          onClick={close}
-          aria-hidden="true"
-        />
-      )}
-
       <aside
         className={sidebarClasses}
         style={sidebarStyle}
@@ -764,21 +761,26 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
 
           {/* Quick Navigation */}
           <div className={`border-b ${dividerClass} mb-3 ${iconOnly ? 'px-2 pb-3' : 'px-3 pb-3'}`}>
-            <QuickLink icon={Home} label="Dashboard" iconOnly={iconOnly} isSelected={selectedId == null} onClick={() => onSelect(null)} />
-            <QuickLink
-              icon={CalendarDays}
-              label="Calendar"
-              iconOnly={iconOnly}
-              isSelected={selectedId === 'calendar'}
-              onClick={() => onSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' })}
-            />
-            <QuickLink
-              icon={BookMarked}
-              label="Reading List"
-              iconOnly={iconOnly}
-              isSelected={selectedId === 'reading-list'}
-              onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
-            />
+            {/* On phones these three are bottom-bar tabs */}
+            {!isMobile && (
+              <>
+                <QuickLink icon={Home} label="Dashboard" iconOnly={iconOnly} isSelected={selectedId == null} onClick={() => onSelect(null)} />
+                <QuickLink
+                  icon={CalendarDays}
+                  label="Calendar"
+                  iconOnly={iconOnly}
+                  isSelected={selectedId === 'calendar'}
+                  onClick={() => onSelect({ id: 'calendar', type: 'calendar', name: 'Calendar' })}
+                />
+                <QuickLink
+                  icon={BookMarked}
+                  label="Reading List"
+                  iconOnly={iconOnly}
+                  isSelected={selectedId === 'reading-list'}
+                  onClick={() => onSelect({ id: 'reading-list', type: 'reading-list', name: 'Reading List' })}
+                />
+              </>
+            )}
             <QuickLink
               icon={ClipboardList}
               label="Weekly Review"
@@ -859,7 +861,7 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
               type="button"
               onClick={() => handleAddSection('folder')}
               className={`w-full flex items-center ${FOOTER_TEXT_BUTTON} ${
-                iconOnly ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-left text-sm'
+                iconOnly ? 'justify-center p-3 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800' : 'gap-2 text-left text-sm max-md:py-2.5 max-md:text-base'
               }`}
               title={iconOnly ? 'Add section' : undefined}
               aria-label={iconOnly ? 'Add section' : undefined}
@@ -878,6 +880,15 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Changes are stored locally only</p>
               </div>
             )}
+            {isMobile ? (
+              <div className="grid grid-cols-4 gap-2">
+                <MenuTile icon={Settings} label="Settings" onClick={() => { close(); onOpenSettings(); }} />
+                <MenuTile icon={Trash2} label="Trash" onClick={() => onSelect({ id: 'trash', type: 'trash', name: 'Trash' })} />
+                <MenuTile icon={darkChosen ? Moon : Sun} label={isDarkSuppressed ? 'Dark (paused)' : 'Dark mode'} pressed={darkChosen} onClick={toggleTheme} />
+                <MenuTile icon={Monitor} label="E-reader" pressed={einkMode} onClick={toggleEinkMode} />
+              </div>
+            ) : (
+            <>
             <div className={iconOnly ? 'space-y-1' : 'flex items-center gap-4'}>
               <button
                 type="button"
@@ -955,15 +966,7 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
                 </span>
               )}
             </button>
-            {!iconOnly && (
-              <button
-                type="button"
-                onClick={() => setModalState({ type: 'reset' })}
-                className={`w-full text-left text-sm flex items-center gap-2 ${FOOTER_TEXT_BUTTON}`}
-              >
-                <RotateCcw size={16} />
-                Reset to defaults
-              </button>
+            </>
             )}
             {isDemo ? (
               <button
@@ -1066,30 +1069,6 @@ export default function Sidebar({ selectedId, onSelect, onOpenSettings }) {
           </Button>
           <Button onClick={handleModalSubmit} autoFocus>
             Move to Trash
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Reset to Defaults Confirmation Modal */}
-      <Modal
-        isOpen={modalState.type === 'reset'}
-        onClose={closeModal}
-        title="Reset all data"
-        size="sm"
-      >
-        <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-          This will <strong className="font-medium text-neutral-900 dark:text-neutral-100">permanently delete all your notes, boards, and folders</strong>, including anything in Trash ({sections.length} {sections.length === 1 ? 'item' : 'items'} total) and replace them with empty defaults. This cannot be undone.
-        </p>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={closeModal}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={async () => {
-            await resetToDefaults();
-            onSelect(null);
-            closeModal();
-          }}>
-            Delete all & reset
           </Button>
         </div>
       </Modal>
